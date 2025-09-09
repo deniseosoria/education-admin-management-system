@@ -15,6 +15,23 @@ After investigation, we discovered that:
 
 **The problem**: Our "improvements" to the email service configuration actually broke the working setup.
 
+### Specific Changes That Broke Email Functionality:
+
+1. **`server/index.js`**: Added email connection test on server startup
+   - Changed from synchronous to async server startup
+   - Added `emailService.testSMTPConnection()` call during startup
+
+2. **`server/controllers/authController.js`**: Changed password reset email handling
+   - **BEFORE**: Synchronous email sending with proper error handling
+   - **AFTER**: Asynchronous email sending (non-blocking) with `.then().catch()`
+   - This change removed the error handling that would clear the reset token if email failed
+
+3. **`server/utils/emailService.js`**: Complex SMTP configuration changes
+   - Added multiple timeout settings, TLS/SSL options
+   - Implemented fallback SMTP configurations
+   - Added retry logic with exponential backoff
+   - These "improvements" actually made the email service less reliable
+
 ## 📊 **Current Status**
 
 - ✅ **Email service configuration reverted to working state**

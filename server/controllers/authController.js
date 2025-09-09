@@ -209,28 +209,17 @@ const requestPasswordReset = async (req, res) => {
     // Generate reset token and send email
     const { resetToken } = await generatePasswordResetToken(email);
 
-    // Send password reset email (non-blocking)
-    emailService.sendPasswordResetEmail(email, resetToken)
-      .then((success) => {
-        if (success) {
-          console.log(`✅ Password reset email sent successfully to: ${email}`);
-        } else {
-          console.error(`❌ Password reset email failed to send to: ${email}`);
-          // Clear the token if email fails
-          clearPasswordResetToken(email).catch(clearError => {
-            console.error('Failed to clear reset token:', clearError);
-          });
-        }
-      })
-      .catch((emailError) => {
-        console.error('❌ Failed to send password reset email:', emailError);
-        // Clear the token if email fails
-        clearPasswordResetToken(email).catch(clearError => {
-          console.error('Failed to clear reset token:', clearError);
-        });
-      });
+    // Send password reset email
+    try {
+      await emailService.sendPasswordResetEmail(email, resetToken);
+      console.log(`Password reset email sent to: ${email}`);
+    } catch (emailError) {
+      console.error('Failed to send password reset email:', emailError);
+      // Clear the token if email fails
+      await clearPasswordResetToken(email);
+      return res.status(500).json({ error: 'Failed to send password reset email' });
+    }
 
-    // Send response immediately without waiting for email
     res.status(200).json({
       message: 'If an account with that email exists, a password reset link has been sent.'
     });
