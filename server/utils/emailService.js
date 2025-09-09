@@ -13,30 +13,76 @@ let emailServiceEnabled = false;
 
 if (process.env.EMAIL_USER && (process.env.EMAIL_APP_PASSWORD || process.env.EMAIL_PASS)) {
   try {
-    transporter = nodemailer.createTransport({
-      service: 'gmail',
-      host: 'smtp.gmail.com',
-      port: 465, // Use port 465 for SSL
-      secure: true, // Use SSL
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_APP_PASSWORD || process.env.EMAIL_PASS
+    // Try multiple SMTP configurations for Railway compatibility
+    const smtpConfigs = [
+      // Configuration 1: Standard Gmail SMTP with port 587 (STARTTLS)
+      {
+        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false, // Use STARTTLS
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_APP_PASSWORD || process.env.EMAIL_PASS
+        },
+        tls: {
+          rejectUnauthorized: false,
+          ciphers: 'TLSv1.2'
+        },
+        connectionTimeout: 30000,
+        greetingTimeout: 15000,
+        socketTimeout: 30000,
+        pool: false,
+        debug: process.env.NODE_ENV === 'development',
+        logger: process.env.NODE_ENV === 'development'
       },
-      tls: {
-        rejectUnauthorized: false,
-        ciphers: 'SSLv3'
+      // Configuration 2: Gmail SMTP with port 465 (SSL)
+      {
+        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true, // Use SSL
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_APP_PASSWORD || process.env.EMAIL_PASS
+        },
+        tls: {
+          rejectUnauthorized: false,
+          ciphers: 'TLSv1.2'
+        },
+        connectionTimeout: 30000,
+        greetingTimeout: 15000,
+        socketTimeout: 30000,
+        pool: false,
+        debug: process.env.NODE_ENV === 'development',
+        logger: process.env.NODE_ENV === 'development'
       },
-      requireTLS: true,
-      requireSSL: true,
-      connectionTimeout: 60000, // 60 seconds
-      greetingTimeout: 30000,   // 30 seconds
-      socketTimeout: 60000,    // 60 seconds
-      pool: false, // Disable connection pooling
-      debug: process.env.NODE_ENV === 'development',
-      logger: process.env.NODE_ENV === 'development'
-    });
+      // Configuration 3: Alternative Gmail SMTP settings
+      {
+        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 25,
+        secure: false,
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_APP_PASSWORD || process.env.EMAIL_PASS
+        },
+        tls: {
+          rejectUnauthorized: false
+        },
+        connectionTimeout: 30000,
+        greetingTimeout: 15000,
+        socketTimeout: 30000,
+        pool: false,
+        debug: process.env.NODE_ENV === 'development',
+        logger: process.env.NODE_ENV === 'development'
+      }
+    ];
+
+    // Use the first configuration by default
+    transporter = nodemailer.createTransport(smtpConfigs[0]);
     emailServiceEnabled = true;
-    console.log('✅ Email service configured successfully');
+    console.log('✅ Email service configured successfully (using port 587 STARTTLS)');
   } catch (error) {
     console.error('❌ Error creating email transporter:', error);
     emailServiceEnabled = false;
@@ -46,7 +92,7 @@ if (process.env.EMAIL_USER && (process.env.EMAIL_APP_PASSWORD || process.env.EMA
   emailServiceEnabled = false;
 }
 
-// Main email sending function with retry logic
+// Main email sending function with retry logic and configuration fallback
 const sendEmail = async ({ to, subject, html }, retries = 3) => {
   // Check if email service is properly configured
   if (!emailServiceEnabled || !transporter) {
@@ -54,6 +100,7 @@ const sendEmail = async ({ to, subject, html }, retries = 3) => {
     return false;
   }
 
+  // Try sending with current transporter first
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       console.log(`📧 Attempting to send email (attempt ${attempt}/${retries}) to:`, to);
@@ -63,7 +110,7 @@ const sendEmail = async ({ to, subject, html }, retries = 3) => {
         to,
         subject,
         html,
-        timeout: 60000 // 60 second timeout per attempt
+        timeout: 30000 // 30 second timeout per attempt
       });
 
       console.log('✅ Email sent successfully to:', to);
@@ -82,9 +129,68 @@ const sendEmail = async ({ to, subject, html }, retries = 3) => {
     } catch (error) {
       console.error(`❌ Error sending email (attempt ${attempt}/${retries}):`, error.message);
 
+      // If this is the last attempt, try alternative configurations
       if (attempt === retries) {
-        console.error('❌ All email attempts failed:', error);
-        return false;
+        console.log('🔄 Trying alternative SMTP configurations...');
+
+        // Try alternative configurations
+        const altConfigs = [
+          {
+            service: 'gmail',
+            host: 'smtp.gmail.com',
+            port: 465,
+            secure: true,
+            auth: {
+              user: process.env.EMAIL_USER,
+              pass: process.env.EMAIL_APP_PASSWORD || process.env.EMAIL_PASS
+            },
+            tls: { rejectUnauthorized: false },
+            connectionTimeout: 30000,
+            greetingTimeout: 15000,
+            socketTimeout: 30000,
+            pool: false
+          },
+          {
+            service: 'gmail',
+            host: 'smtp.gmail.com',
+            port: 25,
+            secure: false,
+            auth: {
+              user: process.env.EMAIL_USER,
+              pass: process.env.EMAIL_APP_PASSWORD || process.env.EMAIL_PASS
+            },
+            tls: { rejectUnauthorized: false },
+            connectionTimeout: 30000,
+            greetingTimeout: 15000,
+            socketTimeout: 30000,
+            pool: false
+          }
+        ];
+
+        for (let configIndex = 0; configIndex < altConfigs.length; configIndex++) {
+          try {
+            console.log(`🔄 Trying alternative config ${configIndex + 1} (Port ${altConfigs[configIndex].port})...`);
+            const altTransporter = nodemailer.createTransport(altConfigs[configIndex]);
+
+            const altResult = await altTransporter.sendMail({
+              from: process.env.EMAIL_USER,
+              to,
+              subject,
+              html,
+              timeout: 30000
+            });
+
+            console.log(`✅ Email sent successfully with alternative config ${configIndex + 1} to:`, to);
+            return true;
+          } catch (altError) {
+            console.error(`❌ Alternative config ${configIndex + 1} failed:`, altError.message);
+            if (configIndex === altConfigs.length - 1) {
+              console.error('❌ All email attempts and alternative configurations failed');
+              console.error('💡 This may be due to Railway blocking outbound SMTP connections on your current plan');
+              return false;
+            }
+          }
+        }
       }
 
       // Wait before retry (exponential backoff with jitter)
@@ -107,32 +213,53 @@ const testSMTPConnection = async () => {
   }
 
   const smtpConfigs = [
+    // Configuration 1: Standard Gmail SMTP with port 587 (STARTTLS)
     {
       service: 'gmail',
       host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
+      port: 587,
+      secure: false, // Use STARTTLS
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_APP_PASSWORD || process.env.EMAIL_PASS
       },
       tls: {
         rejectUnauthorized: false,
-        ciphers: 'SSLv3'
+        ciphers: 'TLSv1.2'
       },
-      requireTLS: true,
-      requireSSL: true,
-      connectionTimeout: 60000,
-      greetingTimeout: 30000,
-      socketTimeout: 60000,
+      connectionTimeout: 30000,
+      greetingTimeout: 15000,
+      socketTimeout: 30000,
       pool: false,
       debug: process.env.NODE_ENV === 'development',
       logger: process.env.NODE_ENV === 'development'
     },
+    // Configuration 2: Gmail SMTP with port 465 (SSL)
     {
       service: 'gmail',
       host: 'smtp.gmail.com',
-      port: 587,
+      port: 465,
+      secure: true, // Use SSL
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_APP_PASSWORD || process.env.EMAIL_PASS
+      },
+      tls: {
+        rejectUnauthorized: false,
+        ciphers: 'TLSv1.2'
+      },
+      connectionTimeout: 30000,
+      greetingTimeout: 15000,
+      socketTimeout: 30000,
+      pool: false,
+      debug: process.env.NODE_ENV === 'development',
+      logger: process.env.NODE_ENV === 'development'
+    },
+    // Configuration 3: Alternative Gmail SMTP settings
+    {
+      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 25,
       secure: false,
       auth: {
         user: process.env.EMAIL_USER,
@@ -141,9 +268,9 @@ const testSMTPConnection = async () => {
       tls: {
         rejectUnauthorized: false
       },
-      connectionTimeout: 60000,
-      greetingTimeout: 30000,
-      socketTimeout: 60000,
+      connectionTimeout: 30000,
+      greetingTimeout: 15000,
+      socketTimeout: 30000,
       pool: false,
       debug: process.env.NODE_ENV === 'development',
       logger: process.env.NODE_ENV === 'development'
@@ -152,10 +279,10 @@ const testSMTPConnection = async () => {
 
   for (let i = 0; i < smtpConfigs.length; i++) {
     try {
-      console.log(`🔍 Testing SMTP connection (config ${i + 1}/${smtpConfigs.length})...`);
+      console.log(`🔍 Testing SMTP connection (config ${i + 1}/${smtpConfigs.length}) - Port ${smtpConfigs[i].port}...`);
       const testTransporter = nodemailer.createTransport(smtpConfigs[i]);
       await testTransporter.verify();
-      console.log(`✅ SMTP connection verified successfully with config ${i + 1}`);
+      console.log(`✅ SMTP connection verified successfully with config ${i + 1} (Port ${smtpConfigs[i].port})`);
 
       // Update the main transporter if this config works
       if (i > 0) {
@@ -165,9 +292,11 @@ const testSMTPConnection = async () => {
 
       return true;
     } catch (error) {
-      console.error(`❌ SMTP connection test failed with config ${i + 1}:`, error.message);
+      console.error(`❌ SMTP connection test failed with config ${i + 1} (Port ${smtpConfigs[i].port}):`, error.message);
       if (i === smtpConfigs.length - 1) {
         console.error('❌ All SMTP configurations failed');
+        console.error('💡 This may be due to Railway blocking outbound SMTP connections on your current plan');
+        console.error('💡 Consider upgrading to Railway Pro/Enterprise plan or using an email service with HTTPS API');
         return false;
       }
     }
@@ -212,6 +341,28 @@ const emailService = {
 
   // Test email delivery
   testEmailDelivery,
+
+  // Test password reset email specifically
+  async testPasswordResetEmail(testEmail) {
+    console.log('🧪 Testing password reset email delivery to:', testEmail);
+
+    try {
+      // Generate a test token
+      const testToken = 'test-token-' + Date.now();
+      const result = await this.sendPasswordResetEmail(testEmail, testToken);
+
+      if (result) {
+        console.log('✅ Password reset email test successful');
+        return true;
+      } else {
+        console.log('❌ Password reset email test failed');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Password reset email test error:', error);
+      return false;
+    }
+  },
 
   // Send a welcome email to new users
   async sendWelcomeEmail(userEmail, userName) {
@@ -305,6 +456,10 @@ const emailService = {
   // Send password reset email
   async sendPasswordResetEmail(userEmail, resetToken) {
     const resetLink = `${process.env.CLIENT_URL}/reset-password?token=${resetToken}`;
+
+    console.log('🔐 Sending password reset email to:', userEmail);
+    console.log('🔐 Reset token length:', resetToken ? resetToken.length : 'undefined');
+    console.log('🔐 Reset link:', resetLink);
 
     return sendEmail({
       to: userEmail,
