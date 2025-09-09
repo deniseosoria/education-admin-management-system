@@ -10,22 +10,25 @@ async function testEmailFunctionality() {
 
     // Check environment variables
     console.log('\n📋 Environment Check:');
+    console.log('RESEND_API_KEY:', process.env.RESEND_API_KEY ? '✅ Set' : '❌ Missing');
     console.log('EMAIL_USER:', process.env.EMAIL_USER ? '✅ Set' : '❌ Missing');
     console.log('EMAIL_APP_PASSWORD:', process.env.EMAIL_APP_PASSWORD ? '✅ Set' : '❌ Missing');
     console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? '✅ Set' : '❌ Missing');
     console.log('CLIENT_URL:', process.env.CLIENT_URL ? '✅ Set' : '❌ Missing');
 
-    if (!process.env.EMAIL_USER || (!process.env.EMAIL_APP_PASSWORD && !process.env.EMAIL_PASS)) {
-        console.log('\n❌ Email configuration is incomplete. Please set EMAIL_USER and EMAIL_APP_PASSWORD or EMAIL_PASS');
+    if (!process.env.RESEND_API_KEY && (!process.env.EMAIL_USER || (!process.env.EMAIL_APP_PASSWORD && !process.env.EMAIL_PASS))) {
+        console.log('\n❌ Email configuration is incomplete. Please set either:');
+        console.log('   - RESEND_API_KEY (recommended for Railway)');
+        console.log('   - EMAIL_USER and EMAIL_APP_PASSWORD (Gmail SMTP - only works on Railway Pro+)');
         process.exit(1);
     }
 
-    // Test SMTP connection
-    console.log('\n🔍 Testing SMTP Connection:');
-    const connectionTest = await emailService.testSMTPConnection();
+    // Test email connection (Resend or SMTP)
+    console.log('\n🔍 Testing Email Connection:');
+    const connectionTest = await emailService.testEmailConnection();
 
     if (!connectionTest) {
-        console.log('\n❌ SMTP connection test failed. Email service may not work properly.');
+        console.log('\n❌ Email connection test failed. Email service may not work properly.');
         process.exit(1);
     }
 

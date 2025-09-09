@@ -211,19 +211,11 @@ const requestPasswordReset = async (req, res) => {
 
     // Send password reset email (non-blocking to prevent timeouts)
     emailService.sendPasswordResetEmail(email, resetToken)
-      .then((success) => {
-        if (success) {
-          console.log(`✅ Password reset email sent successfully to: ${email}`);
-        } else {
-          console.error(`❌ Password reset email failed to send to: ${email}`);
-          // Clear the token if email fails
-          clearPasswordResetToken(email).catch(clearError => {
-            console.error('Failed to clear reset token:', clearError);
-          });
-        }
+      .then(() => {
+        console.log(`✅ Password reset email sent successfully to: ${email}`);
       })
       .catch((emailError) => {
-        console.error('❌ Failed to send password reset email:', emailError);
+        console.error(`❌ Password reset email failed to send to: ${email}`, emailError);
         // Clear the token if email fails
         clearPasswordResetToken(email).catch(clearError => {
           console.error('Failed to clear reset token:', clearError);

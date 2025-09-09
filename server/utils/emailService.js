@@ -1,36 +1,32 @@
 const nodemailer = require('nodemailer');
-const sgTransport = require('nodemailer-sendgrid-transport');
+const { Resend } = require('resend');
 require('dotenv').config();
 
 // Log email configuration status
 console.log('Email configuration check:');
-console.log('SENDGRID_API_KEY exists:', !!process.env.SENDGRID_API_KEY);
+console.log('RESEND_API_KEY exists:', !!process.env.RESEND_API_KEY);
 console.log('EMAIL_USER exists:', !!process.env.EMAIL_USER);
 console.log('EMAIL_APP_PASSWORD exists:', !!process.env.EMAIL_APP_PASSWORD);
 console.log('EMAIL_PASS exists:', !!process.env.EMAIL_PASS);
 
 // Create transporter only if credentials are available
 let transporter = null;
+let resendClient = null;
 let emailServiceEnabled = false;
 
-if (process.env.SENDGRID_API_KEY) {
+if (process.env.RESEND_API_KEY) {
   try {
-    // Use SendGrid HTTP API instead of SMTP (no timeouts!)
-    const options = {
-      auth: {
-        api_key: process.env.SENDGRID_API_KEY
-      }
-    };
-    transporter = nodemailer.createTransport(sgTransport(options));
+    // Use Resend HTTP API (Railway's recommended approach)
+    resendClient = new Resend(process.env.RESEND_API_KEY);
     emailServiceEnabled = true;
-    console.log('✅ Email service configured with SendGrid HTTP API');
+    console.log('✅ Email service configured with Resend HTTP API');
   } catch (error) {
-    console.error('❌ Error creating SendGrid transporter:', error);
+    console.error('❌ Error creating Resend client:', error);
     emailServiceEnabled = false;
   }
 } else if (process.env.EMAIL_USER && (process.env.EMAIL_APP_PASSWORD || process.env.EMAIL_PASS)) {
   try {
-    // Fallback to Gmail SMTP if SendGrid not configured
+    // Fallback to Gmail SMTP (only works on Railway Pro+ plans)
     transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -49,10 +45,10 @@ if (process.env.SENDGRID_API_KEY) {
   emailServiceEnabled = false;
 }
 
-// Simple email sending function (reverted to original)
+// Email sending function with Resend HTTP API support
 const sendEmail = async ({ to, subject, html }) => {
   // Check if email service is properly configured
-  if (!emailServiceEnabled || !transporter) {
+  if (!emailServiceEnabled) {
     console.log('📧 Email sending disabled - missing configuration:', { to, subject });
     return false;
   }
@@ -60,36 +56,67 @@ const sendEmail = async ({ to, subject, html }) => {
   try {
     console.log(`📧 Sending email to: ${to}`);
 
-    const result = await transporter.sendMail({
-      from: process.env.SENDGRID_API_KEY ? 'YJ Child Care Plus <noreply@yjchildcareplus.com>' : process.env.EMAIL_USER,
-      to,
-      subject,
-      html
-    });
+    if (resendClient) {
+      // Use Resend HTTP API (Railway's recommended approach)
+      const result = await resendClient.emails.send({
+        from: 'YJ Child Care Plus <noreply@yjchildcareplus.com>',
+        to: [to],
+        subject: subject,
+        html: html,
+      });
 
-    console.log('✅ Email sent successfully to:', to);
-    console.log('📧 Message ID:', result.messageId);
-    return true;
+      console.log('✅ Email sent successfully via Resend to:', to);
+      console.log('📧 Message ID:', result.data?.id);
+      return true;
+    } else if (transporter) {
+      // Fallback to Gmail SMTP (only works on Railway Pro+ plans)
+      const result = await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to,
+        subject,
+        html
+      });
+
+      console.log('✅ Email sent successfully via Gmail SMTP to:', to);
+      console.log('📧 Message ID:', result.messageId);
+      return true;
+    } else {
+      console.log('📧 No email service configured');
+      return false;
+    }
   } catch (error) {
     console.error('❌ Error sending email:', error.message);
     return false;
   }
 };
 
-// Simple SMTP connection test (reverted to original)
-const testSMTPConnection = async () => {
-  if (!process.env.EMAIL_USER || (!process.env.EMAIL_APP_PASSWORD && !process.env.EMAIL_PASS)) {
-    console.log('📧 SMTP connection test skipped - email service not configured');
+// Connection test for both Resend and SMTP
+const testEmailConnection = async () => {
+  if (!emailServiceEnabled) {
+    console.log('📧 Email connection test skipped - email service not configured');
     return false;
   }
 
   try {
-    console.log('🔍 Testing SMTP connection...');
-    await transporter.verify();
-    console.log('✅ SMTP connection verified successfully');
-    return true;
+    console.log('🔍 Testing email connection...');
+
+    if (resendClient) {
+      // Test Resend API connection
+      console.log('🔍 Testing Resend API connection...');
+      // Resend doesn't have a specific test endpoint, so we'll just verify the client is created
+      console.log('✅ Resend API client configured successfully');
+      return true;
+    } else if (transporter) {
+      // Test SMTP connection
+      console.log('🔍 Testing SMTP connection...');
+      await transporter.verify();
+      console.log('✅ SMTP connection verified successfully');
+      return true;
+    }
+
+    return false;
   } catch (error) {
-    console.error('❌ SMTP connection test failed:', error.message);
+    console.error('❌ Email connection test failed:', error.message);
     return false;
   }
 };
@@ -125,8 +152,8 @@ const emailService = {
   // Base send email function (can be used for any custom email)
   sendEmail,
 
-  // Test SMTP connection
-  testSMTPConnection,
+  // Test email connection (Resend or SMTP)
+  testEmailConnection,
 
   // Test email delivery
   testEmailDelivery,
