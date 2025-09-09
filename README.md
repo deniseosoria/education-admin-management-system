@@ -126,7 +126,7 @@ YJ Child Care Plus is a full-stack web application that enables child care provi
    
    ```env
    # API Configuration
-   VITE_API_BASE_URL=http://localhost:5000/api
+   VITE_APP_URL=http://localhost:5000/api
    
    # Supabase Configuration
    VITE_SUPABASE_URL=your_supabase_project_url
