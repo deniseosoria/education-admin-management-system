@@ -83,6 +83,8 @@ YJ Child Care Plus is a full-stack web application that enables child care provi
 
 3. **Environment Setup**
    
+   **Server Environment Variables**
+   
    Create a `.env` file in the `server` directory with the following variables:
    
    ```env
@@ -116,6 +118,19 @@ YJ Child Care Plus is a full-stack web application that enables child care provi
    # Server Configuration
    PORT=5000
    NODE_ENV=development
+   ```
+   
+   **Client Environment Variables**
+   
+   Create a `.env` file in the `client` directory with the following variables:
+   
+   ```env
+   # API Configuration
+   VITE_API_BASE_URL=http://localhost:5000/api
+   
+   # Supabase Configuration
+   VITE_SUPABASE_URL=your_supabase_project_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
    ```
 
 4. **Database Setup**
