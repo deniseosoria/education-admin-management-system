@@ -51,6 +51,11 @@ const authService = {
         return api.post('/users/reset-password', { token, newPassword }, { includeAuth: false });
     },
 
+    // Verify reset token
+    verifyResetToken: async (token) => {
+        return api.get(`/users/reset-password/${token}`, { includeAuth: false });
+    },
+
     // Verify email
     verifyEmail: async (token) => {
         return api.post('/users/verify-email', { token }, { includeAuth: false });

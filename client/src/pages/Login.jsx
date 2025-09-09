@@ -206,11 +206,17 @@ const Login = () => {
                     </div>
                 </form>
 
-                <div className="mt-6 sm:mt-8 text-center">
+                <div className="mt-6 sm:mt-8 text-center space-y-3">
                     <p className="text-gray-700 text-sm sm:text-base" style={{ fontFamily: 'Montserrat, sans-serif' }}>
                         Don't have an account?{' '}
                         <Link to="/signup" className="text-black hover:underline" style={{ fontFamily: 'Montserrat, sans-serif' }}>
                             Sign up
+                        </Link>
+                    </p>
+                    <p className="text-gray-700 text-sm sm:text-base" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+                        Forgot your password?{' '}
+                        <Link to="/forgot-password" className="text-black hover:underline" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+                            Reset password
                         </Link>
                     </p>
                 </div>

@@ -18,6 +18,9 @@ import Contact from './pages/Contact';
 import ClassDetails from './pages/ClassDetails';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import PasswordResetSuccess from './pages/PasswordResetSuccess';
 import ProfilePage from './components/profile/ProfilePage';
 import NotificationDetail from './pages/NotificationDetail';
 import './App.css';
@@ -148,6 +151,9 @@ const router = createBrowserRouter(
             <Route path="/contact" element={<Contact />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/password-reset-success" element={<PasswordResetSuccess />} />
 
             {/* Protected Routes */}
             <Route path="/profile" element={
