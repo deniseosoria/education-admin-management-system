@@ -141,10 +141,18 @@ app.get('/keepalive', (req, res) => {
 
 // Only start the server if this file is run directly
 if (require.main === module) {
-  const server = app.listen(PORT, () => {
+  const server = app.listen(PORT, async () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🌐 Health check: http://localhost:${PORT}/health`);
+
+    // Test email connection on startup
+    try {
+      const emailService = require('./utils/emailService');
+      await emailService.testSMTPConnection();
+    } catch (error) {
+      console.error('❌ Email connection test failed:', error.message);
+    }
   });
 
   // Handle uncaught exceptions to prevent crashes

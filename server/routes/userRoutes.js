@@ -29,31 +29,38 @@ router.post('/forgot-password', requestPasswordReset);
 router.get('/reset-password/:token', verifyResetToken);
 router.post('/reset-password', resetPassword);
 
-// Email test route (for debugging)
-router.post('/test-email', async (req, res) => {
-  const { email } = req.body;
+// Test email functionality (development only)
+if (process.env.NODE_ENV === 'development') {
+  router.post('/test-email', async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ error: 'Email is required' });
+      }
 
-  if (!email) {
-    return res.status(400).json({ error: 'Email is required for testing' });
-  }
+      const emailService = require('../utils/emailService');
 
-  try {
-    console.log('🧪 Testing email delivery to:', email);
-    const result = await emailService.testEmailDelivery(email);
+      // Test SMTP connection
+      const connectionTest = await emailService.testSMTPConnection();
+      if (!connectionTest) {
+        return res.status(500).json({ error: 'SMTP connection test failed' });
+      }
 
-    res.status(200).json({
-      message: 'Test email sent',
-      success: result,
-      testEmail: email
-    });
-  } catch (error) {
-    console.error('Test email error:', error);
-    res.status(500).json({
-      error: 'Failed to send test email',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
+      // Test email delivery
+      const deliveryTest = await emailService.testEmailDelivery(email);
+
+      res.json({
+        success: deliveryTest,
+        message: deliveryTest ? 'Test email sent successfully' : 'Test email failed to send',
+        connectionTest: true
+      });
+    } catch (error) {
+      console.error('Email test error:', error);
+      res.status(500).json({ error: 'Email test failed', details: error.message });
+    }
+  });
+}
+
 
 // User profile routes
 router.get('/profile', requireAuth, getUserProfile);

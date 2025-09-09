@@ -23,11 +23,14 @@ if (process.env.EMAIL_USER && (process.env.EMAIL_APP_PASSWORD || process.env.EMA
         pass: process.env.EMAIL_APP_PASSWORD || process.env.EMAIL_PASS
       },
       tls: {
-        rejectUnauthorized: false
+        rejectUnauthorized: false,
+        ciphers: 'SSLv3'
       },
-      connectionTimeout: 30000, // 30 seconds
-      greetingTimeout: 15000,   // 15 seconds
-      socketTimeout: 30000,    // 30 seconds
+      requireTLS: true,
+      requireSSL: true,
+      connectionTimeout: 60000, // 60 seconds
+      greetingTimeout: 30000,   // 30 seconds
+      socketTimeout: 60000,    // 60 seconds
       pool: false, // Disable connection pooling
       debug: process.env.NODE_ENV === 'development',
       logger: process.env.NODE_ENV === 'development'
@@ -60,7 +63,7 @@ const sendEmail = async ({ to, subject, html }, retries = 3) => {
         to,
         subject,
         html,
-        timeout: 25000 // 25 second timeout per attempt
+        timeout: 60000 // 60 second timeout per attempt
       });
 
       console.log('✅ Email sent successfully to:', to);
@@ -84,10 +87,89 @@ const sendEmail = async ({ to, subject, html }, retries = 3) => {
         return false;
       }
 
-      // Wait before retry (exponential backoff)
-      const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
-      console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+      // Wait before retry (exponential backoff with jitter)
+      const baseWaitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+      const jitter = Math.random() * 1000; // Add up to 1 second of jitter
+      const waitTime = baseWaitTime + jitter;
+      console.log(`⏳ Waiting ${Math.round(waitTime)}ms before retry...`);
       await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+  }
+
+  return false;
+};
+
+// Test SMTP connection with fallback configurations
+const testSMTPConnection = async () => {
+  if (!process.env.EMAIL_USER || (!process.env.EMAIL_APP_PASSWORD && !process.env.EMAIL_PASS)) {
+    console.log('📧 SMTP connection test skipped - email service not configured');
+    return false;
+  }
+
+  const smtpConfigs = [
+    {
+      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_APP_PASSWORD || process.env.EMAIL_PASS
+      },
+      tls: {
+        rejectUnauthorized: false,
+        ciphers: 'SSLv3'
+      },
+      requireTLS: true,
+      requireSSL: true,
+      connectionTimeout: 60000,
+      greetingTimeout: 30000,
+      socketTimeout: 60000,
+      pool: false,
+      debug: process.env.NODE_ENV === 'development',
+      logger: process.env.NODE_ENV === 'development'
+    },
+    {
+      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_APP_PASSWORD || process.env.EMAIL_PASS
+      },
+      tls: {
+        rejectUnauthorized: false
+      },
+      connectionTimeout: 60000,
+      greetingTimeout: 30000,
+      socketTimeout: 60000,
+      pool: false,
+      debug: process.env.NODE_ENV === 'development',
+      logger: process.env.NODE_ENV === 'development'
+    }
+  ];
+
+  for (let i = 0; i < smtpConfigs.length; i++) {
+    try {
+      console.log(`🔍 Testing SMTP connection (config ${i + 1}/${smtpConfigs.length})...`);
+      const testTransporter = nodemailer.createTransport(smtpConfigs[i]);
+      await testTransporter.verify();
+      console.log(`✅ SMTP connection verified successfully with config ${i + 1}`);
+
+      // Update the main transporter if this config works
+      if (i > 0) {
+        transporter = testTransporter;
+        console.log('🔄 Updated main transporter with working configuration');
+      }
+
+      return true;
+    } catch (error) {
+      console.error(`❌ SMTP connection test failed with config ${i + 1}:`, error.message);
+      if (i === smtpConfigs.length - 1) {
+        console.error('❌ All SMTP configurations failed');
+        return false;
+      }
     }
   }
 
@@ -124,6 +206,9 @@ const testEmailDelivery = async (testEmail) => {
 const emailService = {
   // Base send email function (can be used for any custom email)
   sendEmail,
+
+  // Test SMTP connection
+  testSMTPConnection,
 
   // Test email delivery
   testEmailDelivery,
