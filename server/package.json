@@ -12,7 +12,6 @@
     "postinstall": "echo 'Server dependencies installed successfully'"
   },
   "dependencies": {
-    "@sendgrid/mail": "^8.1.5",
     "@supabase/supabase-js": "^2.53.0",
     "axios": "^1.6.7",
     "bcrypt": "^5.1.1",
