@@ -12,6 +12,8 @@
     "postinstall": "echo 'Server dependencies installed successfully'"
   },
   "dependencies": {
+    "@sendgrid/mail": "^8.1.5",
+    "@supabase/supabase-js": "^2.53.0",
     "axios": "^1.6.7",
     "bcrypt": "^5.1.1",
     "cloudinary": "^1.41.3",
@@ -28,8 +30,7 @@
     "pg-hstore": "^2.3.4",
     "qrcode": "^1.5.4",
     "stripe": "^18.0.0",
-    "uuid": "^9.0.1",
-    "@supabase/supabase-js": "^2.53.0"
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "jest": "^29.7.0",

@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
 require('dotenv').config();
 
 // Log email configuration status
@@ -6,6 +7,22 @@ console.log('Email configuration check:');
 console.log('EMAIL_USER exists:', !!process.env.EMAIL_USER);
 console.log('EMAIL_APP_PASSWORD exists:', !!process.env.EMAIL_APP_PASSWORD);
 console.log('EMAIL_PASS exists:', !!process.env.EMAIL_PASS);
+console.log('SENDGRID_API_KEY exists:', !!process.env.SENDGRID_API_KEY);
+
+// Configure SendGrid
+let sendGridEnabled = false;
+if (process.env.SENDGRID_API_KEY) {
+  try {
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    sendGridEnabled = true;
+    console.log('✅ SendGrid configured successfully');
+  } catch (error) {
+    console.error('❌ Error configuring SendGrid:', error);
+    sendGridEnabled = false;
+  }
+} else {
+  console.log('⚠️ SendGrid is disabled - missing SENDGRID_API_KEY');
+}
 
 // Create transporter only if credentials are available
 let transporter = null;
@@ -52,17 +69,39 @@ if (process.env.EMAIL_USER && (process.env.EMAIL_APP_PASSWORD || process.env.EMA
   emailServiceEnabled = false;
 }
 
-// Base email sending function with retry logic
-const sendEmail = async ({ to, subject, html }, retries = 3) => {
-  // Check if email service is properly configured
+// SendGrid email function
+const sendEmailViaSendGrid = async ({ to, subject, html }) => {
+  if (!sendGridEnabled) {
+    throw new Error('SendGrid not configured');
+  }
+
+  const msg = {
+    to: to,
+    from: process.env.SENDGRID_FROM_EMAIL || process.env.EMAIL_USER,
+    subject: subject,
+    html: html,
+  };
+
+  try {
+    const result = await sgMail.send(msg);
+    console.log('✅ SendGrid email sent successfully to:', to);
+    console.log('📧 SendGrid Response:', result[0].statusCode);
+    return true;
+  } catch (error) {
+    console.error('❌ SendGrid email failed:', error.message);
+    throw error;
+  }
+};
+
+// Gmail SMTP email function
+const sendEmailViaGmail = async ({ to, subject, html }, retries = 3) => {
   if (!emailServiceEnabled || !transporter) {
-    console.log('📧 Email sending disabled - missing configuration:', { to, subject });
-    return true; // Return success to prevent app crashes
+    throw new Error('Gmail SMTP not configured');
   }
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      console.log(`📧 Attempting to send email (attempt ${attempt}/${retries}) to:`, to);
+      console.log(`📧 Attempting Gmail SMTP (attempt ${attempt}/${retries}) to:`, to);
 
       const result = await transporter.sendMail({
         from: process.env.EMAIL_USER,
@@ -72,7 +111,7 @@ const sendEmail = async ({ to, subject, html }, retries = 3) => {
         timeout: 30000 // 30 second timeout per attempt
       });
 
-      console.log('✅ Email sent successfully to:', to);
+      console.log('✅ Gmail email sent successfully to:', to);
       console.log('📧 Message ID:', result.messageId);
       console.log('📧 Response:', result.response);
       console.log('📧 Accepted:', result.accepted);
@@ -86,10 +125,10 @@ const sendEmail = async ({ to, subject, html }, retries = 3) => {
 
       return true;
     } catch (error) {
-      console.error(`❌ Error sending email (attempt ${attempt}/${retries}):`, error.message);
+      console.error(`❌ Gmail SMTP error (attempt ${attempt}/${retries}):`, error.message);
 
       if (attempt === retries) {
-        console.error('❌ All email attempts failed:', error);
+        console.error('❌ All Gmail SMTP attempts failed:', error);
         return false;
       }
 
@@ -100,6 +139,33 @@ const sendEmail = async ({ to, subject, html }, retries = 3) => {
     }
   }
 
+  return false;
+};
+
+// Main email sending function with fallback
+const sendEmail = async ({ to, subject, html }) => {
+  // Try SendGrid first (recommended for Railway)
+  if (sendGridEnabled) {
+    try {
+      console.log('📧 Attempting SendGrid email to:', to);
+      return await sendEmailViaSendGrid({ to, subject, html });
+    } catch (error) {
+      console.error('❌ SendGrid failed, trying Gmail SMTP:', error.message);
+    }
+  }
+
+  // Fallback to Gmail SMTP
+  if (emailServiceEnabled && transporter) {
+    try {
+      console.log('📧 Attempting Gmail SMTP email to:', to);
+      return await sendEmailViaGmail({ to, subject, html });
+    } catch (error) {
+      console.error('❌ Gmail SMTP also failed:', error.message);
+    }
+  }
+
+  // No email service available
+  console.log('📧 No email service available - missing configuration:', { to, subject });
   return false;
 };
 
