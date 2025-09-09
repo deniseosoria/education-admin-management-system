@@ -15,13 +15,27 @@ if (process.env.EMAIL_USER && (process.env.EMAIL_APP_PASSWORD || process.env.EMA
   try {
     transporter = nodemailer.createTransport({
       service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false, // true for 465, false for other ports
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_APP_PASSWORD || process.env.EMAIL_PASS
       },
       tls: {
-        rejectUnauthorized: false
-      }
+        rejectUnauthorized: false,
+        ciphers: 'SSLv3'
+      },
+      connectionTimeout: 60000, // 60 seconds
+      greetingTimeout: 30000,   // 30 seconds
+      socketTimeout: 60000,    // 60 seconds
+      pool: true,
+      maxConnections: 5,
+      maxMessages: 100,
+      rateDelta: 20000, // 20 seconds
+      rateLimit: 5, // max 5 emails per rateDelta
+      debug: process.env.NODE_ENV === 'development',
+      logger: process.env.NODE_ENV === 'development'
     });
     emailServiceEnabled = true;
     console.log('✅ Email service configured successfully');
@@ -34,28 +48,45 @@ if (process.env.EMAIL_USER && (process.env.EMAIL_APP_PASSWORD || process.env.EMA
   emailServiceEnabled = false;
 }
 
-// Base email sending function
-const sendEmail = async ({ to, subject, html }) => {
+// Base email sending function with retry logic
+const sendEmail = async ({ to, subject, html }, retries = 3) => {
   // Check if email service is properly configured
   if (!emailServiceEnabled || !transporter) {
     console.log('📧 Email sending disabled - missing configuration:', { to, subject });
     return true; // Return success to prevent app crashes
   }
 
-  try {
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to,
-      subject,
-      html
-    });
-    console.log('✅ Email sent successfully to:', to);
-    return true;
-  } catch (error) {
-    console.error('❌ Error sending email:', error);
-    // Don't throw error, just log it to prevent crashes
-    return false;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`📧 Attempting to send email (attempt ${attempt}/${retries}) to:`, to);
+
+      const result = await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to,
+        subject,
+        html,
+        timeout: 30000 // 30 second timeout per attempt
+      });
+
+      console.log('✅ Email sent successfully to:', to);
+      console.log('📧 Message ID:', result.messageId);
+      return true;
+    } catch (error) {
+      console.error(`❌ Error sending email (attempt ${attempt}/${retries}):`, error.message);
+
+      if (attempt === retries) {
+        console.error('❌ All email attempts failed:', error);
+        return false;
+      }
+
+      // Wait before retry (exponential backoff)
+      const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+      console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
   }
+
+  return false;
 };
 
 // Email templates and functions
@@ -155,7 +186,7 @@ const emailService = {
   // Send password reset email
   async sendPasswordResetEmail(userEmail, resetToken) {
     const resetLink = `${process.env.CLIENT_URL}/reset-password?token=${resetToken}`;
-    
+
     return sendEmail({
       to: userEmail,
       subject: 'Password Reset Request - YJ Child Care Plus 🔐',
