@@ -58,15 +58,21 @@ const sendEmail = async ({ to, subject, html }) => {
 
     if (resendClient) {
       // Use Resend HTTP API (Railway's recommended approach)
-      const result = await resendClient.emails.send({
-        from: 'YJ Child Care Plus <noreply@yjchildcareplus.com>',
+      const { data, error } = await resendClient.emails.send({
+        from: 'YJ Child Care Plus <onboarding@resend.dev>',
         to: [to],
         subject: subject,
         html: html,
       });
 
+      if (error) {
+        console.error('❌ Resend error:', error);
+        return false;
+      }
+
       console.log('✅ Email sent successfully via Resend to:', to);
-      console.log('📧 Message ID:', result.data?.id);
+      console.log('📧 Message ID:', data?.id || 'N/A');
+      console.log('📧 Resend Data:', JSON.stringify(data, null, 2));
       return true;
     } else if (transporter) {
       // Fallback to Gmail SMTP (only works on Railway Pro+ plans)
