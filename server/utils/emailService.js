@@ -30,12 +30,16 @@ if (process.env.EMAIL_USER && (process.env.EMAIL_APP_PASSWORD || process.env.EMA
       greetingTimeout: 30000,   // 30 seconds
       socketTimeout: 60000,    // 60 seconds
       pool: true,
-      maxConnections: 5,
-      maxMessages: 100,
-      rateDelta: 20000, // 20 seconds
-      rateLimit: 5, // max 5 emails per rateDelta
+      maxConnections: 1, // Reduce to 1 to avoid rate limiting
+      maxMessages: 10,   // Reduce message limit
+      rateDelta: 60000, // 60 seconds between batches
+      rateLimit: 1,     // Only 1 email per minute
       debug: process.env.NODE_ENV === 'development',
-      logger: process.env.NODE_ENV === 'development'
+      logger: process.env.NODE_ENV === 'development',
+      // Additional Gmail-specific options
+      requireTLS: true,
+      ignoreTLS: false,
+      secureConnection: false
     });
     emailServiceEnabled = true;
     console.log('✅ Email service configured successfully');
@@ -70,6 +74,16 @@ const sendEmail = async ({ to, subject, html }, retries = 3) => {
 
       console.log('✅ Email sent successfully to:', to);
       console.log('📧 Message ID:', result.messageId);
+      console.log('📧 Response:', result.response);
+      console.log('📧 Accepted:', result.accepted);
+      console.log('📧 Rejected:', result.rejected);
+
+      // Check if email was actually accepted by the server
+      if (result.rejected && result.rejected.length > 0) {
+        console.error('❌ Email was rejected by server:', result.rejected);
+        return false;
+      }
+
       return true;
     } catch (error) {
       console.error(`❌ Error sending email (attempt ${attempt}/${retries}):`, error.message);
@@ -89,10 +103,39 @@ const sendEmail = async ({ to, subject, html }, retries = 3) => {
   return false;
 };
 
+// Test email function for debugging
+const testEmailDelivery = async (testEmail) => {
+  console.log('🧪 Testing email delivery to:', testEmail);
+
+  try {
+    const result = await sendEmail({
+      to: testEmail,
+      subject: 'Test Email - YJ Child Care Plus',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h1>Test Email</h1>
+          <p>This is a test email to verify email delivery is working.</p>
+          <p>Sent at: ${new Date().toISOString()}</p>
+          <p>From: YJ Child Care Plus</p>
+        </div>
+      `
+    });
+
+    console.log('🧪 Test email result:', result);
+    return result;
+  } catch (error) {
+    console.error('🧪 Test email failed:', error);
+    return false;
+  }
+};
+
 // Email templates and functions
 const emailService = {
   // Base send email function (can be used for any custom email)
   sendEmail,
+
+  // Test email delivery
+  testEmailDelivery,
 
   // Send a welcome email to new users
   async sendWelcomeEmail(userEmail, userName) {
