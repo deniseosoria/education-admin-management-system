@@ -1,8 +1,10 @@
 const nodemailer = require('nodemailer');
+const sgTransport = require('nodemailer-sendgrid-transport');
 require('dotenv').config();
 
 // Log email configuration status
 console.log('Email configuration check:');
+console.log('SENDGRID_API_KEY exists:', !!process.env.SENDGRID_API_KEY);
 console.log('EMAIL_USER exists:', !!process.env.EMAIL_USER);
 console.log('EMAIL_APP_PASSWORD exists:', !!process.env.EMAIL_APP_PASSWORD);
 console.log('EMAIL_PASS exists:', !!process.env.EMAIL_PASS);
@@ -11,9 +13,24 @@ console.log('EMAIL_PASS exists:', !!process.env.EMAIL_PASS);
 let transporter = null;
 let emailServiceEnabled = false;
 
-if (process.env.EMAIL_USER && (process.env.EMAIL_APP_PASSWORD || process.env.EMAIL_PASS)) {
+if (process.env.SENDGRID_API_KEY) {
   try {
-    // Simple, working Gmail SMTP configuration (reverted to original)
+    // Use SendGrid HTTP API instead of SMTP (no timeouts!)
+    const options = {
+      auth: {
+        api_key: process.env.SENDGRID_API_KEY
+      }
+    };
+    transporter = nodemailer.createTransport(sgTransport(options));
+    emailServiceEnabled = true;
+    console.log('✅ Email service configured with SendGrid HTTP API');
+  } catch (error) {
+    console.error('❌ Error creating SendGrid transporter:', error);
+    emailServiceEnabled = false;
+  }
+} else if (process.env.EMAIL_USER && (process.env.EMAIL_APP_PASSWORD || process.env.EMAIL_PASS)) {
+  try {
+    // Fallback to Gmail SMTP if SendGrid not configured
     transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -22,9 +39,9 @@ if (process.env.EMAIL_USER && (process.env.EMAIL_APP_PASSWORD || process.env.EMA
       }
     });
     emailServiceEnabled = true;
-    console.log('✅ Email service configured successfully');
+    console.log('✅ Email service configured with Gmail SMTP (fallback)');
   } catch (error) {
-    console.error('❌ Error creating email transporter:', error);
+    console.error('❌ Error creating Gmail transporter:', error);
     emailServiceEnabled = false;
   }
 } else {
@@ -44,7 +61,7 @@ const sendEmail = async ({ to, subject, html }) => {
     console.log(`📧 Sending email to: ${to}`);
 
     const result = await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+      from: process.env.SENDGRID_API_KEY ? 'YJ Child Care Plus <noreply@yjchildcareplus.com>' : process.env.EMAIL_USER,
       to,
       subject,
       html
