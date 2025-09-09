@@ -1,0 +1,74 @@
+# Development files
+*.log
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test files and coverage
+coverage/
+.nyc_output/
+test-results/
+*.test.js
+*.spec.js
+tests/
+
+# Documentation
+README.md
+docs/
+*.md
+
+# Git files
+.git/
+.gitignore
+
+# Node modules (will be installed fresh)
+node_modules/
+
+# Build artifacts (client-side)
+client/dist/
+client/build/
+client/.vite/
+
+# Environment files (Railway handles these)
+.env
+.env.local
+.env.development
+.env.test
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Railway specific
+.railway/
+railway.json
+
+# Deployment scripts
+deploy-*.sh
+deploy-*.bat

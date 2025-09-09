@@ -7,11 +7,13 @@
     "seed": "node ./server/db/seed.js",
     "start": "node ./server/index.js",
     "start:dev": "nodemon ./server/index.js",
+    "start:railway": "node ./server/start.js",
     "test": "jest",
     "client": "vite",
     "client:dev": "vite",
     "dev": "concurrently \"npm run start:dev\" \"npm run client:dev\"",
-    "build": "npm run build"
+    "build": "npm run build",
+    "postinstall": "npm run build --if-present"
   },
   "keywords": [],
   "author": "",
