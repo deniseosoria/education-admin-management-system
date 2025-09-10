@@ -59,7 +59,7 @@ const sendEmail = async ({ to, subject, html }) => {
     if (resendClient) {
       // Use Resend HTTP API (Railway's recommended approach)
       const { data, error } = await resendClient.emails.send({
-        from: 'YJ Child Care Plus <onboarding@resend.dev>',
+        from: 'YJ Child Care Plus <noreply@yjchildcareplus.com>',
         to: [to],
         subject: subject,
         html: html,
