@@ -1,0 +1,83 @@
+/* EventForm.css - Aesthetic similar to Airbnb */
+
+.event-form {
+    max-width: 600px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background-color: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    font-family: 'Helvetica Neue', sans-serif;
+    color: #333;
+  }
+  
+  .event-form label {
+    display: block;
+    margin-bottom: 1rem;
+    font-weight: 500;
+    color: #111;
+  }
+  
+  .event-form input,
+  .event-form select,
+  .event-form textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    font-size: 1rem;
+    margin-top: 0.25rem;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease-in-out;
+  }
+  
+  .event-form input:focus,
+  .event-form select:focus,
+  .event-form textarea:focus {
+    outline: none;
+    border-color: #ff5a5f; /* Airbnb red accent */
+  }
+  
+  .event-form textarea {
+    resize: vertical;
+    min-height: 120px;
+  }
+  
+  .event-form button[type="submit"] {
+    margin-top: 1.5rem;
+    padding: 0.75rem 1.5rem;
+    background-color: #ff5a5f;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+  }
+  
+  .event-form button[type="submit"]:hover {
+    background-color: #e0484d;
+  }
+  
+  .event-image-preview {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: flex-start;
+  }
+  
+  .event-image {
+    width: 100%;
+    max-width: 400px;
+    height: auto;
+    max-height: 250px;
+    display: block;
+    object-fit: cover;
+  }
+  
+  
+  @media (max-width: 640px) {
+    .event-form {
+      padding: 1.25rem;
+    }
+  }

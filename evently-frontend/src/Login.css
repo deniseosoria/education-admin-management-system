@@ -1,0 +1,87 @@
+
+
+.sign-up-container {
+    max-width: 400px;
+    margin: 4rem auto;
+    padding: 2rem;
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    color: #333;
+    text-align: center;
+  }
+  
+  .sign-up-container h2 {
+    font-size: 2rem;
+    margin-bottom: 1.5rem;
+    color: #222;
+  }
+  
+  .input-container {
+    margin-bottom: 1.25rem;
+    width: 100%;
+  }
+  
+  .input-container label {
+    display: block;
+    width: 100%;
+  }
+  
+  .input-container input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-sizing: border-box;
+    background-color: #f9f9f9;
+    color: #333;
+    transition: border-color 0.3s ease;
+  }
+  
+  .input-container input:focus {
+    outline: none;
+    border-color: #646cff;
+    background-color: #fff;
+  }
+  
+  .form-button {
+    width: 100%;
+    padding: 0.75rem;
+    margin-top: 1rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 8px;
+    background-color: #646cff;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .form-button:hover {
+    background-color: #535bf2;
+  }
+  
+  p {
+    font-size: 0.95rem;
+    margin-top: 1rem;
+    color: #555;
+  }
+  
+  a button {
+    margin-top: 0.5rem;
+    background-color: transparent;
+    color: #646cff;
+    border: 1px solid #646cff;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  
+  a button:hover {
+    background-color: #646cff;
+    color: #fff;
+  }
+  

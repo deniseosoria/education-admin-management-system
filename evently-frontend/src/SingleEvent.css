@@ -1,0 +1,115 @@
+/* SingleEvent.css */
+
+.single-event {
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    color: #333;
+    font-family: 'Helvetica Neue', sans-serif;
+  }
+
+  .back-button {
+    background: transparent;
+    color: #ff385c;
+    font-size: 1rem;
+    border: none;
+    margin-bottom: 1rem;
+    cursor: pointer;
+    font-weight: bold;
+    text-align: left;
+  }
+  
+  .back-button:hover {
+    text-decoration: underline;
+  }
+  
+  
+  .single-event h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    color: #111;
+  }
+  
+  .single-event h3,
+  .single-event h4 {
+    margin: 0.5rem 0;
+  }
+  
+  .single-event img {
+    width: 100%;
+    max-width: 300px;
+    height: auto;
+    margin: 1rem 0;
+    border-radius: 8px;
+    object-fit: cover;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  .event-actions {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+  
+  .event-actions button {
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    border-radius: 6px;
+    border: none;
+    background-color: #ff385c;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  
+  .event-actions button:hover {
+    background-color: #e02e4c;
+  }
+  
+  textarea {
+    width: 100%;
+    min-height: 100px;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    resize: vertical;
+  }
+  
+  select {
+    margin-right: 0.5rem;
+    padding: 0.4rem;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 1rem;
+  }
+  
+  .review-list {
+    list-style-type: none;
+    padding-left: 0;
+  }
+  
+  .review-list li {
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+    background-color: #f9f9f9;
+    border-radius: 6px;
+  }
+
+  @media screen and (max-width: 500px) {
+    .event-actions {
+      flex-direction: column;
+      align-items: center;
+    }
+  
+    .event-actions button {
+      width: 100%;
+      max-width: 250px;
+    }
+  }
+  
