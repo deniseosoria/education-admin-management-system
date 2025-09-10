@@ -1,11 +1,61 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Footer from '../components/layout/Footer';
 
 function Contact() {
+    const [formData, setFormData] = useState({
+        name: '',
+        email: '',
+        message: ''
+    });
+    const [loading, setLoading] = useState(false);
+    const [success, setSuccess] = useState(false);
+    const [error, setError] = useState('');
+
     useEffect(() => {
         // Scroll to top when component mounts
         window.scrollTo(0, 0);
     }, []);
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prevState => ({
+            ...prevState,
+            [name]: value
+        }));
+        // Clear error when user starts typing
+        if (error) setError('');
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+        setSuccess(false);
+
+        try {
+            const response = await fetch('/api/contact', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                setSuccess(true);
+                setFormData({ name: '', email: '', message: '' });
+            } else {
+                setError(result.error || 'Failed to send message. Please try again.');
+            }
+        } catch (err) {
+            console.error('Error sending contact message:', err);
+            setError('Network error. Please check your connection and try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
     return (
         <div className="bg-white min-h-screen font-montserrat">
 
@@ -21,20 +71,73 @@ function Contact() {
                 {/* Form Card */}
                 <div className="bg-white border border-gray-200 rounded-none shadow-none p-6 sm:p-8 lg:p-12 flex-1" style={{ minWidth: '280px' }}>
                     <h2 className="text-xl sm:text-2xl font-semibold mb-6 sm:mb-8 text-center lg:text-left" style={{ fontFamily: 'Montserrat, sans-serif' }}>Contact us</h2>
-                    <form className="space-y-4 sm:space-y-6">
+
+                    {/* Success Message */}
+                    {success && (
+                        <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded">
+                            <p className="font-medium">Thank you for your message!</p>
+                            <p className="text-sm">We have received your message and will get back to you soon.</p>
+                        </div>
+                    )}
+
+                    {/* Error Message */}
+                    {error && (
+                        <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded">
+                            <p className="font-medium">Error sending message</p>
+                            <p className="text-sm">{error}</p>
+                        </div>
+                    )}
+
+                    <form className="space-y-4 sm:space-y-6" onSubmit={handleSubmit}>
                         <div>
                             <label className="block text-xs font-semibold mb-2 uppercase tracking-wide text-gray-700" style={{ fontFamily: 'Montserrat, sans-serif' }}>Name</label>
-                            <input type="text" placeholder="Enter your name" className="w-full border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 focus:outline-none focus:ring-2 focus:ring-black text-sm sm:text-base font-normal" style={{ borderRadius: 0, fontFamily: 'Montserrat, sans-serif' }} />
+                            <input
+                                type="text"
+                                name="name"
+                                value={formData.name}
+                                onChange={handleChange}
+                                placeholder="Enter your name"
+                                className="w-full border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 focus:outline-none focus:ring-2 focus:ring-black text-sm sm:text-base font-normal"
+                                style={{ borderRadius: 0, fontFamily: 'Montserrat, sans-serif' }}
+                                required
+                            />
                         </div>
                         <div>
                             <label className="block text-xs font-semibold mb-2 uppercase tracking-wide text-gray-700" style={{ fontFamily: 'Montserrat, sans-serif' }}>Email Address</label>
-                            <input type="email" placeholder="Enter your email" className="w-full border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 focus:outline-none focus:ring-2 focus:ring-black text-sm sm:text-base font-normal" style={{ borderRadius: 0, fontFamily: 'Montserrat, sans-serif' }} />
+                            <input
+                                type="email"
+                                name="email"
+                                value={formData.email}
+                                onChange={handleChange}
+                                placeholder="Enter your email"
+                                className="w-full border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 focus:outline-none focus:ring-2 focus:ring-black text-sm sm:text-base font-normal"
+                                style={{ borderRadius: 0, fontFamily: 'Montserrat, sans-serif' }}
+                                required
+                            />
                         </div>
                         <div>
                             <label className="block text-xs font-semibold mb-2 uppercase tracking-wide text-gray-700" style={{ fontFamily: 'Montserrat, sans-serif' }}>Message</label>
-                            <textarea placeholder="Hi there, I'm reaching out because I think we can collaborate..." className="w-full border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 h-24 sm:h-32 resize-none focus:outline-none focus:ring-2 focus:ring-black text-sm sm:text-base font-normal" style={{ borderRadius: 0, fontFamily: 'Montserrat, sans-serif' }} />
+                            <textarea
+                                name="message"
+                                value={formData.message}
+                                onChange={handleChange}
+                                placeholder="Hi there, I'm reaching out because I think we can collaborate..."
+                                className="w-full border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 h-24 sm:h-32 resize-none focus:outline-none focus:ring-2 focus:ring-black text-sm sm:text-base font-normal"
+                                style={{ borderRadius: 0, fontFamily: 'Montserrat, sans-serif' }}
+                                required
+                            />
                         </div>
-                        <button type="submit" className="w-full bg-black text-white py-2 sm:py-3 font-semibold tracking-wide hover:bg-gray-900 transition text-sm sm:text-base" style={{ borderRadius: 0, fontFamily: 'Montserrat, sans-serif' }}>SUBMIT</button>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className={`w-full py-2 sm:py-3 font-semibold tracking-wide transition text-sm sm:text-base ${loading
+                                ? 'bg-gray-500 cursor-not-allowed'
+                                : 'bg-black hover:bg-gray-900'
+                                } text-white`}
+                            style={{ borderRadius: 0, fontFamily: 'Montserrat, sans-serif' }}
+                        >
+                            {loading ? 'SENDING...' : 'SUBMIT'}
+                        </button>
                     </form>
                 </div>
                 {/* Office Info */}

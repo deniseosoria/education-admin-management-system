@@ -22,6 +22,7 @@ const profileRoutes = require('./routes/profileRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const devLogger = require('./middleware/devLogger');
 const sessionRoutes = require('./routes/sessionRoutes');
+const contactRoutes = require('./routes/contactRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -61,6 +62,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin/settings', settingsRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/sessions', sessionRoutes);
+app.use('/api/contact', contactRoutes);
 app.use(devLogger);
 app.use(errorHandler); // place this last!
 
