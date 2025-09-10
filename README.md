@@ -1,12 +1,12 @@
-# YJ Child Care Plus
+# Education Admin Management System
 
-A comprehensive web application for early childhood education course enrollment and management, designed specifically for child care providers.
+A comprehensive full-stack web application for educational institution management, featuring a powerful admin dashboard for course enrollment, user management, analytics, and system administration.
 
 🌐 **Live Application**: [https://client-six-kappa-83.vercel.app/](https://client-six-kappa-83.vercel.app/)
 
 ## 📋 Project Overview
 
-YJ Child Care Plus is a full-stack web application that enables child care providers to discover, enroll in, and manage early childhood education courses. The platform features a modern React frontend with Material-UI components and a robust Node.js/Express backend with PostgreSQL database integration.
+Education Admin Management System is a full-stack web application that enables child care providers to discover, enroll in, and manage early childhood education courses. The platform features a modern React frontend with Material-UI components and a robust Node.js/Express backend with PostgreSQL database integration.
 
 ### Key Features
 
@@ -65,8 +65,8 @@ YJ Child Care Plus is a full-stack web application that enables child care provi
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/deniseosoria/yjchildcareplus.git
-   cd yjchildcareplus
+   git clone https://github.com/education-admin-management-system.git
+   cd education-admin-management-system
    ```
 
 2. **Install dependencies**
@@ -105,6 +105,9 @@ YJ Child Care Plus is a full-stack web application that enables child care provi
    # Email Configuration
    EMAIL_USER=your_email@gmail.com
    EMAIL_APP_PASSWORD=your_app_password
+
+   # Email Service (Resend - Railway's recommended)
+   RESEND_API_KEY=your_resend_api_key
    
    # Stripe Configuration (Optional)
    STRIPE_SECRET_KEY=your_stripe_secret_key
@@ -252,7 +255,7 @@ npm test -- tests/userRoutes.test.js
 
 [![Video Demo](https://via.placeholder.com/800x450/FF5722/FFFFFF?text=Click+to+Watch+Demo)](https://youtube.com/watch?v=demo)
 
-*Click the image above to watch a comprehensive demo of the YJ Child Care Plus application*
+*Click the image above to watch a comprehensive demo of the Education Admin Management System application*
 
 ## 🔐 Authentication & Security
 
@@ -310,4 +313,4 @@ For support, email deniseosoria04@gmail.com or create an issue in the GitHub rep
 
 ---
 
-**YJ Child Care Plus** - Empowering early childhood educators through technology.
+**Education Admin Management System** - Empowering early childhood educators through technology.
