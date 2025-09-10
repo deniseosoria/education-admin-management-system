@@ -16,8 +16,36 @@ jobs:
       # OPTIONAL: Remove or rewrite files that must never go public
       - name: Strip private files before publish
         run: |
-          rm -f .env .env.local .env.* config/local.json
+          # Remove environment files with sensitive data
+          rm -f .env .env.local .env.* 
+          rm -f client/.env client/.env.local client/.env.*
+          rm -f server/.env server/.env.local server/.env.*
+          
+          # Remove sensitive configuration files
+          rm -f config/local.json
+          rm -f server/config/local.json
+          
+          # Remove private documentation and sensitive files
           rm -rf secrets/ data/ private_docs/
+          
+          # Remove deployment scripts with sensitive info
+          rm -f deploy-*.bat deploy-*.sh
+          rm -f client/deploy-*.bat client/deploy-*.sh
+          rm -f server/railway-start.sh
+          
+          # Remove cleanup scripts that might expose sensitive operations
+          rm -f server/cleanup-storage.js
+          
+          # Remove Railway-specific files
+          rm -f railway.json
+          rm -f nixpacks.toml
+          rm -f server/Procfile
+          
+          # Remove package-lock files (optional - some prefer to keep them)
+          # rm -f package-lock.json
+          # rm -f client/package-lock.json  
+          # rm -f server/package-lock.json
+          
           # ensure a safe example env
           cp -n .env.example .env.example || true
 
