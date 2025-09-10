@@ -59,10 +59,14 @@ const sendEmail = async ({ to, subject, html }) => {
     if (resendClient) {
       // Use Resend HTTP API (Railway's recommended approach)
       const { data, error } = await resendClient.emails.send({
-        from: 'YJ Child Care Plus <noreply@yjchildcareplus.com>',
+        from: 'YJ Child Care Plus <support@yjchildcareplus.com>',
         to: [to],
         subject: subject,
-        html: html,
+        html: html + `
+          <div style="margin-top: 30px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #6c757d; border-radius: 4px; font-size: 12px; color: #6c757d;">
+            <strong>⚠️ Do Not Reply:</strong> This is an automated message. Please do not reply to this email address as it is not monitored. If you need assistance, please contact us through our website or support channels.
+          </div>
+        `,
       });
 
       if (error) {
