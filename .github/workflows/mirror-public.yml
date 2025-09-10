@@ -1,0 +1,71 @@
+name: Mirror to Public
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout private repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # OPTIONAL: Remove or rewrite files that must never go public
+      - name: Strip private files before publish
+        run: |
+          # Remove environment files with sensitive data
+          rm -f .env .env.local .env.* 
+          rm -f client/.env client/.env.local client/.env.*
+          rm -f server/.env server/.env.local server/.env.*
+          
+          # Remove sensitive configuration files
+          rm -f config/local.json
+          rm -f server/config/local.json
+          
+          # Remove private documentation and sensitive files
+          rm -rf secrets/ data/ private_docs/
+          
+          # Remove deployment scripts with sensitive info
+          rm -f deploy-*.bat deploy-*.sh
+          rm -f client/deploy-*.bat client/deploy-*.sh
+          rm -f server/railway-start.sh
+          
+          # Remove cleanup scripts that might expose sensitive operations
+          rm -f server/cleanup-storage.js
+          
+          # Remove Railway-specific files
+          rm -f railway.json
+          rm -f nixpacks.toml
+          rm -f server/Procfile
+          
+          # Remove package-lock files (optional - some prefer to keep them)
+          # rm -f package-lock.json
+          # rm -f client/package-lock.json  
+          # rm -f server/package-lock.json
+          
+          # ensure a safe example env
+          cp -n .env.example .env.example || true
+
+      # OPTIONAL: Build a clean "public" worktree (no git history rewrite here)
+      - name: Prepare publish directory
+        run: |
+          mkdir _public
+          rsync -av --delete \
+            --exclude '.git' \
+            --exclude '.github' \
+            ./ _public/
+
+      - name: Push to public repo
+        run: |
+          cd _public
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Sync public from private: ${GITHUB_SHA}"
+          git branch -M main
+          git remote add origin https://x-access-token:${{ secrets.PUBLIC_REPO_TOKEN }}@github.com/deniseosoria/education-admin-management-system.git
+          git push -f origin main

@@ -9,6 +9,12 @@
     "start:direct": "node index.js",
     "dev": "nodemon index.js",
     "test": "jest",
+    "migrate:rls": "node scripts/run-rls-migration.js",
+    "migrate:functions": "node scripts/run-function-search-path-migration.js",
+    "migrate:security": "node scripts/run-comprehensive-function-security.js",
+    "migrate:performance": "node scripts/run-rls-performance-optimization.js",
+    "migrate:consolidate": "node scripts/run-policy-consolidation.js",
+    "migrate:indexes": "node scripts/run-foreign-key-index-migration.js",
     "postinstall": "echo 'Server dependencies installed successfully'"
   },
   "dependencies": {
