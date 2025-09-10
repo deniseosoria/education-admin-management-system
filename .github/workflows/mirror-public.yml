@@ -39,5 +39,5 @@ jobs:
           git add .
           git commit -m "Sync public from private: ${GITHUB_SHA}"
           git branch -M main
-          git remote add origin https://x-access-token:${{ secrets.PUBLIC_REPO_TOKEN }}@github.com/your-username/client-project-public.git
+          git remote add origin https://x-access-token:${{ secrets.PUBLIC_REPO_TOKEN }}@github.com/deniseosoria/education-admin-management-system.git
           git push -f origin main
