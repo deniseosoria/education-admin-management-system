@@ -560,24 +560,31 @@ function ClassManagement() {
           sx={{
             zIndex: 1450,
             '& .MuiDialog-paper': {
-              maxHeight: '90vh',
-              margin: '20px',
+              maxHeight: { xs: '95vh', sm: '90vh' },
+              margin: { xs: '10px', sm: '20px' },
               position: 'relative',
-              top: '5vh'
+              top: { xs: '2.5vh', sm: '5vh' },
+              display: 'flex',
+              flexDirection: 'column'
             }
           }}
         >
-          <DialogTitle>
+          <DialogTitle sx={{ flexShrink: 0 }}>
             {editClass ? "Edit Class" : "Add New Class"}
           </DialogTitle>
           {error && (
-            <Box sx={{ px: 3, pt: 1 }}>
+            <Box sx={{ px: 3, pt: 1, flexShrink: 0 }}>
               <Alert severity="error" onClose={() => setError(null)}>
                 {error}
               </Alert>
             </Box>
           )}
-          <DialogContent sx={{ maxHeight: '70vh', overflow: 'auto' }}>
+          <DialogContent sx={{
+            flex: 1,
+            overflow: 'auto',
+            minHeight: 0,
+            px: { xs: 2, sm: 3 }
+          }}>
             <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 2 }}>
               <TextField
                 name="title"
@@ -623,53 +630,70 @@ function ClassManagement() {
               </Typography>
               {form.dates.map((date, index) => {
                 return (
-                  <Stack key={index} direction="row" spacing={2} alignItems="center">
-                    <TextField
-                      label="Date"
-                      type="date"
-                      value={date.date}
-                      onChange={(e) => handleDateChange(index, 'date', e.target.value)}
-                      InputLabelProps={{ shrink: true }}
-                      required
-                    />
-                    <Tooltip title="For one-day classes, set the same date as the start date" placement="top" arrow>
+                  <Box key={index} sx={{
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    p: 2,
+                    mb: 2
+                  }}>
+                    <Stack
+                      direction={{ xs: 'column', sm: 'row' }}
+                      spacing={{ xs: 2, sm: 2 }}
+                      alignItems={{ xs: 'stretch', sm: 'center' }}
+                    >
                       <TextField
-                        label="End Date"
+                        label="Date"
                         type="date"
-                        value={date.end_date}
-                        onChange={(e) => handleDateChange(index, 'end_date', e.target.value)}
+                        value={date.date}
+                        onChange={(e) => handleDateChange(index, 'date', e.target.value)}
                         InputLabelProps={{ shrink: true }}
                         required
+                        fullWidth
                       />
-                    </Tooltip>
-                    <TextField
-                      label="Start Time"
-                      type="time"
-                      value={date.start_time}
-                      onChange={(e) => handleDateChange(index, 'start_time', e.target.value)}
-                      InputLabelProps={{ shrink: true }}
-                      inputProps={{ step: 300 }}
-                      required
-                    />
-                    <TextField
-                      label="End Time"
-                      type="time"
-                      value={date.end_time}
-                      onChange={(e) => handleDateChange(index, 'end_time', e.target.value)}
-                      InputLabelProps={{ shrink: true }}
-                      inputProps={{ step: 300 }}
-                      required
-                    />
-                    {form.dates.length > 1 && (
-                      <IconButton
-                        color="error"
-                        onClick={() => handleRemoveDate(index)}
-                        size="small"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    )}
-                  </Stack>
+                      <Tooltip title="For one-day classes, set the same date as the start date" placement="top" arrow>
+                        <TextField
+                          label="End Date"
+                          type="date"
+                          value={date.end_date}
+                          onChange={(e) => handleDateChange(index, 'end_date', e.target.value)}
+                          InputLabelProps={{ shrink: true }}
+                          required
+                          fullWidth
+                        />
+                      </Tooltip>
+                      <TextField
+                        label="Start Time"
+                        type="time"
+                        value={date.start_time}
+                        onChange={(e) => handleDateChange(index, 'start_time', e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                        inputProps={{ step: 300 }}
+                        required
+                        fullWidth
+                      />
+                      <TextField
+                        label="End Time"
+                        type="time"
+                        value={date.end_time}
+                        onChange={(e) => handleDateChange(index, 'end_time', e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                        inputProps={{ step: 300 }}
+                        required
+                        fullWidth
+                      />
+                      {form.dates.length > 1 && (
+                        <IconButton
+                          color="error"
+                          onClick={() => handleRemoveDate(index)}
+                          size="small"
+                          sx={{ alignSelf: { xs: 'flex-start', sm: 'center' } }}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      )}
+                    </Stack>
+                  </Box>
                 );
               })}
               <Button
@@ -730,7 +754,16 @@ function ClassManagement() {
               />
             </Box>
           </DialogContent>
-          <DialogActions>
+          <DialogActions sx={{
+            flexShrink: 0,
+            px: { xs: 2, sm: 3 },
+            py: { xs: 2, sm: 1 },
+            gap: { xs: 1, sm: 0 },
+            flexDirection: { xs: 'column', sm: 'row' },
+            '& .MuiButton-root': {
+              minWidth: { xs: '100%', sm: 'auto' }
+            }
+          }}>
             <Button onClick={handleCloseModal} disabled={loading}>
               Cancel
             </Button>
