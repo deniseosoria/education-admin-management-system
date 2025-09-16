@@ -4,6 +4,7 @@ import classService from "../../services/classService";
 import adminService from "../../services/adminService";
 import enrollmentService from "../../services/enrollmentService"; // Added import for enrollmentService
 import { useNotifications } from '../../utils/notificationUtils';
+import { styled } from '@mui/material/styles';
 import {
   Box,
   Button,
@@ -49,6 +50,33 @@ import {
   Update as UpdateIcon,
   Add as AddIcon,
 } from "@mui/icons-material";
+
+// iOS-specific styled Dialog for better mobile support
+const IOSDialog = styled(Dialog)(({ theme }) => ({
+  '@media screen and (-webkit-min-device-pixel-ratio: 0)': {
+    '& .MuiDialog-paper': {
+      maxHeight: '85vh !important',
+      margin: '4px !important',
+      top: '7.5vh !important',
+      overflow: 'hidden !important',
+      WebkitOverflowScrolling: 'touch',
+    },
+    '& .MuiDialogContent-root': {
+      maxHeight: 'calc(85vh - 180px) !important',
+      WebkitOverflowScrolling: 'touch',
+    },
+    '& .MuiDialogActions-root': {
+      minHeight: '140px !important',
+      position: 'sticky !important',
+      bottom: '0 !important',
+      backgroundColor: theme.palette.background.paper,
+      borderTop: '1px solid',
+      borderColor: theme.palette.divider,
+      paddingTop: '16px !important',
+      paddingBottom: '16px !important',
+    }
+  }
+}));
 
 // Add a helper function for date formatting
 const formatDate = (dateString) => {
@@ -552,7 +580,7 @@ function ClassManagement() {
 
       {/* Add/Edit Class Modal */}
       {showModal && (
-        <Dialog
+        <IOSDialog
           open={showModal}
           onClose={() => !loading && handleCloseModal()}
           maxWidth="md"
@@ -560,13 +588,16 @@ function ClassManagement() {
           sx={{
             zIndex: 1450,
             '& .MuiDialog-paper': {
-              maxHeight: { xs: '90vh', sm: '90vh' },
-              margin: { xs: '8px', sm: '20px' },
+              maxHeight: { xs: '85vh', sm: '90vh' },
+              margin: { xs: '4px', sm: '20px' },
               position: 'relative',
-              top: { xs: '5vh', sm: '5vh' },
+              top: { xs: '7.5vh', sm: '5vh' },
               display: 'flex',
               flexDirection: 'column',
-              minHeight: { xs: 'auto', sm: 'auto' }
+              minHeight: { xs: 'auto', sm: 'auto' },
+              // iOS Safari specific fixes
+              WebkitOverflowScrolling: 'touch',
+              overflow: 'hidden'
             }
           }}
         >
@@ -584,9 +615,14 @@ function ClassManagement() {
             flex: 1,
             overflow: 'auto',
             minHeight: 0,
-            maxHeight: { xs: 'calc(90vh - 200px)', sm: '70vh' },
+            maxHeight: { xs: 'calc(85vh - 180px)', sm: '70vh' },
             px: { xs: 2, sm: 3 },
-            pb: { xs: 1, sm: 2 }
+            pb: { xs: 0, sm: 2 },
+            // iOS Safari specific
+            WebkitOverflowScrolling: 'touch',
+            '&::-webkit-scrollbar': {
+              width: '4px'
+            }
           }}>
             <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 2 }}>
               <TextField
@@ -760,20 +796,28 @@ function ClassManagement() {
           <DialogActions sx={{
             flexShrink: 0,
             px: { xs: 2, sm: 3 },
-            py: { xs: 3, sm: 1 },
-            gap: { xs: 2, sm: 1 },
+            py: { xs: 4, sm: 1 },
+            gap: { xs: 3, sm: 1 },
             flexDirection: { xs: 'column', sm: 'row' },
             justifyContent: { xs: 'stretch', sm: 'flex-end' },
             alignItems: { xs: 'stretch', sm: 'center' },
-            minHeight: { xs: '120px', sm: 'auto' },
-            position: 'relative',
-            zIndex: 1,
+            minHeight: { xs: '140px', sm: 'auto' },
+            position: 'sticky',
+            bottom: 0,
+            zIndex: 10,
             backgroundColor: 'background.paper',
+            borderTop: { xs: '1px solid', sm: 'none' },
+            borderColor: 'divider',
+            // iOS Safari specific fixes
+            WebkitTransform: 'translateZ(0)',
+            transform: 'translateZ(0)',
             '& .MuiButton-root': {
               minWidth: { xs: '100%', sm: 'auto' },
-              height: { xs: '48px', sm: 'auto' },
+              height: { xs: '52px', sm: 'auto' },
               fontSize: { xs: '16px', sm: '14px' },
-              marginBottom: { xs: '8px', sm: '0px' },
+              marginBottom: { xs: '12px', sm: '0px' },
+              borderRadius: { xs: '8px', sm: '4px' },
+              fontWeight: { xs: 600, sm: 500 },
               '&:last-child': {
                 marginBottom: { xs: '0px', sm: '0px' }
               }
@@ -791,7 +835,7 @@ function ClassManagement() {
               {loading ? <CircularProgress size={24} /> : "Save"}
             </Button>
           </DialogActions>
-        </Dialog>
+        </IOSDialog>
       )}
 
       {/* View Students Modal */}
