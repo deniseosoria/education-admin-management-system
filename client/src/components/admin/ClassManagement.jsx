@@ -560,12 +560,13 @@ function ClassManagement() {
           sx={{
             zIndex: 1450,
             '& .MuiDialog-paper': {
-              maxHeight: { xs: '95vh', sm: '90vh' },
-              margin: { xs: '10px', sm: '20px' },
+              maxHeight: { xs: '90vh', sm: '90vh' },
+              margin: { xs: '8px', sm: '20px' },
               position: 'relative',
-              top: { xs: '2.5vh', sm: '5vh' },
+              top: { xs: '5vh', sm: '5vh' },
               display: 'flex',
-              flexDirection: 'column'
+              flexDirection: 'column',
+              minHeight: { xs: 'auto', sm: 'auto' }
             }
           }}
         >
@@ -583,7 +584,9 @@ function ClassManagement() {
             flex: 1,
             overflow: 'auto',
             minHeight: 0,
-            px: { xs: 2, sm: 3 }
+            maxHeight: { xs: 'calc(90vh - 200px)', sm: '70vh' },
+            px: { xs: 2, sm: 3 },
+            pb: { xs: 1, sm: 2 }
           }}>
             <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 2 }}>
               <TextField
@@ -757,11 +760,23 @@ function ClassManagement() {
           <DialogActions sx={{
             flexShrink: 0,
             px: { xs: 2, sm: 3 },
-            py: { xs: 2, sm: 1 },
-            gap: { xs: 1, sm: 0 },
+            py: { xs: 3, sm: 1 },
+            gap: { xs: 2, sm: 1 },
             flexDirection: { xs: 'column', sm: 'row' },
+            justifyContent: { xs: 'stretch', sm: 'flex-end' },
+            alignItems: { xs: 'stretch', sm: 'center' },
+            minHeight: { xs: '120px', sm: 'auto' },
+            position: 'relative',
+            zIndex: 1,
+            backgroundColor: 'background.paper',
             '& .MuiButton-root': {
-              minWidth: { xs: '100%', sm: 'auto' }
+              minWidth: { xs: '100%', sm: 'auto' },
+              height: { xs: '48px', sm: 'auto' },
+              fontSize: { xs: '16px', sm: '14px' },
+              marginBottom: { xs: '8px', sm: '0px' },
+              '&:last-child': {
+                marginBottom: { xs: '0px', sm: '0px' }
+              }
             }
           }}>
             <Button onClick={handleCloseModal} disabled={loading}>
