@@ -887,6 +887,8 @@ function ClassManagement() {
                     <TableRow>
                       <TableCell>Date</TableCell>
                       <TableCell>Time</TableCell>
+                      <TableCell>Location</TableCell>
+                      <TableCell>Capacity</TableCell>
                       <TableCell>Status</TableCell>
                     </TableRow>
                   </TableHead>
@@ -903,6 +905,12 @@ function ClassManagement() {
                         </TableCell>
                         <TableCell>
                           {session.start_time} - {session.end_time}
+                        </TableCell>
+                        <TableCell>
+                          {session.session_location || session.location_details || 'TBA'}
+                        </TableCell>
+                        <TableCell>
+                          {session.enrolled_count || 0} / {session.capacity}
                         </TableCell>
                         <TableCell>
                           <Chip

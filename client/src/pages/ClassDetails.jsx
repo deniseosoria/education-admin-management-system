@@ -258,12 +258,15 @@ function ClassDetails() {
                             <p className="text-gray-700 leading-relaxed">{classData.description}</p>
                         </div>
 
-                        {/* Location Section - All Screen Sizes */}
+                        {/* Location Information */}
                         <div>
-                            <h2 className="text-2xl font-semibold mb-4 text-gray-900">Location</h2>
+                            <h2 className="text-2xl font-semibold mb-4 text-gray-900">Location Information</h2>
                             <p className="text-gray-700">
                                 <span className="font-medium">Type:</span> {classData.location_type}<br />
-                                <span className="font-medium">Details:</span> {classData.location_details}
+                                <span className="font-medium">Default Location:</span> {classData.location_details || 'See individual sessions for specific locations'}
+                            </p>
+                            <p className="text-sm text-gray-600 mt-2">
+                                Each session may have a different location. Check the session details below for specific location information.
                             </p>
                         </div>
 
@@ -321,32 +324,46 @@ function ClassDetails() {
                                         const canEnroll = !notLoggedIn && !isAdminOrInstructor;
 
                                         return (
-                                            <div key={session.id} className="border rounded-lg p-4">
-                                                <div className="font-medium text-gray-900">
-                                                    {formattedStartDate}
-                                                    {showEndDate ? ` - ${formattedEndDate}` : ''}
+                                            <div key={session.id} className="border border-gray-200 rounded-lg p-6 bg-white shadow-sm hover:shadow-md transition-shadow">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div className="space-y-3">
+                                                        <div className="font-semibold text-lg text-gray-900">
+                                                            {formattedStartDate}
+                                                            {showEndDate ? ` - ${formattedEndDate}` : ''}
+                                                        </div>
+                                                        <div className="text-gray-700">
+                                                            <span className="font-medium">Time:</span> {formatTime(session.start_time)} - {formatTime(session.end_time)} ({hoursPerDay} hours/day)
+                                                        </div>
+                                                        <div className="text-gray-700">
+                                                            <span className="font-medium">Duration:</span> {getDurationString(classData)}
+                                                        </div>
+                                                        <div className="text-gray-700">
+                                                            <span className="font-medium">Instructor:</span> {session.instructor_name || 'TBA'}
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-3">
+                                                        <div className="text-gray-700">
+                                                            <span className="font-medium">Location:</span> {session.session_location || session.location_details || 'TBA'}
+                                                        </div>
+                                                        <div className="text-gray-700">
+                                                            <span className="font-medium">Capacity:</span> {session.available_spots} of {session.capacity} spots available
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div className="text-gray-700 text-sm">
-                                                    {formatTime(session.start_time)} - {formatTime(session.end_time)} ({hoursPerDay} hours/day)
+                                                <div className="mt-4 flex justify-start">
+                                                    <button
+                                                        className={`px-6 py-2 rounded-lg font-medium transition-colors ${canEnroll
+                                                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                                            }`}
+                                                        disabled={!canEnroll}
+                                                        onClick={() => canEnroll && handleEnroll(session.id)}
+                                                    >
+                                                        {enrollLoading ? 'Enrolling...' : 'Enroll Now'}
+                                                    </button>
                                                 </div>
-                                                <div className="text-gray-700 text-sm">
-                                                    Duration: {getDurationString(classData)}
-                                                </div>
-                                                <div className="text-gray-700 text-sm">
-                                                    Available Spots: {session.available_spots} of {session.capacity}
-                                                </div>
-                                                <div className="text-gray-700 text-sm">
-                                                    Instructor: {session.instructor_name || 'TBA'}
-                                                </div>
-                                                <button
-                                                    className={`mt-2 px-4 py-2 rounded ${canEnroll ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
-                                                    disabled={!canEnroll}
-                                                    onClick={() => canEnroll && handleEnroll(session.id)}
-                                                >
-                                                    Enroll
-                                                </button>
-                                                {notLoggedIn && <div className="text-xs text-red-500 mt-1">Log in to enroll</div>}
-                                                {isAdminOrInstructor && <div className="text-xs text-red-500 mt-1">Admins/Instructors cannot enroll</div>}
+                                                {notLoggedIn && <div className="text-sm text-red-500 mt-2">Please log in to enroll</div>}
+                                                {isAdminOrInstructor && <div className="text-sm text-red-500 mt-2">Admins and instructors cannot enroll</div>}
 
                                                 {/* Session-specific success/error messages */}
                                                 {sessionMessages[session.id]?.success && (

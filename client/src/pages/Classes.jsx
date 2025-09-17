@@ -208,6 +208,9 @@ function Classes() {
                                             <span className="font-medium">Location:</span> {toTitleCase(classItem.location_type)}{classItem.location_details && ` - ${classItem.location_details}`}
                                         </p>
                                         <p className="text-gray-700 text-sm sm:text-base lg:text-lg" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+                                            <span className="font-medium">Sessions:</span> Multiple sessions available with different locations and capacities
+                                        </p>
+                                        <p className="text-gray-700 text-sm sm:text-base lg:text-lg" style={{ fontFamily: 'Montserrat, sans-serif' }}>
                                             <span className="font-medium">Price:</span> ${classItem.price}
                                         </p>
                                     </div>
