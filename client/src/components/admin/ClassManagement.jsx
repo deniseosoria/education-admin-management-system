@@ -55,18 +55,18 @@ import {
 const IOSDialog = styled(Dialog)(({ theme }) => ({
   '@media screen and (-webkit-min-device-pixel-ratio: 0)': {
     '& .MuiDialog-paper': {
-      maxHeight: '85vh !important',
-      margin: '4px !important',
-      top: '7.5vh !important',
+      maxHeight: '75vh !important',
+      margin: '2px !important',
+      top: '12.5vh !important',
       overflow: 'hidden !important',
       WebkitOverflowScrolling: 'touch',
     },
     '& .MuiDialogContent-root': {
-      maxHeight: 'calc(85vh - 200px) !important',
+      maxHeight: 'calc(75vh - 150px) !important',
       WebkitOverflowScrolling: 'touch',
     },
     '& .MuiDialogActions-root': {
-      minHeight: '120px !important',
+      minHeight: '100px !important',
       position: 'sticky !important',
       bottom: '0 !important',
       backgroundColor: theme.palette.background.paper,
@@ -588,10 +588,10 @@ function ClassManagement() {
           sx={{
             zIndex: 1450,
             '& .MuiDialog-paper': {
-              maxHeight: { xs: '85vh', sm: '90vh' },
-              margin: { xs: '4px', sm: '20px' },
+              maxHeight: { xs: '75vh', sm: '90vh' },
+              margin: { xs: '2px', sm: '20px' },
               position: 'relative',
-              top: { xs: '7.5vh', sm: '5vh' },
+              top: { xs: '12.5vh', sm: '5vh' },
               display: 'flex',
               flexDirection: 'column',
               minHeight: { xs: 'auto', sm: 'auto' },
@@ -615,7 +615,7 @@ function ClassManagement() {
             flex: 1,
             overflow: 'auto',
             minHeight: 0,
-            maxHeight: { xs: 'calc(85vh - 200px)', sm: '70vh' },
+            maxHeight: { xs: 'calc(75vh - 150px)', sm: '70vh' },
             px: { xs: 2, sm: 3 },
             pb: { xs: 0, sm: 2 },
             // iOS Safari specific
@@ -625,10 +625,10 @@ function ClassManagement() {
             }
           }}>
             <Box sx={{
-              mt: { xs: 1, sm: 2 },
+              mt: { xs: 0.5, sm: 2 },
               display: "flex",
               flexDirection: "column",
-              gap: { xs: 1.5, sm: 2 }
+              gap: { xs: 1, sm: 2 }
             }}>
               <TextField
                 name="title"
@@ -662,7 +662,7 @@ function ClassManagement() {
                 value={form.description}
                 onChange={handleChange}
                 multiline
-                rows={{ xs: 3, sm: 4 }}
+                rows={{ xs: 2, sm: 4 }}
                 fullWidth
                 required
               />
@@ -678,12 +678,12 @@ function ClassManagement() {
                     border: '1px solid',
                     borderColor: 'divider',
                     borderRadius: 1,
-                    p: { xs: 1.5, sm: 2 },
-                    mb: { xs: 1.5, sm: 2 }
+                    p: { xs: 1, sm: 2 },
+                    mb: { xs: 1, sm: 2 }
                   }}>
                     <Stack
                       direction={{ xs: 'column', sm: 'row' }}
-                      spacing={{ xs: 1.5, sm: 2 }}
+                      spacing={{ xs: 1, sm: 2 }}
                       alignItems={{ xs: 'stretch', sm: 'center' }}
                     >
                       <TextField
@@ -801,12 +801,12 @@ function ClassManagement() {
           <DialogActions sx={{
             flexShrink: 0,
             px: { xs: 2, sm: 3 },
-            py: { xs: 3, sm: 1 },
+            py: { xs: 2, sm: 1 },
             gap: { xs: 2, sm: 1 },
             flexDirection: { xs: 'column', sm: 'row' },
             justifyContent: { xs: 'stretch', sm: 'flex-end' },
             alignItems: { xs: 'stretch', sm: 'center' },
-            minHeight: { xs: '120px', sm: 'auto' },
+            minHeight: { xs: '100px', sm: 'auto' },
             position: 'sticky',
             bottom: 0,
             zIndex: 10,
