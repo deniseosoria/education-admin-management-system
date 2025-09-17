@@ -616,7 +616,7 @@ function ClassManagement() {
             minHeight: 0,
             maxHeight: { xs: 'calc(90vh - 200px)', sm: '70vh' },
             px: { xs: 2, sm: 3 },
-            pb: { xs: '120px', sm: 2 },
+            pb: { xs: '160px', sm: 3 },
             // iOS Safari specific
             WebkitOverflowScrolling: 'touch',
             '&::-webkit-scrollbar': {
@@ -787,7 +787,7 @@ function ClassManagement() {
             flexDirection: { xs: 'column', sm: 'row' },
             justifyContent: { xs: 'stretch', sm: 'flex-end' },
             alignItems: { xs: 'stretch', sm: 'center' },
-            minHeight: { xs: '100px', sm: 'auto' },
+            minHeight: { xs: '80px', sm: 'auto' },
             position: { xs: 'fixed', sm: 'sticky' },
             bottom: { xs: 0, sm: 0 },
             left: { xs: 0, sm: 'auto' },
@@ -802,9 +802,9 @@ function ClassManagement() {
             transform: 'translateZ(0)',
             '& .MuiButton-root': {
               minWidth: { xs: '100%', sm: 'auto' },
-              height: { xs: '52px', sm: 'auto' },
+              height: { xs: '48px', sm: 'auto' },
               fontSize: { xs: '16px', sm: '14px' },
-              marginBottom: { xs: '12px', sm: '0px' },
+              marginBottom: { xs: '8px', sm: '0px' },
               borderRadius: { xs: '8px', sm: '4px' },
               fontWeight: { xs: 600, sm: 500 },
               '&:last-child': {
