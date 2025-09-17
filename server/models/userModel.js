@@ -19,7 +19,7 @@ const getAllUsers = async () => {
       FROM users
       ORDER BY first_name, last_name
     `;
-    
+
     console.log('SQL Query:', query);
     const result = await pool.query(query);
     console.log('Raw database result:', {
@@ -32,7 +32,7 @@ const getAllUsers = async () => {
         status: row.status
       }))
     });
-    
+
     if (!result.rows || result.rows.length === 0) {
       console.log('No users found in database');
       return [];
@@ -77,7 +77,7 @@ async function searchUsers({ searchTerm = '', role = null, sortBy = 'id', sortOr
   `;
   const params = [];
   let idx = 1;
-  
+
   if (searchTerm) {
     query += ` AND (
       u.email ILIKE $${idx} 
@@ -89,13 +89,13 @@ async function searchUsers({ searchTerm = '', role = null, sortBy = 'id', sortOr
     params.push(`%${searchTerm}%`);
     idx++;
   }
-  
+
   if (role) {
     query += ` AND u.role = $${idx}`;
     params.push(role);
     idx++;
   }
-  
+
   if (!includeInactive) {
     query += ` AND u.status = 'active'`;
   }
@@ -105,7 +105,7 @@ async function searchUsers({ searchTerm = '', role = null, sortBy = 'id', sortOr
   params.push(limit, offset);
 
   const result = await pool.query(query, params);
-  
+
   // Get total count for pagination
   const countQuery = `
     SELECT COUNT(*) 
@@ -117,11 +117,11 @@ async function searchUsers({ searchTerm = '', role = null, sortBy = 'id', sortOr
   `;
   const countParams = searchTerm ? [`%${searchTerm}%`] : [];
   if (role) countParams.push(role);
-  
+
   const countResult = await pool.query(countQuery, countParams);
-  
-  return { 
-    users: result.rows, 
+
+  return {
+    users: result.rows,
     total: parseInt(countResult.rows[0].count)
   };
 }
@@ -210,12 +210,16 @@ async function updateProfile(id, updates) {
     first_name = user.first_name,
     last_name = user.last_name,
     phone_number = user.phone_number,
-    email_notifications = user.email_notifications ?? false
+    email_notifications = user.email_notifications ?? true,
+    class_reminders = user.class_reminders ?? true,
+    payment_reminders = user.payment_reminders ?? true,
+    certificate_notifications = user.certificate_notifications ?? true,
+    general_updates = user.general_updates ?? true
   } = updates;
 
   const result = await pool.query(
-    `UPDATE users SET first_name = $1, last_name = $2, phone_number = $3, email_notifications = $4 WHERE id = $5 RETURNING *`,
-    [first_name, last_name, phone_number, email_notifications, id]
+    `UPDATE users SET first_name = $1, last_name = $2, phone_number = $3, email_notifications = $4, class_reminders = $5, payment_reminders = $6, certificate_notifications = $7, general_updates = $8 WHERE id = $9 RETURNING *`,
+    [first_name, last_name, phone_number, email_notifications, class_reminders, payment_reminders, certificate_notifications, general_updates, id]
   );
   return result.rows[0];
 }
@@ -426,16 +430,16 @@ async function updatePassword(userId, hashedPassword) {
 async function generatePasswordResetToken(email) {
   const resetToken = require('crypto').randomBytes(32).toString('hex');
   const resetTokenExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
-  
+
   const result = await pool.query(
     'UPDATE users SET reset_token = $1, reset_token_expires = $2, updated_at = NOW() WHERE email = $3 RETURNING id, email, first_name, last_name',
     [resetToken, resetTokenExpires, email]
   );
-  
+
   if (result.rows.length === 0) {
     throw new Error('User not found');
   }
-  
+
   return {
     user: result.rows[0],
     resetToken,
@@ -449,27 +453,27 @@ async function verifyPasswordResetToken(token) {
     'SELECT id, email, first_name, last_name FROM users WHERE reset_token = $1 AND reset_token_expires > NOW()',
     [token]
   );
-  
+
   if (result.rows.length === 0) {
     throw new Error('Invalid or expired reset token');
   }
-  
+
   return result.rows[0];
 }
 
 // Reset password with token
 async function resetPasswordWithToken(token, newPassword) {
   const hashedPassword = await require('bcrypt').hash(newPassword, 10);
-  
+
   const result = await pool.query(
     'UPDATE users SET password = $1, reset_token = NULL, reset_token_expires = NULL, updated_at = NOW() WHERE reset_token = $2 AND reset_token_expires > NOW() RETURNING id, email, first_name, last_name',
     [hashedPassword, token]
   );
-  
+
   if (result.rows.length === 0) {
     throw new Error('Invalid or expired reset token');
   }
-  
+
   return result.rows[0];
 }
 

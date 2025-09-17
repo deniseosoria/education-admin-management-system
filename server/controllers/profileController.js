@@ -194,6 +194,37 @@ const getHistoricalEnrollments = async (req, res) => {
     }
 };
 
+// Update email notification preferences
+const updateEmailPreferences = async (req, res) => {
+    try {
+        const {
+            email_notifications,
+            class_reminders,
+            payment_reminders,
+            certificate_notifications,
+            general_updates
+        } = req.body;
+
+        await updateUserProfile(req.user.id, {
+            email_notifications,
+            class_reminders,
+            payment_reminders,
+            certificate_notifications,
+            general_updates
+        });
+
+        await createActivityLog(req.user.id, 'update_email_preferences', {
+            preferences: req.body
+        });
+
+        // Fetch and return the full profile after update
+        const fullProfile = await getUserProfileWithDetails(req.user.id);
+        res.json(fullProfile);
+    } catch (error) {
+        res.status(500).json({ message: 'Error updating email preferences', error: error.message });
+    }
+};
+
 module.exports = {
     getProfileWithDetails,
     updateProfile,
@@ -207,5 +238,6 @@ module.exports = {
     getNotifications,
     markNotificationAsRead,
     markAllNotificationsAsRead,
-    getHistoricalEnrollments
+    getHistoricalEnrollments,
+    updateEmailPreferences
 }; 

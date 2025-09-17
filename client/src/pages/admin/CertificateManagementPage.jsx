@@ -19,7 +19,8 @@ import {
     MenuItem,
     Alert,
     IconButton,
-    CircularProgress
+    CircularProgress,
+    Pagination
 } from '@mui/material';
 import {
     Search as SearchIcon,
@@ -46,6 +47,8 @@ const CertificateManagementPage = () => {
     const [certificates, setCertificates] = useState([]);
     const [students, setStudents] = useState([]);
     const [classes, setClasses] = useState([]);
+    const [currentPage, setCurrentPage] = useState(1);
+    const certificatesPerPage = 8;
 
     // Fetch certificates, students, and classes on component mount
     useEffect(() => {
@@ -53,6 +56,11 @@ const CertificateManagementPage = () => {
         fetchStudents();
         fetchClasses();
     }, []);
+
+    // Reset pagination when search query changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery]);
 
     const fetchCertificates = async () => {
         try {
@@ -77,7 +85,7 @@ const CertificateManagementPage = () => {
             console.log('Fetching students...');
             // Get all users and filter for students (users with role 'user' or 'student')
             const allUsersResponse = await adminService.getAllUsers({ role: 'all' });
-            
+
             // Handle paginated response from search endpoint
             let allUsers;
             if (allUsersResponse && allUsersResponse.users && allUsersResponse.pagination) {
@@ -87,7 +95,7 @@ const CertificateManagementPage = () => {
                 setStudents([]);
                 return;
             }
-            
+
             const students = allUsers.filter(user => user.role === 'user' || user.role === 'student');
             console.log('Students data received:', students);
             setStudents(students);
@@ -233,17 +241,32 @@ const CertificateManagementPage = () => {
     const filteredCertificates = certificates.filter(cert => {
         if (!cert) return false;
 
-        const studentName = cert.first_name && cert.last_name
-            ? `${cert.first_name} ${cert.last_name}`.toLowerCase()
-            : '';
+        // If no search query, return empty array (show no certificates)
+        if (!searchQuery.trim()) {
+            return false;
+        }
+
+        const studentName = cert.student_name ? cert.student_name.toLowerCase() : '';
         const certName = cert.certificate_name ? cert.certificate_name.toLowerCase() : '';
+        const className = cert.class_name ? cert.class_name.toLowerCase() : '';
 
         const matchesSearch = certName.includes(searchQuery.toLowerCase()) ||
-            studentName.includes(searchQuery.toLowerCase());
+            studentName.includes(searchQuery.toLowerCase()) ||
+            className.includes(searchQuery.toLowerCase());
         const matchesStatus = statusFilter === 'all' || (cert.status === statusFilter);
 
         return matchesSearch && matchesStatus;
     });
+
+    // Calculate pagination
+    const totalPages = Math.ceil(filteredCertificates.length / certificatesPerPage);
+    const startIndex = (currentPage - 1) * certificatesPerPage;
+    const endIndex = startIndex + certificatesPerPage;
+    const paginatedCertificates = filteredCertificates.slice(startIndex, endIndex);
+
+    const handlePageChange = (event, page) => {
+        setCurrentPage(page);
+    };
 
     return (
         <Container maxWidth="xl">
@@ -284,7 +307,7 @@ const CertificateManagementPage = () => {
                         <TextField
                             fullWidth
                             variant="outlined"
-                            placeholder="Search certificates..."
+                            placeholder="Enter search term to view certificates..."
                             value={searchQuery}
                             onChange={handleSearch}
                             InputProps={{
@@ -337,12 +360,36 @@ const CertificateManagementPage = () => {
 
                 {/* Certificate Viewer */}
                 {!loading && (
-                    <CertificateViewer
-                        certificates={filteredCertificates}
-                        onDownload={handleDownload}
-                        onDelete={handleDelete}
-                        onBulkDelete={handleBulkDelete}
-                    />
+                    <>
+                        <CertificateViewer
+                            certificates={paginatedCertificates}
+                            onDownload={handleDownload}
+                            onDelete={handleDelete}
+                            onBulkDelete={handleBulkDelete}
+                        />
+
+                        {/* Pagination */}
+                        {totalPages > 1 && (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+                                <Pagination
+                                    count={totalPages}
+                                    page={currentPage}
+                                    onChange={handlePageChange}
+                                    color="primary"
+                                    size="large"
+                                />
+                            </Box>
+                        )}
+
+                        {/* Results count */}
+                        {searchQuery.trim() && (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                                <Typography variant="body2" color="text.secondary">
+                                    Showing {paginatedCertificates.length} of {filteredCertificates.length} certificates
+                                </Typography>
+                            </Box>
+                        )}
+                    </>
                 )}
 
                 {/* Upload Dialog */}

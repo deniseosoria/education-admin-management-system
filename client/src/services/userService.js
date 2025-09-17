@@ -92,6 +92,11 @@ const userService = {
     // Update user password
     updatePassword: async (currentPassword, newPassword) => {
         return api.put('/profile/password', { currentPassword, newPassword });
+    },
+
+    // Update email notification preferences
+    updateEmailPreferences: async (preferences) => {
+        return api.put('/profile/email-preferences', preferences);
     }
 };
 

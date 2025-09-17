@@ -9,7 +9,8 @@ import {
     Notifications as NotificationIcon,
     Lock as LockIcon,
     Payment as PaymentsDueIcon,
-    AccessTime as WaitlistIcon
+    AccessTime as WaitlistIcon,
+    Email as EmailIcon
 } from '@mui/icons-material';
 import './ProfileNavigation.css';
 
@@ -45,6 +46,7 @@ const ProfileNavigation = ({ activeSection, onSectionChange, profile, isMobile =
         { value: 'payment-methods', label: 'Payment Methods', icon: <PaymentIcon /> },
         { value: 'password', label: 'Password', icon: <LockIcon /> },
         { value: 'activity', label: 'Activity', icon: <HistoryIcon /> },
+        { value: 'email-settings', label: 'Email Settings', icon: <EmailIcon /> },
         {
             value: 'notifications',
             label: 'Notifications',

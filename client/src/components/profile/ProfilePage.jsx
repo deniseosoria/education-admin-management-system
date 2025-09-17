@@ -11,6 +11,7 @@ import EnrollmentsSection from './EnrollmentsSection';
 import PasswordSection from './PasswordSection';
 import PaymentsDueSection from './PaymentsDueSection';
 import MyWaitlist from '../user/MyWaitlist';
+import EmailManagementSection from './EmailManagementSection';
 import userService from '../../services/userService';
 import './ProfilePage.css';
 
@@ -273,6 +274,12 @@ const ProfilePage = () => {
                     )}
                     {activeSection === 'waitlist' && (
                         <MyWaitlist />
+                    )}
+                    {activeSection === 'email-settings' && (
+                        <EmailManagementSection
+                            userProfile={profile}
+                            onProfileUpdate={handleProfileUpdate}
+                        />
                     )}
                 </div>
             </div>

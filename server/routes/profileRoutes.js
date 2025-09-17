@@ -15,13 +15,15 @@ const {
     getNotifications,
     markNotificationAsRead,
     markAllNotificationsAsRead,
-    getHistoricalEnrollments
+    getHistoricalEnrollments,
+    updateEmailPreferences
 } = require('../controllers/profileController');
 
 // Profile routes
 router.get('/profile', requireAuth, getProfileWithDetails);
 router.put('/profile', requireAuth, updateProfile);
 router.put('/password', requireAuth, updatePassword);
+router.put('/email-preferences', requireAuth, updateEmailPreferences);
 
 // Certificate routes
 router.get('/certificates', requireAuth, getCertificates);

@@ -774,7 +774,7 @@ function ClassManagement() {
                 onClick={handleAddDate}
                 variant="outlined"
                 size="small"
-                sx={{ 
+                sx={{
                   alignSelf: 'flex-start',
                   mb: { xs: 2, sm: 1 }
                 }}

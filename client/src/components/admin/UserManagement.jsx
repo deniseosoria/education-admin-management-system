@@ -480,6 +480,7 @@ const UserManagement = () => {
                             >
                                 <MenuItem value="all">All Roles</MenuItem>
                                 <MenuItem value="user">Users</MenuItem>
+                                <MenuItem value="student">Students</MenuItem>
                                 <MenuItem value="instructor">Instructors</MenuItem>
                                 <MenuItem value="admin">Admins</MenuItem>
                             </Select>
