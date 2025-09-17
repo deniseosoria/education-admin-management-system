@@ -103,9 +103,7 @@ function ClassManagement() {
     title: "",
     instructor_id: "",
     description: "",
-    dates: [{ date: "", end_date: "", start_time: "", end_time: "" }],
-    location: "",
-    capacity: "",
+    dates: [{ date: "", end_date: "", start_time: "", end_time: "", location: "", capacity: "" }],
     price: "",
   });
   const [sessionsClass, setSessionsClass] = useState(null);
@@ -160,9 +158,7 @@ function ClassManagement() {
       title: "",
       instructor_id: "",
       description: "",
-      dates: [{ date: "", end_date: "", start_time: "", end_time: "" }],
-      location: "",
-      capacity: "",
+      dates: [{ date: "", end_date: "", start_time: "", end_time: "", location: "", capacity: "" }],
       price: "",
     });
     setShowModal(true);
@@ -182,7 +178,7 @@ function ClassManagement() {
       }
 
       // Initialize with empty dates array if no sessions exist
-      let formattedDates = [{ date: "", end_date: "", start_time: "", end_time: "" }];
+      let formattedDates = [{ date: "", end_date: "", start_time: "", end_time: "", location: "", capacity: "" }];
 
       // Only try to format dates if sessions exist and are in the expected format
       if (Array.isArray(classDetails.sessions) && classDetails.sessions.length > 0) {
@@ -191,7 +187,9 @@ function ClassManagement() {
           date: session.session_date ? new Date(session.session_date).toISOString().split('T')[0] : "",
           end_date: session.end_date ? new Date(session.end_date).toISOString().split('T')[0] : "",
           start_time: session.start_time ? session.start_time.substring(0, 5) : "",
-          end_time: session.end_time ? session.end_time.substring(0, 5) : ""
+          end_time: session.end_time ? session.end_time.substring(0, 5) : "",
+          location: session.location_details || "",
+          capacity: session.capacity || ""
         }));
       }
 
@@ -200,8 +198,6 @@ function ClassManagement() {
         instructor_id: classDetails.instructor_id || "",
         description: classDetails.description || "",
         dates: formattedDates,
-        location: classDetails.location_details || "",
-        capacity: classDetails.capacity || "",
         price: classDetails.price || "",
         // Remove enrolled from form data since it's managed by the system
         enrolled: undefined
@@ -256,7 +252,7 @@ function ClassManagement() {
   const handleAddDate = () => {
     setForm(prev => ({
       ...prev,
-      dates: [...prev.dates, { date: "", end_date: "", start_time: "", end_time: "" }]
+      dates: [...prev.dates, { date: "", end_date: "", start_time: "", end_time: "", location: "", capacity: "" }]
     }));
   };
 
@@ -307,15 +303,15 @@ function ClassManagement() {
 
       // Validate form
       if (!form.title || !form.instructor_id || !form.description ||
-        !form.location || !form.capacity || !form.price ||
-        form.dates.length === 0) {
+        !form.price || form.dates.length === 0) {
         throw new Error("Please fill in all required fields");
       }
 
       // Validate dates
       for (const date of form.dates) {
-        if (!date.date || !date.end_date || !date.start_time || !date.end_time) {
-          throw new Error("Please fill in all date fields");
+        if (!date.date || !date.end_date || !date.start_time || !date.end_time ||
+          !date.location || !date.capacity) {
+          throw new Error("Please fill in all date fields including location and capacity");
         }
 
         // Validate that end_date is not before start date
@@ -323,6 +319,11 @@ function ClassManagement() {
         const endDate = new Date(date.end_date);
         if (endDate < startDate) {
           throw new Error("End date cannot be before start date");
+        }
+
+        // Validate capacity is a positive number
+        if (isNaN(Number(date.capacity)) || Number(date.capacity) <= 0) {
+          throw new Error("Capacity must be a positive number for each session");
         }
       }
 
@@ -334,11 +335,7 @@ function ClassManagement() {
         }
       }
 
-      // Validate numeric fields
-      if (isNaN(Number(form.capacity)) || Number(form.capacity) <= 0) {
-        throw new Error("Capacity must be a positive number");
-      }
-
+      // Validate price
       if (isNaN(Number(form.price)) || Number(form.price) < 0) {
         throw new Error("Price must be a non-negative number");
       }
@@ -346,12 +343,9 @@ function ClassManagement() {
       // Format the data before sending
       const formattedData = {
         ...form,
-        location_details: form.location,
         price: Number(form.price),
-        capacity: Number(form.capacity),
         deletedSessionIds: deletedSessionIds
       };
-      delete formattedData.location;
 
       if (editClass) {
         await classService.updateClass(editClass.id, formattedData);
@@ -671,6 +665,19 @@ function ClassManagement() {
                 fullWidth
                 required
               />
+              <TextField
+                name="price"
+                label="Price"
+                type="number"
+                value={form.price}
+                onChange={handleChange}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                }}
+                fullWidth
+                required
+                inputProps={{ min: 0, step: 0.01 }}
+              />
               <Typography variant="subtitle1" sx={{ mt: { xs: 1, sm: 2 } }}>
                 Class Dates and Times
               </Typography>
@@ -731,6 +738,22 @@ function ClassManagement() {
                         required
                         fullWidth
                       />
+                      <TextField
+                        label="Location"
+                        value={date.location}
+                        onChange={(e) => handleDateChange(index, 'location', e.target.value)}
+                        required
+                        fullWidth
+                      />
+                      <TextField
+                        label="Capacity"
+                        type="number"
+                        value={date.capacity}
+                        onChange={(e) => handleDateChange(index, 'capacity', e.target.value)}
+                        required
+                        fullWidth
+                        inputProps={{ min: 1 }}
+                      />
                       {form.dates.length > 1 && (
                         <IconButton
                           color="error"
@@ -754,53 +777,6 @@ function ClassManagement() {
               >
                 Add Another Date
               </Button>
-              <TextField
-                name="location"
-                label="Location"
-                value={form.location}
-                onChange={handleChange}
-                fullWidth
-                required
-              />
-              <TextField
-                name="capacity"
-                label="Capacity"
-                type="number"
-                value={form.capacity}
-                onChange={handleChange}
-                fullWidth
-                required
-                inputProps={{ min: 1 }}
-              />
-              {editClass && (
-                <TextField
-                  label="Currently Enrolled"
-                  value={`${editClass.enrolled_count || 0} / ${editClass.capacity}`}
-                  fullWidth
-                  disabled
-                  InputProps={{
-                    readOnly: true,
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <PeopleIcon color="action" />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              )}
-              <TextField
-                name="price"
-                label="Price"
-                type="number"
-                value={form.price}
-                onChange={handleChange}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                }}
-                fullWidth
-                required
-                inputProps={{ min: 0, step: 0.01 }}
-              />
             </Box>
           </DialogContent>
           <DialogActions sx={{

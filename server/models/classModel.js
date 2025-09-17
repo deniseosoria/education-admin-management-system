@@ -84,9 +84,11 @@ const getClassSessions = async (classId) => {
     `SELECT 
       cs.*,
       CONCAT(u.first_name, ' ', u.last_name) as instructor_name,
-      (cs.capacity - cs.enrolled_count) as available_spots
+      (cs.capacity - cs.enrolled_count) as available_spots,
+      COALESCE(cs.location_details, c.location_details) as session_location
      FROM class_sessions cs
      LEFT JOIN users u ON u.id = cs.instructor_id
+     LEFT JOIN classes c ON c.id = cs.class_id
      WHERE cs.class_id = $1 AND cs.deleted_at IS NULL
      ORDER BY cs.session_date, cs.start_time`,
     [classId]
@@ -418,9 +420,11 @@ const getClassWithDetails = async (classId) => {
 
   // Then get the sessions with instructor information
   const sessionsResult = await pool.query(
-    `SELECT cs.*, u.name as instructor_name
+    `SELECT cs.*, u.name as instructor_name,
+            COALESCE(cs.location_details, c.location_details) as session_location
      FROM class_sessions cs
      LEFT JOIN users u ON cs.instructor_id = u.id
+     LEFT JOIN classes c ON c.id = cs.class_id
      WHERE cs.class_id = $1 AND cs.deleted_at IS NULL
      ORDER BY cs.session_date, cs.start_time`,
     [classId]
@@ -683,17 +687,18 @@ const createClassWithSessions = async (classData) => {
         await client.query(
           `INSERT INTO class_sessions (
             class_id, session_date, end_date, start_time, end_time, 
-            capacity, instructor_id, status
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            capacity, instructor_id, status, location_details
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
           [
             newClass.id,
             dateData.date,
             dateData.end_date || dateData.date, // Use start date as end date if not provided
             dateData.start_time,
             dateData.end_time,
-            classData.capacity,
+            dateData.capacity,
             classData.instructor_id,
-            'scheduled'
+            'scheduled',
+            dateData.location
           ]
         );
       }
@@ -829,15 +834,16 @@ const updateClassWithSessions = async (classId, classData) => {
           await client.query(
             `UPDATE class_sessions 
              SET session_date = $1, end_date = $2, start_time = $3, end_time = $4, 
-                 capacity = $5, instructor_id = $6, updated_at = CURRENT_TIMESTAMP
-             WHERE id = $7 AND class_id = $8 AND deleted_at IS NULL`,
+                 capacity = $5, instructor_id = $6, location_details = $7, updated_at = CURRENT_TIMESTAMP
+             WHERE id = $8 AND class_id = $9 AND deleted_at IS NULL`,
             [
               dateData.date,
               dateData.end_date || dateData.date,
               dateData.start_time,
               dateData.end_time,
-              classData.capacity,
+              dateData.capacity,
               classData.instructor_id,
+              dateData.location,
               dateData.id,
               classId
             ]
@@ -847,17 +853,18 @@ const updateClassWithSessions = async (classId, classData) => {
           await client.query(
             `INSERT INTO class_sessions (
               class_id, session_date, end_date, start_time, end_time, 
-              capacity, instructor_id, status
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+              capacity, instructor_id, status, location_details
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
             [
               classId,
               dateData.date,
               dateData.end_date || dateData.date,
               dateData.start_time,
               dateData.end_time,
-              classData.capacity,
+              dateData.capacity,
               classData.instructor_id,
-              'scheduled'
+              'scheduled',
+              dateData.location
             ]
           );
         }
