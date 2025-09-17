@@ -625,6 +625,7 @@ function ClassManagement() {
           }}>
             <Box sx={{
               mt: { xs: 0.5, sm: 2 },
+              mb: { xs: 4, sm: 2 },
               display: "flex",
               flexDirection: "column",
               gap: { xs: 1, sm: 2 }
@@ -773,7 +774,10 @@ function ClassManagement() {
                 onClick={handleAddDate}
                 variant="outlined"
                 size="small"
-                sx={{ alignSelf: 'flex-start' }}
+                sx={{ 
+                  alignSelf: 'flex-start',
+                  mb: { xs: 2, sm: 1 }
+                }}
               >
                 Add Another Date
               </Button>
