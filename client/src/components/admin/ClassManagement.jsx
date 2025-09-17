@@ -62,11 +62,11 @@ const IOSDialog = styled(Dialog)(({ theme }) => ({
       WebkitOverflowScrolling: 'touch',
     },
     '& .MuiDialogContent-root': {
-      maxHeight: 'calc(85vh - 180px) !important',
+      maxHeight: 'calc(85vh - 200px) !important',
       WebkitOverflowScrolling: 'touch',
     },
     '& .MuiDialogActions-root': {
-      minHeight: '140px !important',
+      minHeight: '120px !important',
       position: 'sticky !important',
       bottom: '0 !important',
       backgroundColor: theme.palette.background.paper,
@@ -615,7 +615,7 @@ function ClassManagement() {
             flex: 1,
             overflow: 'auto',
             minHeight: 0,
-            maxHeight: { xs: 'calc(85vh - 180px)', sm: '70vh' },
+            maxHeight: { xs: 'calc(85vh - 200px)', sm: '70vh' },
             px: { xs: 2, sm: 3 },
             pb: { xs: 0, sm: 2 },
             // iOS Safari specific
@@ -624,7 +624,12 @@ function ClassManagement() {
               width: '4px'
             }
           }}>
-            <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 2 }}>
+            <Box sx={{
+              mt: { xs: 1, sm: 2 },
+              display: "flex",
+              flexDirection: "column",
+              gap: { xs: 1.5, sm: 2 }
+            }}>
               <TextField
                 name="title"
                 label="Class Title"
@@ -657,14 +662,14 @@ function ClassManagement() {
                 value={form.description}
                 onChange={handleChange}
                 multiline
-                rows={4}
+                rows={{ xs: 3, sm: 4 }}
                 fullWidth
                 required
               />
-              <Typography variant="subtitle1" sx={{ mt: 2 }}>
+              <Typography variant="subtitle1" sx={{ mt: { xs: 1, sm: 2 } }}>
                 Class Dates and Times
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: { xs: 1, sm: 2 }, display: 'block' }}>
                 For one-day classes (like CPR), set the same date for both start and end dates.
               </Typography>
               {form.dates.map((date, index) => {
@@ -673,12 +678,12 @@ function ClassManagement() {
                     border: '1px solid',
                     borderColor: 'divider',
                     borderRadius: 1,
-                    p: 2,
-                    mb: 2
+                    p: { xs: 1.5, sm: 2 },
+                    mb: { xs: 1.5, sm: 2 }
                   }}>
                     <Stack
                       direction={{ xs: 'column', sm: 'row' }}
-                      spacing={{ xs: 2, sm: 2 }}
+                      spacing={{ xs: 1.5, sm: 2 }}
                       alignItems={{ xs: 'stretch', sm: 'center' }}
                     >
                       <TextField
@@ -796,12 +801,12 @@ function ClassManagement() {
           <DialogActions sx={{
             flexShrink: 0,
             px: { xs: 2, sm: 3 },
-            py: { xs: 4, sm: 1 },
-            gap: { xs: 3, sm: 1 },
+            py: { xs: 3, sm: 1 },
+            gap: { xs: 2, sm: 1 },
             flexDirection: { xs: 'column', sm: 'row' },
             justifyContent: { xs: 'stretch', sm: 'flex-end' },
             alignItems: { xs: 'stretch', sm: 'center' },
-            minHeight: { xs: '140px', sm: 'auto' },
+            minHeight: { xs: '120px', sm: 'auto' },
             position: 'sticky',
             bottom: 0,
             zIndex: 10,
