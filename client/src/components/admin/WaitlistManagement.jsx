@@ -148,7 +148,7 @@ function WaitlistManagement() {
         if (waitlistEntries.length === 0) {
             return [];
         }
-        
+
         // Remove duplicates based on id
         return waitlistEntries.reduce((acc, entry) => {
             if (!acc.find(item => item.id === entry.id)) {
