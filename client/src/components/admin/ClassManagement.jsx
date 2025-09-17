@@ -55,25 +55,30 @@ import {
 const IOSDialog = styled(Dialog)(({ theme }) => ({
   '@media screen and (-webkit-min-device-pixel-ratio: 0)': {
     '& .MuiDialog-paper': {
-      maxHeight: '75vh !important',
-      margin: '2px !important',
-      top: '12.5vh !important',
+      maxHeight: '90vh !important',
+      margin: '20px !important',
+      top: '5vh !important',
       overflow: 'hidden !important',
       WebkitOverflowScrolling: 'touch',
     },
     '& .MuiDialogContent-root': {
-      maxHeight: 'calc(75vh - 150px) !important',
+      maxHeight: 'calc(90vh - 200px) !important',
+      paddingBottom: '120px !important',
       WebkitOverflowScrolling: 'touch',
     },
     '& .MuiDialogActions-root': {
       minHeight: '100px !important',
-      position: 'sticky !important',
+      position: 'fixed !important',
       bottom: '0 !important',
+      left: '0 !important',
+      right: '0 !important',
       backgroundColor: theme.palette.background.paper,
       borderTop: '1px solid',
       borderColor: theme.palette.divider,
       paddingTop: '16px !important',
       paddingBottom: '16px !important',
+      zIndex: '9999 !important',
+      boxShadow: '0 -2px 8px rgba(0,0,0,0.1) !important',
     }
   }
 }));
@@ -588,10 +593,10 @@ function ClassManagement() {
           sx={{
             zIndex: 1450,
             '& .MuiDialog-paper': {
-              maxHeight: { xs: '75vh', sm: '90vh' },
-              margin: { xs: '2px', sm: '20px' },
+              maxHeight: { xs: '90vh', sm: '90vh' },
+              margin: { xs: '20px', sm: '20px' },
               position: 'relative',
-              top: { xs: '12.5vh', sm: '5vh' },
+              top: { xs: '5vh', sm: '5vh' },
               display: 'flex',
               flexDirection: 'column',
               minHeight: { xs: 'auto', sm: 'auto' },
@@ -615,9 +620,9 @@ function ClassManagement() {
             flex: 1,
             overflow: 'auto',
             minHeight: 0,
-            maxHeight: { xs: 'calc(75vh - 150px)', sm: '70vh' },
+            maxHeight: { xs: 'calc(90vh - 200px)', sm: '70vh' },
             px: { xs: 2, sm: 3 },
-            pb: { xs: 0, sm: 2 },
+            pb: { xs: '120px', sm: 2 },
             // iOS Safari specific
             WebkitOverflowScrolling: 'touch',
             '&::-webkit-scrollbar': {
@@ -807,12 +812,15 @@ function ClassManagement() {
             justifyContent: { xs: 'stretch', sm: 'flex-end' },
             alignItems: { xs: 'stretch', sm: 'center' },
             minHeight: { xs: '100px', sm: 'auto' },
-            position: 'sticky',
-            bottom: 0,
-            zIndex: 10,
+            position: { xs: 'fixed', sm: 'sticky' },
+            bottom: { xs: 0, sm: 0 },
+            left: { xs: 0, sm: 'auto' },
+            right: { xs: 0, sm: 'auto' },
+            zIndex: { xs: 9999, sm: 10 },
             backgroundColor: 'background.paper',
             borderTop: { xs: '1px solid', sm: 'none' },
             borderColor: 'divider',
+            boxShadow: { xs: '0 -2px 8px rgba(0,0,0,0.1)', sm: 'none' },
             // iOS Safari specific fixes
             WebkitTransform: 'translateZ(0)',
             transform: 'translateZ(0)',
