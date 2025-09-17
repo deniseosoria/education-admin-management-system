@@ -143,6 +143,21 @@ function WaitlistManagement() {
         return filtered;
     }, [waitlistEntries, filters]);
 
+    // Memoized unique entries for statistics (without filters)
+    const uniqueEntries = useMemo(() => {
+        if (waitlistEntries.length === 0) {
+            return [];
+        }
+        
+        // Remove duplicates based on id
+        return waitlistEntries.reduce((acc, entry) => {
+            if (!acc.find(item => item.id === entry.id)) {
+                acc.push(entry);
+            }
+            return acc;
+        }, []);
+    }, [waitlistEntries]);
+
     const handleWaitlistAction = async (entry, action) => {
         try {
             setLoading(true);
@@ -216,7 +231,7 @@ function WaitlistManagement() {
                                 Pending Entries
                             </Typography>
                             <Typography variant="h4" component="div" color="warning.main">
-                                {waitlistEntries.filter(entry => entry.status === 'pending').length}
+                                {uniqueEntries.filter(entry => entry.status === 'pending').length}
                             </Typography>
                         </CardContent>
                     </Card>
@@ -228,7 +243,7 @@ function WaitlistManagement() {
                                 Active Classes
                             </Typography>
                             <Typography variant="h4" component="div" color="primary.main">
-                                {new Set(waitlistEntries.map(entry => entry.class_id)).size}
+                                {new Set(uniqueEntries.map(entry => entry.class_id)).size}
                             </Typography>
                         </CardContent>
                     </Card>
