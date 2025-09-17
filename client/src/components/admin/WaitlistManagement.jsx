@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import adminService from "../../services/adminService";
 import { useNotifications } from '../../utils/notificationUtils';
 import {
@@ -36,7 +36,6 @@ import {
     School as SchoolIcon,
     CheckCircle as CheckCircleIcon,
     Cancel as CancelIcon,
-    Refresh as RefreshIcon,
     FilterList as FilterListIcon,
     Search as SearchIcon,
 } from "@mui/icons-material";
@@ -68,14 +67,12 @@ function WaitlistManagement() {
     const [waitlistEntries, setWaitlistEntries] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [filteredEntries, setFilteredEntries] = useState([]);
     const [filters, setFilters] = useState({
         class: 'all',
         search: ''
     });
     const [classes, setClasses] = useState([]);
     const { showSuccess, showError } = useNotifications();
-    const applyFiltersTimeoutRef = useRef(null);
 
     // Fetch all waitlist entries on component mount
     useEffect(() => {
@@ -107,62 +104,44 @@ function WaitlistManagement() {
         }
     };
 
-    const applyFilters = useCallback(() => {
-        // Clear any existing timeout
-        if (applyFiltersTimeoutRef.current) {
-            clearTimeout(applyFiltersTimeoutRef.current);
+    // Memoized filtered entries - this will only recalculate when waitlistEntries or filters change
+    const filteredEntries = useMemo(() => {
+        // Only apply filters if we have entries to filter
+        if (waitlistEntries.length === 0) {
+            return [];
         }
 
-        // Debounce the filter application to prevent rapid successive calls
-        applyFiltersTimeoutRef.current = setTimeout(() => {
-            try {
-                console.log('applyFilters called with:', { waitlistEntries: waitlistEntries.length, filters });
-                let filtered = [...waitlistEntries];
-
-                // Filter by class - convert both to strings for comparison
-                if (filters.class !== 'all') {
-                    const classId = filters.class.toString();
-                    filtered = filtered.filter(entry => {
-                        const entryClassId = entry.class_id.toString();
-                        return entryClassId === classId;
-                    });
-                }
-
-                // Filter by search term
-                if (filters.search && filters.search.trim()) {
-                    const searchTerm = filters.search.toLowerCase().trim();
-                    filtered = filtered.filter(entry =>
-                        (entry.user_name && entry.user_name.toLowerCase().includes(searchTerm)) ||
-                        (entry.user_email && entry.user_email.toLowerCase().includes(searchTerm)) ||
-                        (entry.class_name && entry.class_name.toLowerCase().includes(searchTerm))
-                    );
-                }
-
-                console.log('Filtered results:', filtered.length);
-                setFilteredEntries(filtered);
-            } catch (error) {
-                console.error('Error applying filters:', error);
-                // Fallback to showing all entries if filtering fails
-                setFilteredEntries([...waitlistEntries]);
+        // Remove duplicates based on id to prevent React key warnings
+        const uniqueEntries = waitlistEntries.reduce((acc, entry) => {
+            if (!acc.find(item => item.id === entry.id)) {
+                acc.push(entry);
             }
-        }, 100); // 100ms debounce
+            return acc;
+        }, []);
+
+        let filtered = [...uniqueEntries];
+
+        // Filter by class - convert both to strings for comparison
+        if (filters.class !== 'all') {
+            const classId = filters.class.toString();
+            filtered = filtered.filter(entry => {
+                const entryClassId = entry.class_id.toString();
+                return entryClassId === classId;
+            });
+        }
+
+        // Filter by search term
+        if (filters.search && filters.search.trim()) {
+            const searchTerm = filters.search.toLowerCase().trim();
+            filtered = filtered.filter(entry =>
+                (entry.user_name && entry.user_name.toLowerCase().includes(searchTerm)) ||
+                (entry.user_email && entry.user_email.toLowerCase().includes(searchTerm)) ||
+                (entry.class_name && entry.class_name.toLowerCase().includes(searchTerm))
+            );
+        }
+
+        return filtered;
     }, [waitlistEntries, filters]);
-
-    // Apply filters whenever waitlistEntries or filters change
-    useEffect(() => {
-        if (waitlistEntries.length > 0) {
-            applyFilters();
-        }
-    }, [waitlistEntries, filters, applyFilters]);
-
-    // Cleanup timeout on unmount
-    useEffect(() => {
-        return () => {
-            if (applyFiltersTimeoutRef.current) {
-                clearTimeout(applyFiltersTimeoutRef.current);
-            }
-        };
-    }, []);
 
     const handleWaitlistAction = async (entry, action) => {
         try {
@@ -206,31 +185,6 @@ function WaitlistManagement() {
         showError(error.message || customMessage);
     };
 
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'pending':
-                return 'warning';
-            case 'approved':
-                return 'success';
-            case 'rejected':
-                return 'error';
-            case 'waiting':
-                return 'info';
-            default:
-                return 'default';
-        }
-    };
-
-    const getStatusIcon = (status) => {
-        switch (status) {
-            case 'approved':
-                return <CheckCircleIcon fontSize="small" />;
-            case 'rejected':
-                return <CancelIcon fontSize="small" />;
-            default:
-                return <QueueIcon fontSize="small" />;
-        }
-    };
 
     if (loading && waitlistEntries.length === 0) {
         return (
@@ -358,14 +312,13 @@ function WaitlistManagement() {
                                     <ScheduleIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                                     Next Session
                                 </TableCell>
-                                <TableCell>Status</TableCell>
                                 <TableCell>Actions</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
                             {filteredEntries.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                                         <Typography variant="body1" color="text.secondary">
                                             {filters.class !== 'all' || filters.search
                                                 ? 'No active waitlist entries match your filters'
@@ -405,15 +358,6 @@ function WaitlistManagement() {
                                             <Typography variant="body2" color="text.secondary">
                                                 {entry.next_session_date ? formatDate(entry.next_session_date) : 'N/A'}
                                             </Typography>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Chip
-                                                icon={getStatusIcon(entry.status)}
-                                                label={entry.status}
-                                                color={getStatusColor(entry.status)}
-                                                size="small"
-                                                variant="outlined"
-                                            />
                                         </TableCell>
                                         <TableCell>
                                             {(entry.status === 'waiting' || entry.status === 'pending') && (
