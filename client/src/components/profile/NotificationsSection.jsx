@@ -23,7 +23,7 @@ const NotificationsSection = ({ notifications, onNotificationsUpdate }) => {
     const handleMarkAllAsRead = async () => {
         try {
             await userService.markAllNotificationsAsRead();
-            const updatedNotifications = notifications.map(notification => ({
+            const updatedNotifications = (notifications || []).map(notification => ({
                 ...notification,
                 is_read: true
             }));
@@ -36,7 +36,7 @@ const NotificationsSection = ({ notifications, onNotificationsUpdate }) => {
     const handleDelete = async (notificationId) => {
         try {
             await userService.deleteNotification(notificationId);
-            const updatedNotifications = notifications.filter(
+            const updatedNotifications = (notifications || []).filter(
                 notification => notification.id !== notificationId
             );
             onNotificationsUpdate(updatedNotifications);
@@ -55,7 +55,7 @@ const NotificationsSection = ({ notifications, onNotificationsUpdate }) => {
         return icons[type] || icons.default;
     };
 
-    const unreadCount = notifications.filter(n => !n.is_read).length;
+    const unreadCount = (notifications || []).filter(n => !n.is_read).length;
 
     return (
         <div className="notifications-section">
@@ -72,9 +72,9 @@ const NotificationsSection = ({ notifications, onNotificationsUpdate }) => {
                 )}
             </div>
 
-            {notifications.length > 0 ? (
+            {(notifications || []).length > 0 ? (
                 <div className="notifications-list">
-                    {notifications.map(notification => (
+                    {(notifications || []).map(notification => (
                         <div
                             key={notification.id}
                             className={`notification-item ${!notification.is_read ? 'unread' : ''}`}

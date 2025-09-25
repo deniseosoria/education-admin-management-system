@@ -344,6 +344,7 @@ async function getProfileWithDetails(userId) {
       profile.notifications = notificationsResult.rows;
     } catch (err) {
       console.log('Notifications table not available:', err.message);
+      profile.notifications = []; // Set empty array instead of undefined
     }
 
     // Try to get user's waitlist entries if the table exists
