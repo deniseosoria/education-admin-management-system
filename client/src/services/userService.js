@@ -4,12 +4,12 @@ import { API_BASE_URL } from '../config/apiConfig.js';
 const userService = {
     // Get user profile with all details
     getProfile: async () => {
-        return api.get('/users/profile');
+        return api.get('/profile/profile');
     },
 
     // Update user profile
     updateProfile: async (profileData) => {
-        return api.put('/users/profile', profileData);
+        return api.put('/profile/profile', profileData);
     },
 
     // Get notifications
