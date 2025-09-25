@@ -4,12 +4,12 @@ import { API_BASE_URL } from '../config/apiConfig.js';
 const userService = {
     // Get user profile with all details
     getProfile: async () => {
-        return api.get('/profile/profile');
+        return api.get('/users/profile');
     },
 
     // Update user profile
     updateProfile: async (profileData) => {
-        return api.put('/profile/profile', profileData);
+        return api.put('/users/profile', profileData);
     },
 
     // Get notifications
@@ -123,7 +123,7 @@ const fetchWithAuth = async (url, options = {}) => {
     const contentType = response.headers.get('content-type');
 
     if (response.status === 401) {
-        window.location.href = '/login';
+        // Don't redirect here - let React Router handle authentication
         throw new Error('Unauthorized');
     }
 
