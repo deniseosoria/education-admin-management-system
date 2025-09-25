@@ -10,7 +10,8 @@ const {
   approveEnrollmentRequest,
   rejectEnrollmentRequest,
   setEnrollmentToPending,
-  getWaitlistStatus
+  getWaitlistStatus,
+  testEnrollmentEmail
 } = require('../controllers/enrollmentController');
 
 const { requireAuth, requireAdmin } = require('../middleware/auth');
@@ -45,7 +46,7 @@ router.post('/waitlist/:classId', requireAuth, async (req, res) => {
   // Redirect to the class waitlist endpoint
   const { classId } = req.params;
   const userId = req.user.id;
-  
+
   try {
     // Import the class controller function
     const { addToWaitlist } = require('../models/classModel');
@@ -68,18 +69,18 @@ router.delete('/waitlist/:classId', requireAuth, async (req, res) => {
   // Remove from waitlist
   const { classId } = req.params;
   const userId = req.user.id;
-  
+
   try {
     const pool = require('../config/db');
     const result = await pool.query(
       'DELETE FROM class_waitlist WHERE class_id = $1 AND user_id = $2 RETURNING *',
       [classId, userId]
     );
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Not on waitlist' });
     }
-    
+
     res.json({ message: 'Removed from waitlist' });
   } catch (err) {
     console.error('Remove from waitlist error:', err);
@@ -102,6 +103,7 @@ router.get('/:id', requireAuth, requireAdmin, getEnrollmentDetails);
 router.post('/:id/approve', requireAuth, requireAdmin, approveEnrollmentRequest);
 router.post('/:id/reject', requireAuth, requireAdmin, rejectEnrollmentRequest);
 router.post('/:id/pending', requireAuth, requireAdmin, setEnrollmentToPending);
+router.post('/test-email', requireAuth, requireAdmin, testEnrollmentEmail);
 
 console.log('Enrollment routes registered:', router.stack.map(r => r.route?.path).filter(Boolean));
 

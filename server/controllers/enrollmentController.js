@@ -72,6 +72,16 @@ const enrollInClass = async (req, res) => {
     const enrollment = await enrollUserInClass(userId, classId, sessionId, "paid");
 
     // Send pending enrollment email asynchronously (don't wait for it)
+    console.log(`📧 Attempting to send enrollment pending email to: ${req.user.email}`);
+    console.log(`📧 User details:`, {
+      email: req.user.email,
+      name: req.user.name || `${req.user.first_name} ${req.user.last_name}`,
+      classTitle: classDetails.title,
+      sessionDate: session.rows[0].session_date,
+      startTime: session.rows[0].start_time,
+      endTime: session.rows[0].end_time
+    });
+
     emailService.sendEnrollmentPendingEmail(
       req.user.email,
       req.user.name || `${req.user.first_name} ${req.user.last_name}`,
@@ -84,10 +94,17 @@ const enrollInClass = async (req, res) => {
         start_time: session.rows[0].start_time,
         end_time: session.rows[0].end_time
       }
-    ).then(() => {
-      console.log(`Enrollment pending email sent to: ${req.user.email}`);
+    ).then((result) => {
+      console.log(`✅ Enrollment pending email sent successfully to: ${req.user.email}`);
+      console.log(`📧 Email result:`, result);
     }).catch((emailError) => {
-      console.error("Email sending failed:", emailError);
+      console.error("❌ Email sending failed for enrollment:", emailError);
+      console.error("❌ Email error details:", {
+        message: emailError.message,
+        stack: emailError.stack,
+        userEmail: req.user.email,
+        className: classDetails.title
+      });
       // Email failure doesn't affect enrollment success
     });
 
@@ -377,6 +394,84 @@ const getWaitlistStatus = async (req, res) => {
   }
 };
 
+// @desc    Test enrollment email (admin only)
+// @route   POST /api/enrollments/test-email
+// @access  Admin
+const testEnrollmentEmail = async (req, res) => {
+  const { userEmail, userName, className, classDetails, sessionDetails } = req.body;
+
+  if (!userEmail || !userName || !className) {
+    return res.status(400).json({ error: "Missing required fields: userEmail, userName, className" });
+  }
+
+  try {
+    console.log(`🧪 Testing enrollment email for: ${userEmail}`);
+
+    // For test emails, use the specific URL
+    const testEmailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+        <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #2c3e50; margin: 0; font-size: 28px;">Enrollment Submitted</h1>
+            <p style="color: #7f8c8d; margin: 10px 0 0 0; font-size: 16px;">Your enrollment is pending approval</p>
+          </div>
+          
+          <div style="margin-bottom: 25px;">
+            <h2 style="color: #34495e; font-size: 20px; margin-bottom: 15px;">Hello ${userName}! 📝</h2>
+            <p style="color: #2c3e50; line-height: 1.6; margin-bottom: 15px;">
+              Thank you for enrolling in <strong>${className}</strong>. Your enrollment has been successfully submitted and is now pending approval from our team.
+            </p>
+          </div>
+          
+          <div style="background-color: #fff3cd; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #ffc107;">
+            <h3 style="color: #2c3e50; margin-top: 0; font-size: 18px;">Enrollment Details</h3>
+            <div style="color: #2c3e50; line-height: 1.8;">
+              <p><strong>Class:</strong> ${className}</p>
+              <p><strong>Date:</strong> ${new Date(sessionDetails?.session_date || new Date()).toLocaleDateString()}</p>
+              <p><strong>Time:</strong> ${sessionDetails?.start_time || "10:00 AM"} - ${sessionDetails?.end_time || "12:00 PM"}</p>
+              <p><strong>Location:</strong> ${classDetails?.location_details || "Test Location"}</p>
+              <p><strong>Status:</strong> <span style="color: #ffc107; font-weight: bold;">⏳ Pending Approval</span></p>
+            </div>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="https://yjchildcareplus.com/profile?section=enrollments" 
+               style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
+              View My Enrollments
+            </a>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1;">
+            <p style="color: #95a5a6; font-size: 12px; margin: 0;">
+              Best regards,<br>
+              <strong>The YJ Child Care Plus Team</strong>
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const result = await emailService.sendEmail({
+      to: userEmail,
+      subject: `⏳ Enrollment Submitted: ${className} - Pending Approval`,
+      html: testEmailHtml
+    });
+
+    console.log(`🧪 Test email result:`, result);
+    res.json({
+      success: true,
+      message: "Test email sent successfully",
+      result: result
+    });
+  } catch (error) {
+    console.error("🧪 Test email error:", error);
+    res.status(500).json({
+      error: "Failed to send test email",
+      details: error.message
+    });
+  }
+};
+
 module.exports = {
   enrollInClass,
   cancelClassEnrollment,
@@ -388,4 +483,5 @@ module.exports = {
   rejectEnrollmentRequest,
   setEnrollmentToPending,
   getWaitlistStatus,
+  testEnrollmentEmail,
 };
