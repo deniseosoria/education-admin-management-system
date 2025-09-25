@@ -466,7 +466,7 @@ const emailService = {
         </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.CLIENT_URL || 'https://yjchildcareplus.com'}/profile?section=enrollments" 
+            <a href="https://yjchildcareplus.com/profile?section=enrollments" 
                style="background-color: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
               View My Classes
             </a>
@@ -598,7 +598,7 @@ const emailService = {
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.CLIENT_URL || 'https://yjchildcareplus.com'}/profile?section=enrollments" 
+            <a href="https://yjchildcareplus.com/profile?section=enrollments" 
                style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
               View My Enrollments
             </a>
@@ -676,7 +676,7 @@ const emailService = {
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.CLIENT_URL || 'https://yjchildcareplus.com'}/profile?section=enrollments" 
+            <a href="https://yjchildcareplus.com/profile?section=enrollments" 
                style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
               View My Enrollments
             </a>
@@ -753,7 +753,7 @@ const emailService = {
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.CLIENT_URL || 'https://yjchildcareplus.com'}/profile?section=enrollments" 
+            <a href="https://yjchildcareplus.com/profile?section=enrollments" 
                style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
               View My Enrollments
             </a>
