@@ -82,30 +82,35 @@ const enrollInClass = async (req, res) => {
       endTime: session.rows[0].end_time
     });
 
-    emailService.sendEnrollmentPendingEmail(
-      req.user.email,
-      req.user.name || `${req.user.first_name} ${req.user.last_name}`,
-      classDetails.title,
-      {
-        location_details: classDetails.location_details
-      },
-      {
-        session_date: session.rows[0].session_date,
-        start_time: session.rows[0].start_time,
-        end_time: session.rows[0].end_time
+    // Use setImmediate to ensure email is sent after response is sent
+    setImmediate(async () => {
+      try {
+        console.log(`📧 Starting email send process for: ${req.user.email}`);
+        const result = await emailService.sendEnrollmentPendingEmail(
+          req.user.email,
+          req.user.name || `${req.user.first_name} ${req.user.last_name}`,
+          classDetails.title,
+          {
+            location_details: classDetails.location_details
+          },
+          {
+            session_date: session.rows[0].session_date,
+            start_time: session.rows[0].start_time,
+            end_time: session.rows[0].end_time
+          }
+        );
+        console.log(`✅ Enrollment pending email sent successfully to: ${req.user.email}`);
+        console.log(`📧 Email result:`, result);
+      } catch (emailError) {
+        console.error("❌ Email sending failed for enrollment:", emailError);
+        console.error("❌ Email error details:", {
+          message: emailError.message,
+          stack: emailError.stack,
+          userEmail: req.user.email,
+          className: classDetails.title
+        });
+        // Email failure doesn't affect enrollment success
       }
-    ).then((result) => {
-      console.log(`✅ Enrollment pending email sent successfully to: ${req.user.email}`);
-      console.log(`📧 Email result:`, result);
-    }).catch((emailError) => {
-      console.error("❌ Email sending failed for enrollment:", emailError);
-      console.error("❌ Email error details:", {
-        message: emailError.message,
-        stack: emailError.stack,
-        userEmail: req.user.email,
-        className: classDetails.title
-      });
-      // Email failure doesn't affect enrollment success
     });
 
     // Send response immediately without waiting for email
