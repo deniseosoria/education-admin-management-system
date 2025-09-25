@@ -41,7 +41,43 @@ const enrollInClass = async (req, res) => {
     // Check if already enrolled
     const alreadyEnrolled = await isUserAlreadyEnrolled(userId, classId);
     if (alreadyEnrolled) {
-      return res.status(400).json({ error: "User already enrolled in this class" });
+      // Get existing enrollment details to send email
+      const existingEnrollment = await pool.query(
+        'SELECT e.*, c.title, c.location_details, cs.session_date, cs.start_time, cs.end_time FROM enrollments e JOIN classes c ON c.id = e.class_id JOIN class_sessions cs ON cs.id = e.session_id WHERE e.user_id = $1 AND e.class_id = $2 ORDER BY e.enrolled_at DESC LIMIT 1',
+        [userId, classId]
+      );
+
+      if (existingEnrollment.rows[0]) {
+        const enrollment = existingEnrollment.rows[0];
+
+        // Send enrollment email for existing enrollment
+        console.log(`📧 User already enrolled, sending enrollment email to: ${req.user.email}`);
+        setImmediate(async () => {
+          try {
+            const result = await emailService.sendEnrollmentPendingEmail(
+              req.user.email,
+              req.user.name || `${req.user.first_name} ${req.user.last_name}`,
+              enrollment.title,
+              {
+                location_details: enrollment.location_details
+              },
+              {
+                session_date: enrollment.session_date,
+                start_time: enrollment.start_time,
+                end_time: enrollment.end_time
+              }
+            );
+            console.log(`✅ Enrollment email sent for existing enrollment to: ${req.user.email}`);
+          } catch (emailError) {
+            console.error("❌ Email sending failed for existing enrollment:", emailError);
+          }
+        });
+      }
+
+      return res.status(400).json({
+        error: "User already enrolled in this class",
+        message: "You are already enrolled in this class. Check your email for enrollment details."
+      });
     }
 
     // Validate class exists and is available
