@@ -303,6 +303,7 @@ async function getProfileWithDetails(userId) {
         enrollments: profile.enrollments
       });
     } catch (err) {
+      console.error('Error fetching enrollments for user', userId, ':', err);
       console.log('Enrollments table not available:', err.message);
       profile.enrollments = [];
     }
@@ -342,7 +343,12 @@ async function getProfileWithDetails(userId) {
         LIMIT 10
       `, [userId]);
       profile.notifications = notificationsResult.rows;
+      console.log('Profile notifications fetched for user', userId, ':', {
+        count: profile.notifications.length,
+        notifications: profile.notifications
+      });
     } catch (err) {
+      console.error('Error fetching notifications for user', userId, ':', err);
       console.log('Notifications table not available:', err.message);
       profile.notifications = []; // Set empty array instead of undefined
     }
