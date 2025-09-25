@@ -71,8 +71,8 @@ const enrollInClass = async (req, res) => {
     // Create enrollment
     const enrollment = await enrollUserInClass(userId, classId, sessionId, "paid");
 
-    // Send confirmation email asynchronously (don't wait for it)
-    emailService.sendEnrollmentConfirmationEmail(
+    // Send pending enrollment email asynchronously (don't wait for it)
+    emailService.sendEnrollmentPendingEmail(
       req.user.email,
       req.user.name || `${req.user.first_name} ${req.user.last_name}`,
       classDetails.title,
@@ -85,7 +85,7 @@ const enrollInClass = async (req, res) => {
         end_time: session.rows[0].end_time
       }
     ).then(() => {
-      console.log(`Enrollment confirmation email sent to: ${req.user.email}`);
+      console.log(`Enrollment pending email sent to: ${req.user.email}`);
     }).catch((emailError) => {
       console.error("Email sending failed:", emailError);
       // Email failure doesn't affect enrollment success

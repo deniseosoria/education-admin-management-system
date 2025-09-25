@@ -625,6 +625,84 @@ const emailService = {
     await sendEmail({ to: userEmail, subject, html });
   },
 
+  // Send enrollment pending approval email
+  sendEnrollmentPendingEmail: async (userEmail, userName, className, classDetails, sessionDetails) => {
+    const subject = `⏳ Enrollment Submitted: ${className} - Pending Approval`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+        <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #2c3e50; margin: 0; font-size: 28px;">Enrollment Submitted</h1>
+            <p style="color: #7f8c8d; margin: 10px 0 0 0; font-size: 16px;">Your enrollment is pending approval</p>
+          </div>
+          
+          <div style="margin-bottom: 25px;">
+            <h2 style="color: #34495e; font-size: 20px; margin-bottom: 15px;">Hello ${userName}! 📝</h2>
+            <p style="color: #2c3e50; line-height: 1.6; margin-bottom: 15px;">
+              Thank you for enrolling in <strong>${className}</strong>. Your enrollment has been successfully submitted and is now pending approval from our team.
+            </p>
+          </div>
+          
+          <div style="background-color: #fff3cd; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #ffc107;">
+            <h3 style="color: #2c3e50; margin-top: 0; font-size: 18px;">Enrollment Details</h3>
+            <div style="color: #2c3e50; line-height: 1.8;">
+              <p><strong>Class:</strong> ${className}</p>
+              <p><strong>Date:</strong> ${new Date(sessionDetails.session_date).toLocaleDateString()}</p>
+              <p><strong>Time:</strong> ${sessionDetails.start_time} - ${sessionDetails.end_time}</p>
+              <p><strong>Location:</strong> ${classDetails.location_details}</p>
+              <p><strong>Status:</strong> <span style="color: #ffc107; font-weight: bold;">⏳ Pending Approval</span></p>
+            </div>
+          </div>
+          
+          <div style="background-color: #e8f4fd; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #3498db;">
+            <h3 style="color: #2c3e50; margin-top: 0; font-size: 18px;">What Happens Next?</h3>
+            <ul style="color: #2c3e50; line-height: 1.8; padding-left: 20px;">
+              <li>Our team will review your enrollment request</li>
+              <li>You'll receive an email notification once your enrollment is approved or rejected</li>
+              <li>If approved, you'll get confirmation details and next steps</li>
+              <li>You can check your enrollment status anytime in your profile</li>
+              <li>We typically process enrollments within 1-2 business days</li>
+            </ul>
+          </div>
+          
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #6c757d;">
+            <h3 style="color: #2c3e50; margin-top: 0; font-size: 18px;">Important Notes</h3>
+            <ul style="color: #2c3e50; line-height: 1.8; padding-left: 20px;">
+              <li>Please do not make travel arrangements until your enrollment is approved</li>
+              <li>If you need to make changes, contact us as soon as possible</li>
+              <li>Your spot is reserved while your enrollment is being reviewed</li>
+              <li>You'll be notified immediately once a decision is made</li>
+            </ul>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.CLIENT_URL}/profile?section=enrollments" 
+               style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
+              View My Enrollments
+            </a>
+          </div>
+          
+          <div style="border-top: 1px solid #ecf0f1; padding-top: 20px; margin-top: 30px;">
+            <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 10px;">
+              <strong>Questions?</strong> Contact our support team if you need assistance.
+            </p>
+            <p style="color: #7f8c8d; font-size: 14px; margin: 0;">
+              Contact us at <a href="mailto:yvelisse225@gmail.com" style="color: #3498db;">yvelisse225@gmail.com</a>
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1;">
+            <p style="color: #95a5a6; font-size: 12px; margin: 0;">
+              Best regards,<br>
+              <strong>The YJ Child Care Plus Team</strong>
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+    await sendEmail({ to: userEmail, subject, html });
+  },
+
   // Send enrollment approval email
   sendEnrollmentApprovalEmail: async (userEmail, userName, className, classDetails, sessionDetails, adminNotes) => {
     const subject = `✅ Enrollment Approved: ${className}`;
