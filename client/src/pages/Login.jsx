@@ -16,9 +16,9 @@ const Login = () => {
     const [showPassword, setShowPassword] = useState(false);
 
     // Get the redirect path from location state or default to home
-    const from = location.state?.from?.pathname || '/';
+    const from = location.state?.from || '/';
 
-    console.log('Login component rendered with state:', { from, error, loading }); // Debug log
+    console.log('Login component rendered with state:', { from, error, loading, locationState: location.state }); // Debug log
 
     const handleChange = useCallback((e) => {
         const { name, value } = e.target;

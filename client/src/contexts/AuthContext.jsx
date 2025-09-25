@@ -69,7 +69,8 @@ export const AuthProvider = ({ children }) => {
 
         console.log('Checking auth status:', {
             hasStoredToken: !!storedToken,
-            hasStoredUser: !!storedUser
+            hasStoredUser: !!storedUser,
+            currentPath: window.location.pathname + window.location.search
         }); // Debug log
 
         if (!storedToken || !storedUser) {
