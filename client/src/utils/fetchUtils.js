@@ -41,10 +41,9 @@ export const fetchWithAuth = async (url, options = {}) => {
       headers
     });
 
-    // If the response is 401 (Unauthorized), clear the token and redirect to login
+    // If the response is 401 (Unauthorized), clear the token but don't redirect
     if (response.status === 401) {
       localStorage.removeItem('token');
-      window.location.href = '/login';
       throw new Error('Session expired. Please login again.');
     }
 

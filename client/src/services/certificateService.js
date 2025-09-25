@@ -19,7 +19,7 @@ const fetchWithAuth = async (url, options = {}) => {
     const contentType = response.headers.get('content-type');
 
     if (response.status === 401) {
-        window.location.href = '/login';
+        // Don't redirect here - let React Router handle authentication
         throw new Error('Unauthorized');
     }
 
