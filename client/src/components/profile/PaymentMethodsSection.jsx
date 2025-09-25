@@ -4,6 +4,9 @@ import './PaymentMethodsSection.css';
 const PaymentMethodsSection = ({ paymentMethods, onPaymentMethodsUpdate }) => {
     const [isAddingNew, setIsAddingNew] = useState(false);
 
+    // Ensure paymentMethods is always an array
+    const safePaymentMethods = paymentMethods || [];
+
     const handleAddNew = () => {
         setIsAddingNew(true);
         // In a real app, this would open a payment form or modal
@@ -16,7 +19,7 @@ const PaymentMethodsSection = ({ paymentMethods, onPaymentMethodsUpdate }) => {
                 expiry_date: '2025-12-31',
                 is_default: false
             };
-            onPaymentMethodsUpdate([...paymentMethods, newMethod]);
+            onPaymentMethodsUpdate([...safePaymentMethods, newMethod]);
             setIsAddingNew(false);
         }, 1000);
     };
@@ -48,9 +51,9 @@ const PaymentMethodsSection = ({ paymentMethods, onPaymentMethodsUpdate }) => {
                 </button>
             </div>
 
-            {paymentMethods.length > 0 ? (
+            {safePaymentMethods.length > 0 ? (
                 <div className="payment-methods-list">
-                    {paymentMethods.map(method => (
+                    {safePaymentMethods.map(method => (
                         <div key={method.id} className="payment-method-card">
                             <div className="payment-method-icon">
                                 <i className="fas fa-credit-card"></i>

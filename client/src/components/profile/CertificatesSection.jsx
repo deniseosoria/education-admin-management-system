@@ -4,7 +4,10 @@ import './CertificatesSection.css';
 const CertificatesSection = ({ certificates }) => {
     // Debug: Log certificates data to see what's being received
     console.log('CertificatesSection received certificates:', certificates);
-    console.log('Sample certificate data:', certificates[0]);
+    console.log('Sample certificate data:', certificates?.[0]);
+
+    // Ensure certificates is always an array
+    const safeCertificates = certificates || [];
 
     return (
         <div className="certificates-section">
@@ -12,9 +15,9 @@ const CertificatesSection = ({ certificates }) => {
                 <h2>Certificates</h2>
             </div>
 
-            {certificates.length > 0 ? (
+            {safeCertificates.length > 0 ? (
                 <div className="certificates-grid">
-                    {certificates.map(certificate => (
+                    {safeCertificates.map(certificate => (
                         <div key={certificate.id} className="certificate-card">
                             <div className="certificate-icon">
                                 <i className="fas fa-certificate"></i>
