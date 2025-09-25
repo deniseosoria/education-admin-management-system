@@ -97,21 +97,26 @@ export const AuthProvider = ({ children }) => {
                 setUser(userData);
                 setToken(storedToken);
             } else {
-                console.log('Auth check failed, clearing state'); // Debug log
+                console.log('Auth check failed, clearing state. Status:', response.status); // Debug log
                 // Only clear if the token is invalid (401) or server error (500)
                 if (response.status === 401 || response.status === 500) {
+                    console.log('Clearing auth data due to status:', response.status); // Debug log
                     localStorage.removeItem('token');
                     sessionStorage.removeItem('user');
                     setUser(null);
                     setToken(null);
+                } else {
+                    console.log('Auth check failed but keeping state. Status:', response.status); // Debug log
                 }
             }
         } catch (err) {
             console.error('Auth check error:', err); // Debug log
+            console.log('Error type:', err.name, 'Error message:', err.message); // Debug log
             // Don't clear state on network errors
             if (err.name === 'TypeError') {
                 console.log('Network error during auth check, keeping state'); // Debug log
             } else {
+                console.log('Non-network error during auth check, clearing state'); // Debug log
                 localStorage.removeItem('token');
                 sessionStorage.removeItem('user');
                 setUser(null);
