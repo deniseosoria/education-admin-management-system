@@ -472,6 +472,57 @@ const testEnrollmentEmail = async (req, res) => {
   }
 };
 
+// @desc    Send enrollment email for existing enrollment (admin only)
+// @route   POST /api/enrollments/:id/send-email
+// @access  Admin
+const sendEnrollmentEmailForExisting = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    console.log(`📧 Sending enrollment email for existing enrollment ID: ${id}`);
+
+    // Get enrollment details
+    const enrollment = await getEnrollmentById(id);
+    if (!enrollment) {
+      return res.status(404).json({ error: "Enrollment not found" });
+    }
+
+    // Get class and session details
+    const classDetails = await getClassWithDetails(enrollment.class_id);
+    if (!classDetails) {
+      return res.status(404).json({ error: "Class not found" });
+    }
+
+    // Send the enrollment pending email
+    const result = await emailService.sendEnrollmentPendingEmail(
+      enrollment.user_email,
+      enrollment.user_name,
+      enrollment.class_title,
+      {
+        location_details: enrollment.location_details
+      },
+      {
+        session_date: enrollment.class_date,
+        start_time: enrollment.start_time,
+        end_time: enrollment.end_time
+      }
+    );
+
+    console.log(`✅ Enrollment email sent for existing enrollment ID: ${id}`);
+    res.json({
+      success: true,
+      message: "Enrollment email sent successfully",
+      result: result
+    });
+  } catch (error) {
+    console.error("❌ Error sending enrollment email for existing enrollment:", error);
+    res.status(500).json({
+      error: "Failed to send enrollment email",
+      details: error.message
+    });
+  }
+};
+
 module.exports = {
   enrollInClass,
   cancelClassEnrollment,
@@ -484,4 +535,5 @@ module.exports = {
   setEnrollmentToPending,
   getWaitlistStatus,
   testEnrollmentEmail,
+  sendEnrollmentEmailForExisting,
 };

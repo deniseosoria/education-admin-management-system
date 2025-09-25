@@ -11,7 +11,8 @@ const {
   rejectEnrollmentRequest,
   setEnrollmentToPending,
   getWaitlistStatus,
-  testEnrollmentEmail
+  testEnrollmentEmail,
+  sendEnrollmentEmailForExisting
 } = require('../controllers/enrollmentController');
 
 const { requireAuth, requireAdmin } = require('../middleware/auth');
@@ -103,6 +104,7 @@ router.get('/:id', requireAuth, requireAdmin, getEnrollmentDetails);
 router.post('/:id/approve', requireAuth, requireAdmin, approveEnrollmentRequest);
 router.post('/:id/reject', requireAuth, requireAdmin, rejectEnrollmentRequest);
 router.post('/:id/pending', requireAuth, requireAdmin, setEnrollmentToPending);
+router.post('/:id/send-email', requireAuth, requireAdmin, sendEnrollmentEmailForExisting);
 router.post('/test-email', requireAuth, requireAdmin, testEnrollmentEmail);
 
 console.log('Enrollment routes registered:', router.stack.map(r => r.route?.path).filter(Boolean));
