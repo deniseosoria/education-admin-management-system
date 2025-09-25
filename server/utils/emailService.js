@@ -231,9 +231,9 @@ const emailService = {
             </div>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.CLIENT_URL}/dashboard" 
+              <a href="${process.env.CLIENT_URL}/profile" 
                  style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
-                Access Your Dashboard
+                Access Your Profile
               </a>
             </div>
             
@@ -392,12 +392,12 @@ const emailService = {
               <li>We'll monitor class availability and notify you when a spot opens</li>
               <li>You'll receive an email with 24 hours to accept the spot</li>
               <li>If you don't respond within 24 hours, the offer will expire</li>
-              <li>You can check your waitlist status anytime in your dashboard</li>
+              <li>You can check your waitlist status anytime in your profile</li>
             </ul>
         </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.CLIENT_URL}/dashboard" 
+            <a href="${process.env.CLIENT_URL}/profile?section=waitlist" 
                style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
               View My Waitlist
             </a>
@@ -466,7 +466,7 @@ const emailService = {
         </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.CLIENT_URL}/dashboard" 
+            <a href="${process.env.CLIENT_URL}/profile?section=enrollments" 
                style="background-color: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
               View My Classes
             </a>
@@ -598,7 +598,7 @@ const emailService = {
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.CLIENT_URL}/dashboard" 
+            <a href="${process.env.CLIENT_URL}/profile?section=enrollments" 
                style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
               View My Enrollments
             </a>
@@ -675,7 +675,7 @@ const emailService = {
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.CLIENT_URL}/dashboard" 
+            <a href="${process.env.CLIENT_URL}/profile?section=enrollments" 
                style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
               View My Enrollments
             </a>
@@ -809,7 +809,7 @@ const emailService = {
             <h3 style="color: #2c3e50; margin-top: 0; font-size: 18px;">What You Need to Do</h3>
             <ul style="color: #2c3e50; line-height: 1.8; padding-left: 20px;">
               <li>Log in to your YJ Child Care Plus account</li>
-              <li>Go to your profile dashboard</li>
+              <li>Go to your profile</li>
               <li>Check the notifications section</li>
               <li>Read the complete message</li>
               <li>Take any required actions</li>
@@ -817,7 +817,7 @@ const emailService = {
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.CLIENT_URL}/dashboard" 
+            <a href="${process.env.CLIENT_URL}/profile?section=notifications" 
                style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
               View My Notifications
             </a>
