@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }) => {
         }
 
         const storedToken = localStorage.getItem('token');
-        const storedUser = sessionStorage.getItem('user');
+        const storedUser = localStorage.getItem('user');
 
         console.log('Checking auth status:', {
             hasStoredToken: !!storedToken,
@@ -102,7 +102,7 @@ export const AuthProvider = ({ children }) => {
                 if (response.status === 401 || response.status === 500) {
                     console.log('Clearing auth data due to status:', response.status); // Debug log
                     localStorage.removeItem('token');
-                    sessionStorage.removeItem('user');
+                    localStorage.removeItem('user');
                     setUser(null);
                     setToken(null);
                 } else {
@@ -118,7 +118,7 @@ export const AuthProvider = ({ children }) => {
             } else {
                 console.log('Non-network error during auth check, clearing state'); // Debug log
                 localStorage.removeItem('token');
-                sessionStorage.removeItem('user');
+                localStorage.removeItem('user');
                 setUser(null);
                 setToken(null);
             }
@@ -183,7 +183,7 @@ export const AuthProvider = ({ children }) => {
             setToken(newToken);
             localStorage.setItem('token', newToken);
             setUser(userData);
-            sessionStorage.setItem('user', JSON.stringify(userData));
+            localStorage.setItem('user', JSON.stringify(userData));
 
             // Verify the user data by fetching profile
             try {
@@ -212,7 +212,7 @@ export const AuthProvider = ({ children }) => {
                     const updatedUserData = profileData;
                     console.log('Setting updated user data:', updatedUserData);
                     setUser(updatedUserData);
-                    sessionStorage.setItem('user', JSON.stringify(updatedUserData));
+                    localStorage.setItem('user', JSON.stringify(updatedUserData));
                 }
             } catch (profileErr) {
                 console.error('Profile fetch after login failed:', profileErr);
@@ -223,7 +223,7 @@ export const AuthProvider = ({ children }) => {
             // Double check the state after all operations
             console.log('Final auth state:', {
                 token: localStorage.getItem('token'),
-                user: sessionStorage.getItem('user'),
+                user: localStorage.getItem('user'),
                 stateUser: user
             });
 
@@ -254,7 +254,7 @@ export const AuthProvider = ({ children }) => {
             setToken(null);
             localStorage.removeItem('token');
             setUser(null);
-            sessionStorage.removeItem('user');
+            localStorage.removeItem('user');
             setLoading(false);
         }
     }, [token]);
@@ -308,7 +308,7 @@ export const AuthProvider = ({ children }) => {
             setToken(newToken);
             localStorage.setItem('token', newToken);
             setUser(newUser);
-            sessionStorage.setItem('user', JSON.stringify(newUser));
+            localStorage.setItem('user', JSON.stringify(newUser));
 
             // Verify the user data by fetching profile
             try {
@@ -337,7 +337,7 @@ export const AuthProvider = ({ children }) => {
                     const updatedUserData = profileData;
                     console.log('Setting updated user data:', updatedUserData);
                     setUser(updatedUserData);
-                    sessionStorage.setItem('user', JSON.stringify(updatedUserData));
+                    localStorage.setItem('user', JSON.stringify(updatedUserData));
                 }
             } catch (profileErr) {
                 console.error('Profile fetch after registration failed:', profileErr);
