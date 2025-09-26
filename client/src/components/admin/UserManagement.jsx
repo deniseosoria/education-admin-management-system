@@ -53,6 +53,7 @@ import {
     Warning as WarningIcon,
     Send as SendIcon,
     Visibility as ViewIcon,
+    VisibilityOff as ViewOffIcon,
     Lock as LockIcon,
     History as HistoryIcon,
     Close as CloseIcon,
@@ -101,6 +102,8 @@ const UserManagement = () => {
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [passwordError, setPasswordError] = useState('');
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [updatingRole, setUpdatingRole] = useState(false);
     const [enrollmentsLoading, setEnrollmentsLoading] = useState(false);
     const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -434,37 +437,90 @@ const UserManagement = () => {
     };
 
     return (
-        <Box sx={{ p: 3 }}>
-            <Typography variant="h5" component="h2" gutterBottom>
-                User Management
-            </Typography>
+        <Box>
+            {/* Modern Header */}
+            <Box sx={{
+                mb: 4,
+                px: { xs: 2, sm: 3 }
+            }}>
+                <Typography
+                    variant="h4"
+                    component="h1"
+                    sx={{
+                        fontWeight: 700,
+                        color: '#111827',
+                        fontSize: { xs: '1.5rem', sm: '2rem' },
+                        mb: 1
+                    }}
+                >
+                    User Management
+                </Typography>
+                <Typography
+                    variant="body1"
+                    sx={{
+                        color: '#6b7280',
+                        fontSize: { xs: '0.875rem', sm: '1rem' }
+                    }}
+                >
+                    Manage user accounts, roles, and permissions
+                </Typography>
+            </Box>
 
-            {/* Filters */}
-            <Paper sx={{ p: 2, mb: 3 }}>
-                <Grid container spacing={2} alignItems="center">
-                    <Grid item xs={12} sm={6} md={5}>
+            {/* Modern Filters */}
+            <Box sx={{
+                maxWidth: { xs: '100%', sm: '1200px' },
+                mx: 'auto',
+                px: { xs: 2, sm: 0 }
+            }}>
+                <Paper sx={{
+                    p: { xs: 3, sm: 4 },
+                    mb: 4,
+                    borderRadius: '16px',
+                    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                    border: '1px solid #e5e7eb'
+                }}>
+                    <Typography
+                        variant="h6"
+                        sx={{
+                            mb: 3,
+                            fontWeight: 600,
+                            color: '#111827',
+                            fontSize: { xs: '1rem', sm: '1.125rem' }
+                        }}
+                    >
+                        Filters
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                         <TextField
                             fullWidth
-                            placeholder="Search users..."
+                            placeholder="Search users by name or email..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             InputProps={{
                                 startAdornment: (
                                     <InputAdornment position="start">
-                                        <SearchIcon />
+                                        <SearchIcon sx={{ color: '#6b7280' }} />
                                     </InputAdornment>
                                 ),
                             }}
                             sx={{
-                                '& .MuiInputBase-root': {
-                                    height: { xs: '48px', sm: '40px' }
+                                '& .MuiOutlinedInput-root': {
+                                    borderRadius: '12px',
+                                    height: { xs: '48px', sm: '44px' },
+                                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#3b82f6'
+                                    },
+                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#3b82f6',
+                                        borderWidth: '2px'
+                                    }
                                 }
                             }}
                         />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={4}>
                         <FormControl fullWidth>
-                            <InputLabel>Role</InputLabel>
+                            <InputLabel sx={{
+                                '&.Mui-focused': { color: '#3b82f6' }
+                            }}>Role</InputLabel>
                             <Select
                                 value={selectedRole}
                                 label="Role"
@@ -473,8 +529,17 @@ const UserManagement = () => {
                                     sx: { zIndex: 1500 }
                                 }}
                                 sx={{
-                                    '& .MuiInputBase-root': {
-                                        height: { xs: '48px', sm: '40px' }
+                                    borderRadius: '12px',
+                                    height: { xs: '48px', sm: '44px' },
+                                    '& .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#d1d5db'
+                                    },
+                                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#3b82f6'
+                                    },
+                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#3b82f6',
+                                        borderWidth: '2px'
                                     }
                                 }}
                             >
@@ -485,169 +550,202 @@ const UserManagement = () => {
                                 <MenuItem value="admin">Admins</MenuItem>
                             </Select>
                         </FormControl>
-                    </Grid>
-                </Grid>
-            </Paper>
+                    </Box>
+                </Paper>
+            </Box>
 
-            {/* Users Table with Pagination */}
-            <TableContainer component={Paper} sx={{
-                overflowX: 'auto',
-                '& .MuiTable-root': {
-                    minWidth: { xs: '600px', sm: 'auto' }
-                }
+            {/* Modern User Cards */}
+            <Box sx={{
+                maxWidth: { xs: '100%', sm: '1200px' },
+                mx: 'auto',
+                mb: 4,
+                px: { xs: 2, sm: 0 }
             }}>
-                <Table>
-                    <TableHead>
-                        <TableRow key="header">
-                            <TableCell sx={{
-                                minWidth: { xs: '120px', sm: 'auto' },
-                                fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                            }}>
-                                User
-                            </TableCell>
-                            <TableCell sx={{
-                                minWidth: { xs: '80px', sm: 'auto' },
-                                fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                            }}>
-                                Role
-                            </TableCell>
-                            <TableCell sx={{
-                                minWidth: { xs: '80px', sm: 'auto' },
-                                fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                            }}>
-                                Status
-                            </TableCell>
-                            <TableCell sx={{
-                                minWidth: { xs: '100px', sm: 'auto' },
-                                fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                            }}>
-                                Created
-                            </TableCell>
-                            <TableCell sx={{
-                                minWidth: { xs: '100px', sm: 'auto' },
-                                fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                            }}>
-                                Last Updated
-                            </TableCell>
-                            <TableCell align="right" sx={{
-                                minWidth: { xs: '100px', sm: 'auto' },
-                                fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                            }}>
-                                Actions
-                            </TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {loading ? (
-                            <TableRow key="loading">
-                                <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                                    <CircularProgress />
-                                </TableCell>
-                            </TableRow>
-                        ) : error ? (
-                            <TableRow key="error">
-                                <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                                    <Alert severity="error">{error}</Alert>
-                                </TableCell>
-                            </TableRow>
-                        ) : users.length === 0 ? (
-                            <TableRow key="empty">
-                                <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                                    <Typography color="text.secondary">No users found</Typography>
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            users.map((user) => (
-                                <TableRow key={user.id}>
-                                    <TableCell sx={{
-                                        minWidth: { xs: '120px', sm: 'auto' },
-                                        fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                                    }}>
-                                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                            <PersonIcon color="action" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />
-                                            <Box sx={{ minWidth: 0 }}>
-                                                <Typography variant="body2" sx={{
-                                                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    whiteSpace: 'nowrap'
-                                                }}>
+                {loading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+                        <CircularProgress size={40} />
+                    </Box>
+                ) : error ? (
+                    <Paper sx={{ p: 4, textAlign: 'center', borderRadius: '16px' }}>
+                        <Alert severity="error" sx={{ borderRadius: '12px' }}>{error}</Alert>
+                    </Paper>
+                ) : users.length === 0 ? (
+                    <Paper sx={{ p: 6, textAlign: 'center', borderRadius: '16px' }}>
+                        <PersonIcon sx={{ fontSize: 48, color: '#9ca3af', mb: 2 }} />
+                        <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                            No users found
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Try adjusting your search criteria or filters
+                        </Typography>
+                    </Paper>
+                ) : (
+                    <Box sx={{
+                        display: 'grid',
+                        gridTemplateColumns: {
+                            xs: '1fr',
+                            sm: 'repeat(2, 1fr)',
+                            lg: 'repeat(3, 1fr)'
+                        },
+                        gap: { xs: 2, sm: 3 },
+                        width: '100%'
+                    }}>
+                        {users.map((user) => (
+                            <Box key={user.id} sx={{ width: '100%', minWidth: 0 }}>
+                                <Paper sx={{
+                                    p: { xs: 2, sm: 3 },
+                                    borderRadius: '16px',
+                                    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                                    border: '1px solid #e5e7eb',
+                                    transition: 'all 0.2s ease-in-out',
+                                    width: '100%',
+                                    minWidth: 0,
+                                    '&:hover': {
+                                        boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                                        transform: 'translateY(-1px)',
+                                        borderColor: '#3b82f6'
+                                    }
+                                }}>
+                                    {/* User Header */}
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
+                                            <Avatar sx={{
+                                                bgcolor: user.role === 'admin' ? '#ef4444' :
+                                                    user.role === 'instructor' ? '#3b82f6' : '#6b7280',
+                                                width: 48,
+                                                height: 48
+                                            }}>
+                                                {user.first_name?.[0]}{user.last_name?.[0]}
+                                            </Avatar>
+                                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                                                <Typography
+                                                    variant="h6"
+                                                    sx={{
+                                                        fontWeight: 600,
+                                                        fontSize: { xs: '1rem', sm: '1.125rem' },
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: 'nowrap'
+                                                    }}
+                                                >
                                                     {user.first_name} {user.last_name}
                                                 </Typography>
-                                                <Typography variant="caption" color="text.secondary" sx={{
-                                                    fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    whiteSpace: 'nowrap'
-                                                }}>
+                                                <Typography
+                                                    variant="body2"
+                                                    color="text.secondary"
+                                                    sx={{
+                                                        fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: 'nowrap'
+                                                    }}
+                                                >
                                                     {user.email}
                                                 </Typography>
                                             </Box>
                                         </Box>
-                                    </TableCell>
-                                    <TableCell sx={{
-                                        minWidth: { xs: '80px', sm: 'auto' },
-                                        fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                                    }}>
-                                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                        <Tooltip title="More Actions">
+                                            <IconButton
+                                                size="small"
+                                                onClick={(e) => handleMenuOpen(e, user)}
+                                                sx={{
+                                                    color: '#6b7280',
+                                                    '&:hover': { color: '#3b82f6' }
+                                                }}
+                                            >
+                                                <MoreIcon />
+                                            </IconButton>
+                                        </Tooltip>
+                                    </Box>
+
+                                    {/* User Details */}
+                                    <Box sx={{ mb: 3 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                                             {getRoleIcon(user.role)}
                                             <Typography
                                                 variant="body2"
                                                 sx={{
                                                     textTransform: "capitalize",
-                                                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                                                    fontWeight: 500,
+                                                    color: '#374151'
                                                 }}
                                             >
                                                 {user.role}
                                             </Typography>
                                         </Box>
-                                    </TableCell>
-                                    <TableCell sx={{
-                                        minWidth: { xs: '80px', sm: 'auto' },
-                                        fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                                        <Box sx={{ mb: 1 }}>
+                                            {getStatusChip(user.status)}
+                                        </Box>
+                                    </Box>
+
+                                    {/* User Stats */}
+                                    <Box sx={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        pt: 2,
+                                        borderTop: '1px solid #f3f4f6'
                                     }}>
-                                        {getStatusChip(user.status)}
-                                    </TableCell>
-                                    <TableCell sx={{
-                                        minWidth: { xs: '100px', sm: 'auto' },
-                                        fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                                    }}>
-                                        {new Date(user.created_at).toLocaleDateString()}
-                                    </TableCell>
-                                    <TableCell sx={{
-                                        minWidth: { xs: '100px', sm: 'auto' },
-                                        fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                                    }}>
-                                        {new Date(user.updated_at).toLocaleDateString()}
-                                    </TableCell>
-                                    <TableCell align="right">
-                                        <Tooltip title="More Actions">
-                                            <IconButton
-                                                size="small"
-                                                onClick={(e) => handleMenuOpen(e, user)}
-                                            >
-                                                <MoreIcon />
-                                            </IconButton>
-                                        </Tooltip>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
-                <TablePagination
-                    component="div"
-                    count={pagination.total}
-                    page={pagination.page - 1}
-                    onPageChange={handlePageChange}
-                    rowsPerPage={pagination.limit}
-                    rowsPerPageOptions={[10, 25, 50]}
-                    onRowsPerPageChange={handleRowsPerPageChange}
-                    labelDisplayedRows={({ from, to, count }) =>
-                        `${from}-${to} of ${count !== -1 ? count : `more than ${to}`}`
-                    }
-                />
-            </TableContainer>
+                                        <Box>
+                                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                                Created
+                                            </Typography>
+                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                {new Date(user.created_at).toLocaleDateString()}
+                                            </Typography>
+                                        </Box>
+                                        <Box>
+                                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                                Updated
+                                            </Typography>
+                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                {new Date(user.updated_at).toLocaleDateString()}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                </Paper>
+                            </Box>
+                        ))}
+                    </Box>
+                )}
+            </Box>
+
+            {/* Modern Pagination */}
+            {users.length > 0 && (
+                <Box sx={{
+                    maxWidth: { xs: '100%', sm: '1200px' },
+                    mx: 'auto',
+                    px: { xs: 2, sm: 0 }
+                }}>
+                    <Paper sx={{
+                        p: 2,
+                        borderRadius: '16px',
+                        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                        border: '1px solid #e5e7eb'
+                    }}>
+                        <TablePagination
+                            component="div"
+                            count={pagination.total}
+                            page={pagination.page - 1}
+                            onPageChange={handlePageChange}
+                            rowsPerPage={pagination.limit}
+                            rowsPerPageOptions={[10, 25, 50]}
+                            onRowsPerPageChange={handleRowsPerPageChange}
+                            labelDisplayedRows={({ from, to, count }) =>
+                                `${from}-${to} of ${count !== -1 ? count : `more than ${to}`}`
+                            }
+                            sx={{
+                                '& .MuiTablePagination-toolbar': {
+                                    flexWrap: 'wrap',
+                                    gap: 1
+                                },
+                                '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+                                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                                }
+                            }}
+                        />
+                    </Paper>
+                </Box>
+            )}
 
             {/* User Actions Menu */}
             <Menu
@@ -732,18 +830,34 @@ const UserManagement = () => {
                 </MenuItem>
             </Menu>
 
-            {/* Role Update Dialog */}
+            {/* Modern Role Update Dialog */}
             <Dialog
                 open={roleDialogOpen}
                 onClose={() => setRoleDialogOpen(false)}
                 disableEnforceFocus
                 keepMounted={false}
-                sx={{ zIndex: 1450 }}
+                maxWidth="sm"
+                fullWidth
+                sx={{
+                    zIndex: 1450,
+                    '& .MuiDialog-paper': {
+                        borderRadius: '16px',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+                    }
+                }}
             >
-                <DialogTitle>Change User Role</DialogTitle>
-                <DialogContent>
+                <DialogTitle sx={{
+                    pb: 2,
+                    fontSize: { xs: '1.125rem', sm: '1.25rem' },
+                    fontWeight: 600
+                }}>
+                    Change User Role
+                </DialogTitle>
+                <DialogContent sx={{ pt: 1 }}>
                     <FormControl fullWidth sx={{ mt: 2 }}>
-                        <InputLabel>New Role</InputLabel>
+                        <InputLabel sx={{
+                            '&.Mui-focused': { color: '#3b82f6' }
+                        }}>New Role</InputLabel>
                         <Select
                             value={selectedUser?.role}
                             label="New Role"
@@ -753,6 +867,19 @@ const UserManagement = () => {
                             MenuProps={{
                                 sx: { zIndex: 1500 }
                             }}
+                            sx={{
+                                borderRadius: '12px',
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: '#d1d5db'
+                                },
+                                '&:hover .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: '#3b82f6'
+                                },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: '#3b82f6',
+                                    borderWidth: '2px'
+                                }
+                            }}
                         >
                             <MenuItem value="user">User</MenuItem>
                             <MenuItem value="student">Student</MenuItem>
@@ -761,31 +888,62 @@ const UserManagement = () => {
                         </Select>
                     </FormControl>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setRoleDialogOpen(false)}>Cancel</Button>
+                <DialogActions sx={{ p: 3, pt: 1, gap: 1 }}>
+                    <Button
+                        onClick={() => setRoleDialogOpen(false)}
+                        sx={{
+                            borderRadius: '8px',
+                            textTransform: 'none',
+                            fontWeight: 500
+                        }}
+                    >
+                        Cancel
+                    </Button>
                     <Button
                         variant="contained"
                         color="primary"
                         onClick={handleRoleUpdate}
                         disabled={updatingRole}
+                        sx={{
+                            borderRadius: '8px',
+                            textTransform: 'none',
+                            fontWeight: 500,
+                            px: 3
+                        }}
                     >
                         {updatingRole ? 'Saving...' : 'Save Changes'}
                     </Button>
                 </DialogActions>
             </Dialog>
 
-            {/* Status Update Dialog */}
+            {/* Modern Status Update Dialog */}
             <Dialog
                 open={statusDialogOpen}
                 onClose={() => setStatusDialogOpen(false)}
                 disableEnforceFocus
                 keepMounted={false}
-                sx={{ zIndex: 1450 }}
+                maxWidth="sm"
+                fullWidth
+                sx={{
+                    zIndex: 1450,
+                    '& .MuiDialog-paper': {
+                        borderRadius: '16px',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+                    }
+                }}
             >
-                <DialogTitle>Change User Status</DialogTitle>
-                <DialogContent>
+                <DialogTitle sx={{
+                    pb: 2,
+                    fontSize: { xs: '1.125rem', sm: '1.25rem' },
+                    fontWeight: 600
+                }}>
+                    Change User Status
+                </DialogTitle>
+                <DialogContent sx={{ pt: 1 }}>
                     <FormControl fullWidth sx={{ mt: 2 }}>
-                        <InputLabel>New Status</InputLabel>
+                        <InputLabel sx={{
+                            '&.Mui-focused': { color: '#3b82f6' }
+                        }}>New Status</InputLabel>
                         <Select
                             value={selectedUser?.status}
                             label="New Status"
@@ -798,6 +956,19 @@ const UserManagement = () => {
                             MenuProps={{
                                 sx: { zIndex: 1500 }
                             }}
+                            sx={{
+                                borderRadius: '12px',
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: '#d1d5db'
+                                },
+                                '&:hover .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: '#3b82f6'
+                                },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: '#3b82f6',
+                                    borderWidth: '2px'
+                                }
+                            }}
                         >
                             <MenuItem value="active">Active</MenuItem>
                             <MenuItem value="inactive">Inactive</MenuItem>
@@ -805,20 +976,35 @@ const UserManagement = () => {
                         </Select>
                     </FormControl>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setStatusDialogOpen(false)}>Cancel</Button>
+                <DialogActions sx={{ p: 3, pt: 1, gap: 1 }}>
+                    <Button
+                        onClick={() => setStatusDialogOpen(false)}
+                        sx={{
+                            borderRadius: '8px',
+                            textTransform: 'none',
+                            fontWeight: 500
+                        }}
+                    >
+                        Cancel
+                    </Button>
                     <Button
                         variant="contained"
                         color="primary"
                         onClick={handleStatusUpdate}
                         disabled={updatingStatus}
+                        sx={{
+                            borderRadius: '8px',
+                            textTransform: 'none',
+                            fontWeight: 500,
+                            px: 3
+                        }}
                     >
                         {updatingStatus ? 'Saving...' : 'Save Changes'}
                     </Button>
                 </DialogActions>
             </Dialog>
 
-            {/* Password Reset Dialog */}
+            {/* Modern Password Reset Dialog */}
             <Dialog
                 open={passwordDialogOpen}
                 onClose={() => {
@@ -826,44 +1012,105 @@ const UserManagement = () => {
                     setNewPassword('');
                     setConfirmPassword('');
                     setPasswordError('');
+                    setShowNewPassword(false);
+                    setShowConfirmPassword(false);
                 }}
                 disableEnforceFocus
                 keepMounted={false}
-                sx={{ zIndex: 1450 }}
+                maxWidth="sm"
+                fullWidth
+                sx={{
+                    zIndex: 1450,
+                    '& .MuiDialog-paper': {
+                        borderRadius: '16px',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+                    }
+                }}
             >
-                <DialogTitle>Reset User Password</DialogTitle>
-                <DialogContent>
+                <DialogTitle sx={{
+                    pb: 2,
+                    fontSize: { xs: '1.125rem', sm: '1.25rem' },
+                    fontWeight: 600
+                }}>
+                    Reset User Password
+                </DialogTitle>
+                <DialogContent sx={{ pt: 1 }}>
                     {passwordError && (
-                        <Alert severity="error" sx={{ mt: 2, mb: 2 }}>
+                        <Alert severity="error" sx={{ mt: 2, mb: 2, borderRadius: '12px' }}>
                             {passwordError}
                         </Alert>
                     )}
                     <TextField
                         fullWidth
-                        type="password"
+                        type={showNewPassword ? "text" : "password"}
                         label="New Password"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        sx={{ mt: 2 }}
+                        InputProps={{
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <IconButton
+                                        onClick={() => setShowNewPassword(!showNewPassword)}
+                                        edge="end"
+                                        size="small"
+                                    >
+                                        {showNewPassword ? <ViewOffIcon /> : <ViewIcon />}
+                                    </IconButton>
+                                </InputAdornment>
+                            ),
+                        }}
+                        sx={{
+                            mt: 2,
+                            '& .MuiOutlinedInput-root': {
+                                borderRadius: '12px'
+                            }
+                        }}
                         error={!!passwordError}
                     />
                     <TextField
                         fullWidth
-                        type="password"
+                        type={showConfirmPassword ? "text" : "password"}
                         label="Confirm Password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        sx={{ mt: 2 }}
+                        InputProps={{
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <IconButton
+                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                        edge="end"
+                                        size="small"
+                                    >
+                                        {showConfirmPassword ? <ViewOffIcon /> : <ViewIcon />}
+                                    </IconButton>
+                                </InputAdornment>
+                            ),
+                        }}
+                        sx={{
+                            mt: 2,
+                            '& .MuiOutlinedInput-root': {
+                                borderRadius: '12px'
+                            }
+                        }}
                         error={!!passwordError}
                     />
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => {
-                        setPasswordDialogOpen(false);
-                        setNewPassword('');
-                        setConfirmPassword('');
-                        setPasswordError('');
-                    }}>
+                <DialogActions sx={{ p: 3, pt: 1, gap: 1 }}>
+                    <Button
+                        onClick={() => {
+                            setPasswordDialogOpen(false);
+                            setNewPassword('');
+                            setConfirmPassword('');
+                            setPasswordError('');
+                            setShowNewPassword(false);
+                            setShowConfirmPassword(false);
+                        }}
+                        sx={{
+                            borderRadius: '8px',
+                            textTransform: 'none',
+                            fontWeight: 500
+                        }}
+                    >
                         Cancel
                     </Button>
                     <Button
@@ -871,29 +1118,81 @@ const UserManagement = () => {
                         color="primary"
                         onClick={handlePasswordReset}
                         disabled={loading}
+                        sx={{
+                            borderRadius: '8px',
+                            textTransform: 'none',
+                            fontWeight: 500,
+                            px: 3
+                        }}
                     >
                         {loading ? 'Resetting...' : 'Reset Password'}
                     </Button>
                 </DialogActions>
             </Dialog>
 
-            {/* Delete Confirmation Dialog */}
+            {/* Modern Delete Confirmation Dialog */}
             <Dialog
                 open={deleteDialogOpen}
                 onClose={() => setDeleteDialogOpen(false)}
                 disableEnforceFocus
                 keepMounted={false}
-                sx={{ zIndex: 1450 }}
+                maxWidth="sm"
+                fullWidth
+                sx={{
+                    zIndex: 1450,
+                    '& .MuiDialog-paper': {
+                        borderRadius: '16px',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+                    }
+                }}
             >
-                <DialogTitle>Delete User</DialogTitle>
-                <DialogContent>
-                    <Typography>
-                        Are you sure you want to delete this user? This action cannot be
-                        undone.
-                    </Typography>
+                <DialogTitle sx={{
+                    pb: 2,
+                    fontSize: { xs: '1.125rem', sm: '1.25rem' },
+                    fontWeight: 600,
+                    color: '#ef4444'
+                }}>
+                    Delete User
+                </DialogTitle>
+                <DialogContent sx={{ pt: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                        <Box sx={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: '50%',
+                            bgcolor: '#fef2f2',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}>
+                            <DeleteIcon sx={{ color: '#ef4444', fontSize: 24 }} />
+                        </Box>
+                        <Box>
+                            <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+                                {selectedUser?.first_name} {selectedUser?.last_name}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                {selectedUser?.email}
+                            </Typography>
+                        </Box>
+                    </Box>
+                    <Alert severity="warning" sx={{ borderRadius: '12px' }}>
+                        <Typography variant="body2">
+                            Are you sure you want to delete this user? This action cannot be undone and will permanently remove all user data.
+                        </Typography>
+                    </Alert>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+                <DialogActions sx={{ p: 3, pt: 1, gap: 1 }}>
+                    <Button
+                        onClick={() => setDeleteDialogOpen(false)}
+                        sx={{
+                            borderRadius: '8px',
+                            textTransform: 'none',
+                            fontWeight: 500
+                        }}
+                    >
+                        Cancel
+                    </Button>
                     <Button
                         onClick={() => {
                             handleDeleteUser(selectedUser.id);
@@ -901,13 +1200,19 @@ const UserManagement = () => {
                         }}
                         color="error"
                         variant="contained"
+                        sx={{
+                            borderRadius: '8px',
+                            textTransform: 'none',
+                            fontWeight: 500,
+                            px: 3
+                        }}
                     >
-                        Delete
+                        Delete User
                     </Button>
                 </DialogActions>
             </Dialog>
 
-            {/* Profile Dialog */}
+            {/* Modern Profile Dialog */}
             <Dialog
                 open={profileDialogOpen}
                 onClose={() => setProfileDialogOpen(false)}
@@ -915,7 +1220,13 @@ const UserManagement = () => {
                 fullWidth
                 disableEnforceFocus
                 keepMounted={false}
-                sx={{ zIndex: 1450 }}
+                sx={{
+                    zIndex: 1450,
+                    '& .MuiDialog-paper': {
+                        borderRadius: '16px',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+                    }
+                }}
             >
                 <DialogTitle>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -1285,7 +1596,7 @@ const UserManagement = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Notification Dialog */}
+            {/* Modern Notification Dialog */}
             <Dialog
                 open={notificationDialogOpen}
                 onClose={() => {
@@ -1293,7 +1604,15 @@ const UserManagement = () => {
                 }}
                 disableEnforceFocus
                 keepMounted={false}
-                sx={{ zIndex: 1450 }}
+                maxWidth="sm"
+                fullWidth
+                sx={{
+                    zIndex: 1450,
+                    '& .MuiDialog-paper': {
+                        borderRadius: '16px',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+                    }
+                }}
             >
                 <DialogTitle>
                     {selectedUser?.id ?
@@ -1358,13 +1677,19 @@ const UserManagement = () => {
                 </Alert>
             </Snackbar>
 
-            {/* Enrollment Dialog */}
+            {/* Modern Enrollment Dialog */}
             <Dialog
                 open={enrollmentDialogOpen}
                 onClose={handleCloseEnrollmentDialog}
                 maxWidth="lg"
                 fullWidth
-                sx={{ zIndex: 1450 }}
+                sx={{
+                    zIndex: 1450,
+                    '& .MuiDialog-paper': {
+                        borderRadius: '16px',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+                    }
+                }}
             >
                 <DialogTitle>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

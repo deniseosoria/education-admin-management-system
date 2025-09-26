@@ -87,12 +87,30 @@ const adminDeleteUser = async (req, res) => {
   }
 };
 
-// @desc    Get all classes
+// @desc    Get all classes with session and enrollment counts
 const adminGetClasses = async (req, res) => {
   try {
-    const classes = await getAllClassesFromDB();
-    res.json(classes);
+    const query = `
+      SELECT 
+        c.id, c.title, c.description, c.price, c.location_type, c.location_details, 
+        c.recurrence_pattern, c.prerequisites, c.materials_needed, c.image_url,
+        c.created_at, c.updated_at,
+        (SELECT CONCAT(u.first_name, ' ', u.last_name) 
+         FROM class_sessions cs 
+         JOIN users u ON u.id = cs.instructor_id 
+         WHERE cs.class_id = c.id AND cs.deleted_at IS NULL 
+         LIMIT 1) as instructor_name,
+        (SELECT COUNT(*) FROM class_sessions cs WHERE cs.class_id = c.id AND cs.deleted_at IS NULL) as total_sessions,
+        (SELECT COUNT(*) FROM enrollments e WHERE e.class_id = c.id AND e.enrollment_status IN ('approved', 'pending')) as total_enrollments
+      FROM classes c
+      WHERE c.deleted_at IS NULL
+      ORDER BY c.created_at DESC
+    `;
+
+    const result = await pool.query(query);
+    res.json(result.rows);
   } catch (err) {
+    console.error('Admin get classes error:', err);
     res.status(500).json({ error: 'Failed to fetch classes' });
   }
 };
@@ -109,8 +127,8 @@ const adminEditClass = async (req, res) => {
     // Validate dates array if provided
     if (updates.dates && Array.isArray(updates.dates)) {
       for (const dateData of updates.dates) {
-        if (!dateData.date || !dateData.start_time || !dateData.end_time) {
-          return res.status(400).json({ error: 'Each session must have date, start_time, and end_time' });
+        if (!dateData.date || !dateData.start_time || !dateData.end_time || !dateData.instructor_id) {
+          return res.status(400).json({ error: 'Each session must have date, start_time, end_time, and instructor_id' });
         }
 
         // Validate date format
@@ -373,7 +391,7 @@ const adminCreateClass = async (req, res) => {
 
   // Validate required fields
   const requiredFields = [
-    'title', 'description', 'dates', 'location_details', 'price', 'capacity'
+    'title', 'description', 'dates', 'location_details', 'price'
   ];
   const missingFields = requiredFields.filter(field => !req.body[field]);
 
@@ -391,8 +409,8 @@ const adminCreateClass = async (req, res) => {
 
   // Validate each date entry
   for (const dateData of dates) {
-    if (!dateData.date || !dateData.start_time || !dateData.end_time) {
-      return res.status(400).json({ error: 'Each session must have date, start_time, and end_time' });
+    if (!dateData.date || !dateData.start_time || !dateData.end_time || !dateData.instructor_id) {
+      return res.status(400).json({ error: 'Each session must have date, start_time, end_time, and instructor_id' });
     }
 
     // Validate date format

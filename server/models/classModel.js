@@ -696,7 +696,7 @@ const createClassWithSessions = async (classData) => {
             dateData.start_time,
             dateData.end_time,
             dateData.capacity,
-            classData.instructor_id,
+            dateData.instructor_id,
             'scheduled',
             dateData.location
           ]
@@ -842,7 +842,7 @@ const updateClassWithSessions = async (classId, classData) => {
               dateData.start_time,
               dateData.end_time,
               dateData.capacity,
-              classData.instructor_id,
+              dateData.instructor_id,
               dateData.location,
               dateData.id,
               classId
@@ -862,7 +862,7 @@ const updateClassWithSessions = async (classId, classData) => {
               dateData.start_time,
               dateData.end_time,
               dateData.capacity,
-              classData.instructor_id,
+              dateData.instructor_id,
               'scheduled',
               dateData.location
             ]
