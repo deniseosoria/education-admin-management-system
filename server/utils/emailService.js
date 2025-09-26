@@ -62,10 +62,11 @@ const sendEmail = async ({ to, subject, html }) => {
         from: 'YJ Child Care Plus <support@yjchildcareplus.com>',
         to: [to],
         subject: subject,
-        html: html + `
-          <div style="margin-top: 30px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #6c757d; border-radius: 4px; font-size: 12px; color: #6c757d;">
+        html: `
+          <div style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #6c757d; border-radius: 4px; font-size: 12px; color: #6c757d;">
             <strong>⚠️ Do Not Reply:</strong> This is an automated message. Please do not reply to this email address as it is not monitored. If you need assistance, please contact us through our website or support channels.
           </div>
+          ${html}
         `,
       });
 
@@ -155,6 +156,19 @@ const testEmailDelivery = async (testEmail) => {
     console.error('🧪 Test email failed:', error);
     return false;
   }
+};
+
+// Helper function to format time in user-friendly way
+const formatTime = (timeString) => {
+  if (!timeString) return 'TBD';
+
+  // Convert 24-hour format to 12-hour format
+  const [hours, minutes] = timeString.split(':');
+  const hour = parseInt(hours);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+
+  return `${displayHour}:${minutes} ${ampm}`;
 };
 
 // Email templates and functions
@@ -580,7 +594,7 @@ const emailService = {
             <div style="color: #2c3e50; line-height: 1.8;">
               <p><strong>Class:</strong> ${className}</p>
               <p><strong>Date:</strong> ${new Date(sessionDetails.session_date).toLocaleDateString()}</p>
-              <p><strong>Time:</strong> ${sessionDetails.start_time} - ${sessionDetails.end_time}</p>
+              <p><strong>Time:</strong> ${formatTime(sessionDetails.start_time)} - ${formatTime(sessionDetails.end_time)}</p>
               <p><strong>Location:</strong> ${classDetails.location_details}</p>
               <p><strong>Status:</strong> <span style="color: #28a745; font-weight: bold;">✅ Confirmed</span></p>
             </div>
@@ -648,7 +662,7 @@ const emailService = {
             <div style="color: #2c3e50; line-height: 1.8;">
               <p><strong>Class:</strong> ${className}</p>
               <p><strong>Date:</strong> ${new Date(sessionDetails.session_date).toLocaleDateString()}</p>
-              <p><strong>Time:</strong> ${sessionDetails.start_time} - ${sessionDetails.end_time}</p>
+              <p><strong>Time:</strong> ${formatTime(sessionDetails.start_time)} - ${formatTime(sessionDetails.end_time)}</p>
               <p><strong>Location:</strong> ${classDetails.location_details}</p>
               <p><strong>Status:</strong> <span style="color: #ffc107; font-weight: bold;">⏳ Pending Approval</span></p>
             </div>
