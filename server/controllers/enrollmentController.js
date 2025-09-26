@@ -28,6 +28,22 @@ const enrollInClass = async (req, res) => {
   const classId = req.params.classId;
   const { sessionId } = req.body;
 
+  // Fetch user details from database since JWT only contains id and role
+  let userDetails;
+  try {
+    const userResult = await pool.query(
+      'SELECT id, email, name, first_name, last_name FROM users WHERE id = $1',
+      [userId]
+    );
+    userDetails = userResult.rows[0];
+    if (!userDetails) {
+      return res.status(404).json({ error: "User not found" });
+    }
+  } catch (err) {
+    console.error("Error fetching user details:", err);
+    return res.status(500).json({ error: "Failed to fetch user details" });
+  }
+
   // Prevent admin or instructor from enrolling
   if (req.user.role === 'admin' || req.user.role === 'instructor') {
     return res.status(403).json({ error: 'Admins and instructors are not allowed to enroll in classes.' });
@@ -52,8 +68,8 @@ const enrollInClass = async (req, res) => {
 
         // Send enrollment email for existing enrollment
         emailService.sendEnrollmentPendingEmail(
-          req.user.email,
-          req.user.name || `${req.user.first_name} ${req.user.last_name}`,
+          userDetails.email,
+          userDetails.name || `${userDetails.first_name} ${userDetails.last_name}`,
           enrollment.title,
           {
             location_details: enrollment.location_details
@@ -64,7 +80,7 @@ const enrollInClass = async (req, res) => {
             end_time: enrollment.end_time
           }
         ).then(() => {
-          console.log(`Enrollment email sent for existing enrollment to: ${req.user.email}`);
+          console.log(`Enrollment email sent for existing enrollment to: ${userDetails.email}`);
         }).catch((emailError) => {
           console.error("Email sending failed for existing enrollment:", emailError);
         });
@@ -104,10 +120,10 @@ const enrollInClass = async (req, res) => {
     const enrollment = await enrollUserInClass(userId, classId, sessionId, "paid");
 
     // Send pending enrollment email asynchronously (don't wait for it)
-    console.log(`📧 Attempting to send enrollment pending email to: ${req.user.email}`);
+    console.log(`📧 Attempting to send enrollment pending email to: ${userDetails.email}`);
     console.log(`📧 User details:`, {
-      email: req.user.email,
-      name: req.user.name || `${req.user.first_name} ${req.user.last_name}`,
+      email: userDetails.email,
+      name: userDetails.name || `${userDetails.first_name} ${userDetails.last_name}`,
       classTitle: classDetails.title,
       sessionDate: session.rows[0].session_date,
       startTime: session.rows[0].start_time,
@@ -116,8 +132,8 @@ const enrollInClass = async (req, res) => {
 
     // Send enrollment email asynchronously (don't wait for it)
     emailService.sendEnrollmentPendingEmail(
-      req.user.email,
-      req.user.name || `${req.user.first_name} ${req.user.last_name}`,
+      userDetails.email,
+      userDetails.name || `${userDetails.first_name} ${userDetails.last_name}`,
       classDetails.title,
       {
         location_details: classDetails.location_details
@@ -128,7 +144,7 @@ const enrollInClass = async (req, res) => {
         end_time: session.rows[0].end_time
       }
     ).then(() => {
-      console.log(`Enrollment pending email sent to: ${req.user.email}`);
+      console.log(`Enrollment pending email sent to: ${userDetails.email}`);
     }).catch((emailError) => {
       console.error("Email sending failed:", emailError);
     });
