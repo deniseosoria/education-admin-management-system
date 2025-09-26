@@ -668,7 +668,7 @@ function ClassManagement() {
                   borderTop: '1px solid #f3f4f6'
                 }}>
                   <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Tooltip title="View Students">
+                    <Tooltip title="View Sessions">
                       <IconButton
                         size="small"
                         onClick={() => handleViewStudents(cls)}
@@ -677,7 +677,7 @@ function ClassManagement() {
                           '&:hover': { color: '#3b82f6' }
                         }}
                       >
-                        <PeopleIcon sx={{ fontSize: 18 }} />
+                        <ScheduleIcon sx={{ fontSize: 18 }} />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Edit Class">
