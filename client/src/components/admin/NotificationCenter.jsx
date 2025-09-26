@@ -51,7 +51,7 @@ const NotificationCenter = () => {
   const { enqueueSnackbar } = useSnackbar();
   const errorTimeoutRef = React.useRef();
 
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState(1); // Start with Sent Notifications
   const [notifications, setNotifications] = useState([]);
   const [sentNotifications, setSentNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -912,394 +912,700 @@ const NotificationCenter = () => {
   };
 
   return (
-    <Box
-      sx={{
-        width: "100%",
-        maxWidth: "100%",
-        overflow: "hidden",
-        px: { xs: 1, sm: 2, md: 3 }, // Responsive padding
-      }}
-    >
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: { xs: "column", sm: "row" },
-          justifyContent: "space-between",
-          alignItems: { xs: "stretch", sm: "center" },
-          gap: 2,
-          mb: 3,
-        }}
-      >
-        <Typography
-          variant="h5"
-          component="h2"
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 1,
-            fontSize: { xs: '1.25rem', sm: '1.5rem' }
-          }}
-        >
-          Notification Center
-          {unreadCount > 0 && (
-            <Chip
-              label={`${unreadCount} unread`}
-              color="primary"
-              size="small"
-              sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
-            />
-          )}
-        </Typography>
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: { xs: "column", sm: "row" },
-            gap: 1,
-            width: { xs: "100%", sm: "auto" },
-          }}
-        >
-          <Button
-            startIcon={<AddIcon />}
-            onClick={() => setShowTemplateDialog(true)}
-            fullWidth={false}
+    <Box sx={{
+      width: '100%',
+      maxWidth: '100vw',
+      overflow: 'hidden'
+    }}>
+      {/* Modern Header */}
+      <Box sx={{
+        mb: 4,
+        px: { xs: 2, sm: 3 }
+      }}>
+        <Box>
+          <Typography
+            variant="h4"
+            component="h1"
             sx={{
-              minWidth: { xs: "100%", sm: "auto" },
-              whiteSpace: "nowrap",
-              height: { xs: '48px', sm: '40px' },
-              fontSize: { xs: '0.875rem', sm: '1rem' }
+              fontWeight: 700,
+              color: '#111827',
+              fontSize: { xs: '1.5rem', sm: '2rem' },
+              mb: 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1
             }}
           >
-            New Template
-          </Button>
-          <Button
-            startIcon={<SendIcon />}
-            onClick={() => setShowSendDialog(true)}
-            fullWidth={false}
+            <NotificationIcon sx={{ fontSize: { xs: '1.5rem', sm: '2rem' } }} />
+            Notification Center
+            {unreadCount > 0 && (
+              <Chip
+                label={`${unreadCount} unread`}
+                color="primary"
+                size="small"
+                sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+              />
+            )}
+          </Typography>
+          <Typography
+            variant="body1"
             sx={{
-              minWidth: { xs: "100%", sm: "auto" },
-              whiteSpace: "nowrap",
-              height: { xs: '48px', sm: '40px' },
-              fontSize: { xs: '0.875rem', sm: '1rem' }
+              color: '#6b7280',
+              fontSize: { xs: '0.875rem', sm: '1rem' },
+              mb: 3
             }}
           >
-            Send Notification
-          </Button>
-          <Button
-            startIcon={<BroadcastIcon />}
-            onClick={() => setShowBroadcastDialog(true)}
-            variant="contained"
-            fullWidth={false}
-            sx={{
-              minWidth: { xs: "100%", sm: "auto" },
-              whiteSpace: "nowrap",
-              height: { xs: '48px', sm: '40px' },
-              fontSize: { xs: '0.875rem', sm: '1rem' }
-            }}
-          >
-            Broadcast
-          </Button>
+            Manage notifications, send messages, and broadcast announcements
+          </Typography>
+          <Box sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            gap: 2,
+            flexWrap: 'wrap'
+          }}>
+            <Button
+              startIcon={<AddIcon />}
+              onClick={() => setShowTemplateDialog(true)}
+              sx={{
+                borderRadius: '12px',
+                textTransform: 'none',
+                fontWeight: 600,
+                px: 3,
+                py: 1.5,
+                fontSize: { xs: '0.875rem', sm: '1rem' }
+              }}
+            >
+              New Template
+            </Button>
+            <Button
+              startIcon={<SendIcon />}
+              onClick={() => setShowSendDialog(true)}
+              sx={{
+                borderRadius: '12px',
+                textTransform: 'none',
+                fontWeight: 600,
+                px: 3,
+                py: 1.5,
+                fontSize: { xs: '0.875rem', sm: '1rem' }
+              }}
+            >
+              Send Notification
+            </Button>
+            <Button
+              startIcon={<BroadcastIcon />}
+              onClick={() => setShowBroadcastDialog(true)}
+              variant="contained"
+              sx={{
+                borderRadius: '12px',
+                textTransform: 'none',
+                fontWeight: 600,
+                px: 3,
+                py: 1.5,
+                fontSize: { xs: '0.875rem', sm: '1rem' }
+              }}
+            >
+              Broadcast
+            </Button>
+          </Box>
         </Box>
       </Box>
 
-      <Paper sx={{ mb: 3 }}>
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-          variant="scrollable"
-          scrollButtons="auto"
-          allowScrollButtonsMobile
-          sx={{
-            '& .MuiTab-root': {
-              fontSize: { xs: '0.875rem', sm: '1rem' },
-              minHeight: { xs: '48px', sm: '40px' }
-            }
-          }}
-        >
-          <Tab label="Received Notifications" />
-          <Tab label="Sent Notifications" />
-          <Tab label="Templates" />
-        </Tabs>
-      </Paper>
+      {/* Error Display */}
+      {error && (
+        <Box sx={{
+          maxWidth: { xs: '100%', sm: '1200px' },
+          mx: 'auto',
+          mb: 3,
+          px: { xs: 2, sm: 3 }
+        }}>
+          <Alert severity="error" sx={{ borderRadius: '12px' }} onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        </Box>
+      )}
 
-      {activeTab === 0 && (
-        <>
-          <Box
+      {/* Modern Tabs */}
+      <Box sx={{
+        maxWidth: { xs: '100%', sm: '1200px' },
+        mx: 'auto',
+        mb: 4,
+        px: { xs: 2, sm: 3 }
+      }}>
+        <Paper sx={{
+          borderRadius: '16px',
+          boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+          border: '1px solid #e5e7eb'
+        }}>
+          <Tabs
+            value={activeTab}
+            onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
             sx={{
-              mb: 2,
-              display: "flex",
-              justifyContent: "flex-end",
-              width: "100%",
+              '& .MuiTab-root': {
+                fontSize: { xs: '0.875rem', sm: '1rem' },
+                minHeight: { xs: '48px', sm: '40px' },
+                textTransform: 'none',
+                fontWeight: 600,
+                '&.Mui-selected': {
+                  color: '#3b82f6'
+                }
+              },
+              '& .MuiTabs-indicator': {
+                backgroundColor: '#3b82f6',
+                height: 3,
+                borderRadius: '2px 2px 0 0'
+              }
             }}
           >
+            <Tab label="Received Notifications" />
+            <Tab label="Sent Notifications" />
+            <Tab label="Templates" />
+          </Tabs>
+        </Paper>
+      </Box>
+
+      {/* Received Notifications Tab */}
+      {activeTab === 0 && (
+        <Box sx={{
+          maxWidth: { xs: '100%', sm: '1200px' },
+          mx: 'auto',
+          px: { xs: 2, sm: 3 }
+        }}>
+          <Box sx={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            mb: 3
+          }}>
             <Button
               startIcon={<ReadIcon />}
               onClick={handleMarkAllAsRead}
               disabled={unreadCount === 0}
-              fullWidth={false}
-              sx={{ whiteSpace: "nowrap" }}
+              sx={{
+                borderRadius: '12px',
+                textTransform: 'none',
+                fontWeight: 600,
+                px: 3,
+                py: 1.5
+              }}
             >
               Mark All as Read
             </Button>
           </Box>
-          <List sx={{ width: "100%" }}>
-            {notifications.map((notification, index) => (
-              <React.Fragment key={`notification-${notification.id || index}`}>
-                <ListItem
+
+          {notifications.length === 0 ? (
+            <Paper sx={{
+              p: 4,
+              textAlign: 'center',
+              borderRadius: '16px',
+              boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+              border: '1px solid #e5e7eb'
+            }}>
+              <NotificationIcon sx={{ fontSize: 48, color: '#9ca3af', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No notifications received
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                You'll see notifications here when they arrive
+              </Typography>
+            </Paper>
+          ) : (
+            <Box sx={{
+              display: 'grid',
+              gap: 2,
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(400px, 1fr))' }
+            }}>
+              {notifications.map((notification, index) => (
+                <Paper
+                  key={`notification-${notification.id || index}`}
                   onClick={() => handleViewNotification(notification)}
                   sx={{
-                    flexDirection: { xs: "column", sm: "row" },
-                    alignItems: { xs: "flex-start", sm: "center" },
-                    gap: 1,
-                    py: 2,
-                    cursor: "pointer",
+                    p: 3,
+                    borderRadius: '16px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease-in-out',
+                    border: '1px solid #e5e7eb',
+                    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                    '&:hover': {
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                      transform: 'translateY(-1px)'
+                    },
+                    position: 'relative',
+                    ...(notification.read ? {} : {
+                      borderLeft: '4px solid #3b82f6',
+                      bgcolor: '#f8fafc'
+                    })
                   }}
-                  secondaryAction={
-                    <Box
-                      sx={{
-                        display: "flex",
-                        gap: 1,
-                        mt: { xs: 1, sm: 0 },
-                      }}
-                    >
+                >
+                  <Box sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    mb: 2
+                  }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Badge
+                        color="primary"
+                        variant="dot"
+                        invisible={notification.read}
+                      >
+                        <NotificationIcon sx={{ color: notification.read ? '#9ca3af' : '#3b82f6' }} />
+                      </Badge>
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          fontWeight: notification.read ? 500 : 700,
+                          color: '#111827'
+                        }}
+                      >
+                        {notification.title}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
                       {!notification.read && (
-                        <Tooltip title={<Typography sx={{ fontSize: '1rem', fontWeight: 400 }}>Mark as Read</Typography>} placement="top" arrow sx={{ '& .MuiTooltip-tooltip': { fontSize: '1rem', fontWeight: 400 } }}>
+                        <Tooltip title="Mark as Read">
                           <IconButton
-                            edge="end"
+                            size="small"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleMarkAsRead(notification.id);
                             }}
-                            size="small"
+                            sx={{ color: '#6b7280' }}
                           >
-                            <ReadIcon />
+                            <ReadIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       )}
-                      <Tooltip title={<Typography sx={{ fontSize: '1rem', fontWeight: 400 }}>Delete Notification</Typography>} placement="top" arrow sx={{ '& .MuiTooltip-tooltip': { fontSize: '1rem', fontWeight: 400 } }}>
+                      <Tooltip title="Delete">
                         <IconButton
-                          edge="end"
+                          size="small"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteNotification(notification.id);
                           }}
-                          size="small"
+                          sx={{ color: '#ef4444' }}
                         >
-                          <DeleteIcon />
+                          <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                     </Box>
-                  }
+                  </Box>
+
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{
+                      mb: 2,
+                      lineHeight: 1.6,
+                      wordBreak: 'break-word'
+                    }}
+                  >
+                    {notification.message}
+                  </Typography>
+
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{
+                      display: 'block',
+                      textAlign: 'right'
+                    }}
+                  >
+                    {new Date(notification.timestamp).toLocaleString()}
+                  </Typography>
+                </Paper>
+              ))}
+            </Box>
+          )}
+        </Box>
+      )}
+
+      {/* Sent Notifications Tab */}
+      {activeTab === 1 && (
+        <Box sx={{
+          maxWidth: { xs: '100%', sm: '1200px' },
+          mx: 'auto',
+          px: { xs: 2, sm: 3 }
+        }}>
+          {sentNotifications.length === 0 ? (
+            <Paper sx={{
+              p: 4,
+              textAlign: 'center',
+              borderRadius: '16px',
+              boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+              border: '1px solid #e5e7eb'
+            }}>
+              <SendIcon sx={{ fontSize: 48, color: '#9ca3af', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No notifications sent
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Send your first notification to see it here
+              </Typography>
+            </Paper>
+          ) : (
+            <Box sx={{
+              display: 'grid',
+              gap: 2,
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(400px, 1fr))' }
+            }}>
+              {sentNotifications.map((notification, index) => (
+                <Paper
+                  key={`sent-notification-${notification.id || index}`}
+                  sx={{
+                    p: 3,
+                    borderRadius: '16px',
+                    transition: 'all 0.2s ease-in-out',
+                    border: '1px solid #e5e7eb',
+                    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                    '&:hover': {
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                      transform: 'translateY(-1px)'
+                    },
+                    position: 'relative',
+                    ...(notification.is_broadcast && {
+                      borderLeft: '4px solid #3b82f6',
+                      bgcolor: '#f0f9ff'
+                    })
+                  }}
                 >
-                  <ListItemIcon sx={{ minWidth: 40 }}>
-                    <Badge
-                      color="primary"
-                      variant="dot"
-                      invisible={notification.read}
-                    >
-                      <NotificationIcon />
-                    </Badge>
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={
+                  <Box sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    mb: 2
+                  }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <SendIcon sx={{ color: notification.is_broadcast ? '#3b82f6' : '#6b7280' }} />
                       <Typography
-                        variant="subtitle1"
-                        component="div"
+                        variant="h6"
                         sx={{
-                          fontWeight: notification.read ? "normal" : "bold",
-                          wordBreak: "break-word",
+                          fontWeight: 600,
+                          color: '#111827'
                         }}
                       >
                         {notification.title}
                       </Typography>
-                    }
-                    secondary={
-                      <Typography
-                        component="span"
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{
-                          display: "block",
-                          wordBreak: "break-word",
-                        }}
-                      >
-                        {notification.message}
-                        <Typography
-                          component="span"
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{ display: "block", mt: 0.5 }}
-                        >
-                          {new Date(notification.timestamp).toLocaleString()}
-                        </Typography>
-                      </Typography>
-                    }
-                  />
-                </ListItem>
-                <Divider />
-              </React.Fragment>
-            ))}
-          </List>
-        </>
-      )}
-
-      {activeTab === 1 && (
-        <List sx={{ width: "100%" }}>
-          {sentNotifications.map((notification, index) => (
-            <React.Fragment key={`sent-notification-${notification.id || index}`}>
-              <ListItem
-                sx={{
-                  flexDirection: { xs: "column", sm: "row" },
-                  alignItems: { xs: "flex-start", sm: "center" },
-                  gap: 1,
-                  py: 2,
-                  bgcolor: notification.is_read ? 'inherit' : 'action.hover',
-                  borderLeft: notification.is_read ? 'none' : '4px solid #3498db',
-                  ...(notification.is_broadcast && {
-                    bgcolor: 'info.light',
-                    '&:hover': {
-                      bgcolor: 'info.light',
-                    }
-                  })
-                }}
-                secondaryAction={
-                  <Box
-                    sx={{
-                      display: "flex",
-                      gap: 1,
-                      mt: { xs: 1, sm: 0 },
-                    }}
-                  >
-                    {notification.is_broadcast && (
-                      <Chip
-                        label="Broadcast"
-                        color="info"
-                        size="small"
-                        sx={{ mr: 1 }}
-                      />
-                    )}
-                    <Tooltip title={<Typography sx={{ fontSize: '1rem', fontWeight: 400 }}>Delete Sent Notification</Typography>} placement="top" arrow sx={{ '& .MuiTooltip-tooltip': { fontSize: '1rem', fontWeight: 400 } }}>
+                      {notification.is_broadcast && (
+                        <Chip
+                          label="Broadcast"
+                          color="primary"
+                          size="small"
+                          sx={{ fontSize: '0.75rem' }}
+                        />
+                      )}
+                    </Box>
+                    <Tooltip title="Delete">
                       <IconButton
-                        edge="end"
+                        size="small"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteSentNotification(notification.id);
                         }}
-                        size="small"
+                        sx={{ color: '#ef4444' }}
                       >
-                        <DeleteIcon />
+                        <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                   </Box>
-                }
-              >
-                <ListItemIcon>
-                  <NotificationIcon color={notification.is_read ? "action" : "primary"} />
-                </ListItemIcon>
-                <ListItemText
-                  primary={
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="subtitle1" component="div">
-                        {notification.title}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" component="span">
-                        {new Date(notification.created_at).toLocaleDateString()}
-                      </Typography>
-                    </Box>
-                  }
-                  secondary={
-                    <Box component="div" sx={{ mt: 0.5 }}>
-                      <Typography variant="body2" color="text.secondary" component="span" sx={{ display: 'block', mb: 1 }}>
-                        {notification.message}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" component="span">
-                        Sent to: {notification.is_broadcast ? "Everyone" : (notification.recipient_name || 'Multiple recipients')}
-                      </Typography>
-                    </Box>
-                  }
-                  secondaryTypographyProps={{ component: 'div' }}
-                />
-              </ListItem>
-              <Divider />
-            </React.Fragment>
-          ))}
-        </List>
+
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{
+                      mb: 2,
+                      lineHeight: 1.6,
+                      wordBreak: 'break-word'
+                    }}
+                  >
+                    {notification.message}
+                  </Typography>
+
+                  <Box sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    pt: 1,
+                    borderTop: '1px solid #f3f4f6'
+                  }}>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                    >
+                      Sent to: {notification.is_broadcast ? "Everyone" : (notification.recipient_name || 'Multiple recipients')}
+                      {notification.is_broadcast && notification.sent_count && (
+                        <span> ({notification.sent_count} recipients)</span>
+                      )}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                    >
+                      {new Date(notification.created_at).toLocaleDateString()}
+                    </Typography>
+                  </Box>
+                </Paper>
+              ))}
+            </Box>
+          )}
+        </Box>
       )}
 
+      {/* Templates Tab */}
       {activeTab === 2 && (
-        <Table>
-          <TableBody>
-            {templates.map((template) => (
-              <TableRow key={template.id}>
-                <TableCell>{formatTemplateName(template.name)}</TableCell>
-                <TableCell>{template.type}</TableCell>
-                <TableCell>{template.title_template}</TableCell>
-                <TableCell>
-                  {template.message_template.length > 50
-                    ? `${template.message_template.substring(0, 50)}...`
-                    : template.message_template}
-                </TableCell>
-                <TableCell>
-                  {template.metadata?.variables?.map(v => `{${v}}`).join(", ")}
-                </TableCell>
-                <TableCell>
-                  <IconButton
-                    size="small"
-                    onClick={() => handleEditTemplate(template)}
-                    color="primary"
-                  >
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    onClick={() => handleDeleteTemplate(template.id)}
-                    color="error"
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <Box sx={{
+          maxWidth: { xs: '100%', sm: '1200px' },
+          mx: 'auto',
+          px: { xs: 2, sm: 3 }
+        }}>
+          {templates.length === 0 ? (
+            <Paper sx={{
+              p: 4,
+              textAlign: 'center',
+              borderRadius: '16px',
+              boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+              border: '1px solid #e5e7eb'
+            }}>
+              <AddIcon sx={{ fontSize: 48, color: '#9ca3af', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No templates created
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Create your first template to get started
+              </Typography>
+              <Button
+                startIcon={<AddIcon />}
+                onClick={() => setShowTemplateDialog(true)}
+                variant="contained"
+                sx={{
+                  borderRadius: '12px',
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  px: 3,
+                  py: 1.5
+                }}
+              >
+                Create Template
+              </Button>
+            </Paper>
+          ) : (
+            <Box sx={{
+              display: 'grid',
+              gap: 2,
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(400px, 1fr))' }
+            }}>
+              {templates.map((template) => (
+                <Paper
+                  key={template.id}
+                  sx={{
+                    p: 3,
+                    borderRadius: '16px',
+                    transition: 'all 0.2s ease-in-out',
+                    border: '1px solid #e5e7eb',
+                    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                    '&:hover': {
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                      transform: 'translateY(-1px)'
+                    }
+                  }}
+                >
+                  <Box sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    mb: 2
+                  }}>
+                    <Box>
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          fontWeight: 600,
+                          color: '#111827',
+                          mb: 0.5
+                        }}
+                      >
+                        {formatTemplateName(template.name)}
+                      </Typography>
+                      <Chip
+                        label={template.type.replace('_', ' ')}
+                        size="small"
+                        color="secondary"
+                        sx={{ fontSize: '0.75rem' }}
+                      />
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <Tooltip title="Edit Template">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditTemplate(template)}
+                          sx={{ color: '#3b82f6' }}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete Template">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteTemplate(template.id)}
+                          sx={{ color: '#ef4444' }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ mb: 2 }}>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ fontWeight: 500, mb: 0.5 }}
+                    >
+                      Title Template:
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        bgcolor: '#f8fafc',
+                        p: 1,
+                        borderRadius: '8px',
+                        fontFamily: 'monospace',
+                        fontSize: '0.875rem'
+                      }}
+                    >
+                      {template.title_template}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ mb: 2 }}>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ fontWeight: 500, mb: 0.5 }}
+                    >
+                      Message Template:
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        bgcolor: '#f8fafc',
+                        p: 1,
+                        borderRadius: '8px',
+                        fontFamily: 'monospace',
+                        fontSize: '0.875rem',
+                        maxHeight: '100px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}
+                    >
+                      {template.message_template.length > 100
+                        ? `${template.message_template.substring(0, 100)}...`
+                        : template.message_template}
+                    </Typography>
+                  </Box>
+
+                  {template.metadata?.variables?.length > 0 && (
+                    <Box>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ fontWeight: 500, mb: 0.5 }}
+                      >
+                        Variables:
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {template.metadata.variables.map((variable, index) => (
+                          <Chip
+                            key={index}
+                            label={`{${variable}}`}
+                            size="small"
+                            variant="outlined"
+                            sx={{ fontSize: '0.75rem' }}
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+                </Paper>
+              ))}
+            </Box>
+          )}
+        </Box>
       )}
 
-      {/* Notification Dialog */}
+      {/* Modern Notification Dialog */}
       <Dialog
         open={notificationDialogOpen}
         onClose={() => setNotificationDialogOpen(false)}
         aria-labelledby="notification-dialog-title"
         keepMounted={false}
+        maxWidth="sm"
+        fullWidth
         sx={{ zIndex: 1450 }}
+        PaperProps={{
+          sx: {
+            borderRadius: '16px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+          }
+        }}
       >
-        <DialogTitle id="notification-dialog-title">
+        <DialogTitle
+          id="notification-dialog-title"
+          sx={{
+            fontSize: '1.25rem',
+            fontWeight: 600,
+            color: '#111827',
+            pb: 1
+          }}
+        >
           {selectedNotification?.title}
         </DialogTitle>
-        <DialogContent>
-          <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+        <DialogContent sx={{ pt: 0 }}>
+          <Typography
+            variant="body1"
+            sx={{
+              whiteSpace: 'pre-wrap',
+              lineHeight: 1.6,
+              color: '#374151'
+            }}
+          >
             {selectedNotification?.message}
           </Typography>
           {selectedNotification?.action_url && (
             <Button
               href={selectedNotification.action_url}
               variant="contained"
-              sx={{ mt: 2 }}
+              sx={{
+                mt: 3,
+                borderRadius: '12px',
+                textTransform: 'none',
+                fontWeight: 600,
+                px: 3,
+                py: 1.5
+              }}
             >
               View Details
             </Button>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setNotificationDialogOpen(false)}>Close</Button>
+        <DialogActions sx={{ p: 3, pt: 1 }}>
+          <Button
+            onClick={() => setNotificationDialogOpen(false)}
+            sx={{
+              borderRadius: '12px',
+              textTransform: 'none',
+              fontWeight: 600,
+              px: 3,
+              py: 1.5
+            }}
+          >
+            Close
+          </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Send Notification Dialog */}
+      {/* Modern Send Notification Dialog */}
       <Dialog
         open={showSendDialog}
         onClose={() => {
@@ -1313,12 +1619,25 @@ const NotificationCenter = () => {
         }}
         aria-labelledby="send-notification-dialog-title"
         keepMounted={false}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
         sx={{ zIndex: 1450 }}
+        PaperProps={{
+          sx: {
+            borderRadius: '16px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+          }
+        }}
       >
-        <DialogTitle>Send Notification</DialogTitle>
-        <DialogContent>
+        <DialogTitle sx={{
+          fontSize: '1.25rem',
+          fontWeight: 600,
+          color: '#111827',
+          pb: 1
+        }}>
+          Send Notification
+        </DialogTitle>
+        <DialogContent sx={{ pt: 0 }}>
           <Box sx={{ mt: 2 }}>
             <FormControl fullWidth sx={{ mb: 2 }}>
               <InputLabel>Notification Type</InputLabel>
@@ -1724,7 +2043,7 @@ const NotificationCenter = () => {
             />
           </Box>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ p: 3, pt: 1 }}>
           <Button
             onClick={() => {
               setShowSendDialog(false);
@@ -1734,6 +2053,13 @@ const NotificationCenter = () => {
               setNotificationMessage("");
               setNotificationTitle("");
               setSelectedTemplateId("");
+            }}
+            sx={{
+              borderRadius: '12px',
+              textTransform: 'none',
+              fontWeight: 600,
+              px: 3,
+              py: 1.5
             }}
           >
             Cancel
@@ -1748,13 +2074,20 @@ const NotificationCenter = () => {
               (selectedRecipientType === "user" && !selectedRecipient?.id) ||
               (selectedRecipientType === "class" && !selectedClass)
             }
+            sx={{
+              borderRadius: '12px',
+              textTransform: 'none',
+              fontWeight: 600,
+              px: 3,
+              py: 1.5
+            }}
           >
             Send
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Template Dialog */}
+      {/* Modern Template Dialog */}
       <Dialog
         open={showTemplateDialog}
         onClose={() => {
@@ -1769,12 +2102,25 @@ const NotificationCenter = () => {
         }}
         aria-labelledby="template-dialog-title"
         keepMounted={false}
+        maxWidth="md"
+        fullWidth
         sx={{ zIndex: 1450 }}
+        PaperProps={{
+          sx: {
+            borderRadius: '16px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+          }
+        }}
       >
-        <DialogTitle>
+        <DialogTitle sx={{
+          fontSize: '1.25rem',
+          fontWeight: 600,
+          color: '#111827',
+          pb: 1
+        }}>
           {editingTemplate ? `Edit Template: ${formatTemplateName(editingTemplate.name)}` : 'New Template'}
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ pt: 0 }}>
           <Box sx={{ mt: 2 }}>
             <FormControl fullWidth sx={{ mb: 2 }}>
               <InputLabel>Template For</InputLabel>
@@ -1873,7 +2219,7 @@ const NotificationCenter = () => {
             </Box>
           </Box>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ p: 3, pt: 1 }}>
           <Button
             onClick={() => {
               setShowTemplateDialog(false);
@@ -1885,6 +2231,13 @@ const NotificationCenter = () => {
               });
               setEditingTemplate(null);
             }}
+            sx={{
+              borderRadius: '12px',
+              textTransform: 'none',
+              fontWeight: 600,
+              px: 3,
+              py: 1.5
+            }}
           >
             Cancel
           </Button>
@@ -1892,13 +2245,20 @@ const NotificationCenter = () => {
             onClick={handleCreateOrUpdateTemplate}
             variant="contained"
             disabled={!newTemplate.name || !newTemplate.content}
+            sx={{
+              borderRadius: '12px',
+              textTransform: 'none',
+              fontWeight: 600,
+              px: 3,
+              py: 1.5
+            }}
           >
             {editingTemplate ? 'Update Template' : 'Create Template'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Broadcast Dialog */}
+      {/* Modern Broadcast Dialog */}
       <Dialog
         open={showBroadcastDialog}
         onClose={() => {
@@ -1912,10 +2272,25 @@ const NotificationCenter = () => {
         }}
         aria-labelledby="broadcast-dialog-title"
         keepMounted={false}
+        maxWidth="md"
+        fullWidth
         sx={{ zIndex: 1450 }}
+        PaperProps={{
+          sx: {
+            borderRadius: '16px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+          }
+        }}
       >
-        <DialogTitle>Broadcast Message</DialogTitle>
-        <DialogContent>
+        <DialogTitle sx={{
+          fontSize: '1.25rem',
+          fontWeight: 600,
+          color: '#111827',
+          pb: 1
+        }}>
+          Broadcast Message
+        </DialogTitle>
+        <DialogContent sx={{ pt: 0 }}>
           <Box sx={{ mt: 2 }}>
             {broadcastProgress.isProcessing && (
               <Box sx={{ mb: 2, textAlign: 'center' }}>
@@ -1966,7 +2341,7 @@ const NotificationCenter = () => {
             />
           </Box>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ p: 3, pt: 1 }}>
           <Button
             onClick={() => {
               if (!broadcastProgress.isProcessing) {
@@ -1978,6 +2353,13 @@ const NotificationCenter = () => {
               }
             }}
             disabled={broadcastProgress.isProcessing}
+            sx={{
+              borderRadius: '12px',
+              textTransform: 'none',
+              fontWeight: 600,
+              px: 3,
+              py: 1.5
+            }}
           >
             Cancel
           </Button>
@@ -1987,6 +2369,13 @@ const NotificationCenter = () => {
             color="primary"
             disabled={!broadcastTitle.trim() || !broadcastMessage.trim() || broadcastProgress.isProcessing}
             startIcon={broadcastProgress.isProcessing ? <CircularProgress size={16} /> : <BroadcastIcon />}
+            sx={{
+              borderRadius: '12px',
+              textTransform: 'none',
+              fontWeight: 600,
+              px: 3,
+              py: 1.5
+            }}
           >
             {broadcastProgress.isProcessing ? 'Broadcasting...' : 'Broadcast'}
           </Button>
