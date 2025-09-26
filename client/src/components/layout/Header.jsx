@@ -164,13 +164,13 @@ function Header() {
 
     return (
         <header className="bg-white shadow-sm sticky top-0 z-50 w-full site-header">
-            <nav className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-3">
-                <div className="flex justify-between items-center h-24 sm:h-28 lg:h-32">
+            <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="relative flex justify-between items-center h-20 sm:h-24 lg:h-28">
                     {/* Left: Logo + (desktop) nav */}
                     <div className="flex items-center">
                         {/* ORIGINAL LOGO BLOCK */}
                         <Link to="/" className="flex-shrink-0 flex items-center">
-                            <div className="h-24 w-[280px] sm:h-28 sm:w-[320px] lg:h-32 lg:w-[360px] overflow-hidden">
+                            <div className="h-32 w-[360px] sm:h-36 sm:w-[400px] lg:h-40 lg:w-[440px] overflow-hidden -my-4 sm:-my-6 lg:-my-8">
                                 <img
                                     src="/images/logo-img.png"
                                     alt="YJ Child Care Plus Inc."
@@ -181,7 +181,7 @@ function Header() {
 
                         {/* Desktop navigation (hidden on mobile) */}
                         {!isMobileView && (
-                            <div className="ml-4 sm:ml-6 lg:ml-6 flex space-x-4 sm:space-x-6 lg:space-x-8 items-center">
+                            <div className="ml-2 sm:ml-3 lg:ml-4 flex space-x-2 sm:space-x-4 lg:space-x-6 items-center">
                                 {navigationLinks}
                             </div>
                         )}
@@ -191,10 +191,10 @@ function Header() {
                     {!isMobileView ? (
                         <div className="ml-4 sm:ml-6 lg:ml-6 flex items-center">{authLinks}</div>
                     ) : (
-                        <div className="-mr-2 flex lg:hidden">
+                        <div className="absolute right-0 top-1/2 transform -translate-y-1/2 flex lg:hidden">
                             <button
                                 onClick={toggleMenu}
-                                className="mobile-menu-toggle-button inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-black focus:outline-none"
+                                className="mobile-menu-toggle-button inline-flex items-center justify-center p-3 rounded-md text-gray-500 hover:text-black focus:outline-none bg-white shadow-lg border border-gray-200"
                                 aria-label="Toggle navigation menu"
                                 aria-expanded={isMenuOpen}
                             >
