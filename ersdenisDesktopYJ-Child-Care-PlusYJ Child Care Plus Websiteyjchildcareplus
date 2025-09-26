@@ -186,9 +186,6 @@ const CertificateUpload = ({ onUpload, studentId, classId, disabled = false }) =
                             label="Select Completed Session (Optional)"
                             onChange={(e) => setSelectedSession(e.target.value)}
                             disabled={loadingSessions || disabled}
-                            MenuProps={{
-                                sx: { zIndex: 1500 }
-                            }}
                         >
                             <MenuItem value="">
                                 <em>No specific session</em>
@@ -317,4 +314,4 @@ const CertificateUpload = ({ onUpload, studentId, classId, disabled = false }) =
     );
 };
 
-export default CertificateUpload;
+export default CertificateUpload; 

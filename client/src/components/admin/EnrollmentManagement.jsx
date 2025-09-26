@@ -1,8 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import adminService from '../../services/adminService';
 import enrollmentService from '../../services/enrollmentService';
-import { Box, TableContainer, Table, TableHead, TableBody, TableRow, TableCell, Chip, IconButton, Paper, Grid, Card, CardContent, Typography, CircularProgress, Alert, Select, MenuItem, FormControl, InputLabel, Button, Dialog, DialogTitle, DialogContent, DialogActions, Tooltip, Pagination } from '@mui/material';
-import { Visibility as VisibilityIcon, Check as CheckIcon, Block, Download as DownloadIcon, Close as CloseIcon, Pending as PendingIcon } from '@mui/icons-material';
+import {
+    Box,
+    Chip,
+    IconButton,
+    Paper,
+    Typography,
+    CircularProgress,
+    Alert,
+    Select,
+    MenuItem,
+    FormControl,
+    InputLabel,
+    Button,
+    Tooltip,
+    Pagination,
+    Avatar,
+    InputAdornment,
+    TextField
+} from '@mui/material';
+import {
+    Check as CheckIcon,
+    Block,
+    Download as DownloadIcon,
+    Pending as PendingIcon,
+    Person as PersonIcon,
+    School as SchoolIcon,
+    Schedule as ScheduleIcon,
+    CalendarToday as CalendarIcon,
+    FilterList as FilterListIcon,
+    Search as SearchIcon
+} from '@mui/icons-material';
 import { useNotifications } from '../../utils/notificationUtils';
 
 function EnrollmentManagement() {
@@ -13,8 +42,6 @@ function EnrollmentManagement() {
     const [pageSize, setPageSize] = useState(20);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [selectedEnrollment, setSelectedEnrollment] = useState(null);
-    const [enrollmentDialogOpen, setEnrollmentDialogOpen] = useState(false);
     const [stats, setStats] = useState(null);
     const [analytics, setAnalytics] = useState(null);
     const [filters, setFilters] = useState({
@@ -119,16 +146,6 @@ function EnrollmentManagement() {
         }
     };
 
-    const handleViewDetails = (enrollment) => {
-        setSelectedEnrollment(enrollment);
-        setEnrollmentDialogOpen(true);
-    };
-
-    const handleCloseEnrollmentDialog = () => {
-        setEnrollmentDialogOpen(false);
-        // Don't clear selectedEnrollment immediately to avoid flicker
-        setTimeout(() => setSelectedEnrollment(null), 150);
-    };
 
     const handleFilterChange = (newFilters) => {
         setFilters(prev => ({ ...prev, ...newFilters }));
@@ -194,320 +211,515 @@ function EnrollmentManagement() {
     }
 
     return (
-        <Box className="enrollment-management p-4">
+        <Box sx={{
+            width: '100%',
+            maxWidth: '100vw',
+            overflow: 'hidden'
+        }}>
+            {/* Modern Header */}
+            <Box sx={{
+                mb: 4,
+                px: { xs: 2, sm: 3 }
+            }}>
+                <Typography
+                    variant="h4"
+                    component="h1"
+                    sx={{
+                        fontWeight: 700,
+                        color: '#111827',
+                        fontSize: { xs: '1.5rem', sm: '2rem' },
+                        mb: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1
+                    }}
+                >
+                    <PersonIcon sx={{ fontSize: { xs: '1.5rem', sm: '2rem' } }} />
+                    Enrollment Management
+                </Typography>
+                <Typography
+                    variant="body1"
+                    sx={{
+                        color: '#6b7280',
+                        fontSize: { xs: '0.875rem', sm: '1rem' }
+                    }}
+                >
+                    Manage student enrollments, track status, and monitor enrollment analytics
+                </Typography>
+            </Box>
+
+            {/* Error Display */}
             {error && (
-                <Alert severity="error" className="mb-4" onClose={() => setError(null)}>
-                    {error}
-                </Alert>
+                <Box sx={{
+                    maxWidth: { xs: '100%', sm: '1200px' },
+                    mx: 'auto',
+                    mb: 3,
+                    px: { xs: 2, sm: 3 }
+                }}>
+                    <Alert severity="error" sx={{ borderRadius: '12px' }} onClose={() => setError(null)}>
+                        {error}
+                    </Alert>
+                </Box>
             )}
 
-            {/* Dashboard Stats Section */}
-            <Box className="mb-6">
-                <Typography variant="h5" className="mb-4" sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
-                    Enrollment Overview
-                </Typography>
-                <Grid container spacing={3}>
-                    <Grid item xs={12} sm={6} md={3}>
-                        <Card sx={{ height: '100%' }}>
-                            <CardContent sx={{ p: 3, textAlign: 'center' }}>
-                                <Typography color="textSecondary" gutterBottom sx={{ fontSize: '0.875rem', mb: 1 }}>
+            {/* Modern Statistics Cards */}
+            <Box sx={{
+                maxWidth: { xs: '100%', sm: '1200px' },
+                mx: 'auto',
+                mb: 4,
+                px: { xs: 2, sm: 3 }
+            }}>
+                <Box sx={{
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
+                    gap: { xs: 2, sm: 3 }
+                }}>
+                    <Paper sx={{
+                        p: { xs: 2, sm: 3 },
+                        borderRadius: '16px',
+                        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                        border: '1px solid #e5e7eb',
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                            boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                            transform: 'translateY(-1px)',
+                            borderColor: '#3b82f6'
+                        }
+                    }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                            <Box sx={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: '10px',
+                                bgcolor: '#3b82f6',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                <PersonIcon sx={{ color: 'white', fontSize: 20 }} />
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                                     Active Enrollments
                                 </Typography>
-                                <Typography variant="h4" sx={{ fontSize: { xs: '1.5rem', sm: '2rem' }, fontWeight: 600 }}>
+                                <Typography variant="h4" sx={{
+                                    color: '#3b82f6',
+                                    fontWeight: 700,
+                                    fontSize: { xs: '1.5rem', sm: '2rem' }
+                                }}>
                                     {stats?.totalEnrollments || 0}
                                 </Typography>
-                                <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.7rem' }}>
-                                    From active classes only
-                                </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                        <Card sx={{ height: '100%' }}>
-                            <CardContent sx={{ p: 3, textAlign: 'center' }}>
-                                <Typography color="textSecondary" gutterBottom sx={{ fontSize: '0.875rem', mb: 1 }}>
+                            </Box>
+                        </Box>
+                    </Paper>
+                    <Paper sx={{
+                        p: { xs: 2, sm: 3 },
+                        borderRadius: '16px',
+                        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                        border: '1px solid #e5e7eb',
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                            boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                            transform: 'translateY(-1px)',
+                            borderColor: '#f59e0b'
+                        }
+                    }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                            <Box sx={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: '10px',
+                                bgcolor: '#f59e0b',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                <PendingIcon sx={{ color: 'white', fontSize: 20 }} />
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                                     Pending Approvals
                                 </Typography>
-                                <Typography variant="h4" sx={{ fontSize: { xs: '1.5rem', sm: '2rem' }, fontWeight: 600, color: 'warning.main' }}>
+                                <Typography variant="h4" sx={{
+                                    color: '#f59e0b',
+                                    fontWeight: 700,
+                                    fontSize: { xs: '1.5rem', sm: '2rem' }
+                                }}>
                                     {stats?.pendingEnrollments || 0}
                                 </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                        <Card sx={{ height: '100%' }}>
-                            <CardContent sx={{ p: 3, textAlign: 'center' }}>
-                                <Typography color="textSecondary" gutterBottom sx={{ fontSize: '0.875rem', mb: 1 }}>
+                            </Box>
+                        </Box>
+                    </Paper>
+                    <Paper sx={{
+                        p: { xs: 2, sm: 3 },
+                        borderRadius: '16px',
+                        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                        border: '1px solid #e5e7eb',
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                            boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                            transform: 'translateY(-1px)',
+                            borderColor: '#10b981'
+                        }
+                    }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                            <Box sx={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: '10px',
+                                bgcolor: '#10b981',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                <CheckIcon sx={{ color: 'white', fontSize: 20 }} />
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                                     Active Students
                                 </Typography>
-                                <Typography variant="h4" sx={{ fontSize: { xs: '1.5rem', sm: '2rem' }, fontWeight: 600, color: 'success.main' }}>
+                                <Typography variant="h4" sx={{
+                                    color: '#10b981',
+                                    fontWeight: 700,
+                                    fontSize: { xs: '1.5rem', sm: '2rem' }
+                                }}>
                                     {stats?.activeStudents || 0}
                                 </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                        <Card sx={{ height: '100%' }}>
-                            <CardContent sx={{ p: 3, textAlign: 'center' }}>
-                                <Typography color="textSecondary" gutterBottom sx={{ fontSize: '0.875rem', mb: 1 }}>
+                            </Box>
+                        </Box>
+                    </Paper>
+                    <Paper sx={{
+                        p: { xs: 2, sm: 3 },
+                        borderRadius: '16px',
+                        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                        border: '1px solid #e5e7eb',
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                            boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                            transform: 'translateY(-1px)',
+                            borderColor: '#8b5cf6'
+                        }
+                    }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                            <Box sx={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: '10px',
+                                bgcolor: '#8b5cf6',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                <CalendarIcon sx={{ color: 'white', fontSize: 20 }} />
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                                     Enrollment Rate
                                 </Typography>
-                                <Typography variant="h4" sx={{ fontSize: { xs: '1.5rem', sm: '2rem' }, fontWeight: 600, color: 'info.main' }}>
+                                <Typography variant="h4" sx={{
+                                    color: '#8b5cf6',
+                                    fontWeight: 700,
+                                    fontSize: { xs: '1.5rem', sm: '2rem' }
+                                }}>
                                     {analytics?.enrollmentRate ? `${analytics.enrollmentRate}%` : '0%'}
                                 </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                </Grid>
+                            </Box>
+                        </Box>
+                    </Paper>
+                </Box>
             </Box>
 
 
 
-            {/* Filter Section */}
-            <Box className="mb-4">
-                <Grid container spacing={3} alignItems="center">
-                    <Grid item xs={12} sm={6} md={4}>
-                        <FormControl fullWidth size="small">
-                            <InputLabel>Status</InputLabel>
+            {/* Modern Filters */}
+            <Box sx={{
+                maxWidth: { xs: '100%', sm: '1200px' },
+                mx: 'auto',
+                mb: 4,
+                px: { xs: 2, sm: 3 }
+            }}>
+                <Paper sx={{
+                    p: { xs: 3, sm: 4 },
+                    borderRadius: '16px',
+                    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                    border: '1px solid #e5e7eb'
+                }}>
+                    <Typography
+                        variant="h6"
+                        sx={{
+                            mb: 3,
+                            fontWeight: 600,
+                            color: '#111827',
+                            fontSize: { xs: '1rem', sm: '1.125rem' },
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1
+                        }}
+                    >
+                        <FilterListIcon sx={{ fontSize: { xs: '1rem', sm: '1.125rem' } }} />
+                        Filters
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <FormControl fullWidth>
+                            <InputLabel sx={{
+                                '&.Mui-focused': { color: '#3b82f6' }
+                            }}>Status</InputLabel>
                             <Select
                                 value={filters.status}
                                 label="Status"
                                 onChange={(e) => handleFilterChange({ status: e.target.value })}
+                                MenuProps={{
+                                    sx: { zIndex: 1500 }
+                                }}
+                                sx={{
+                                    borderRadius: '12px',
+                                    height: { xs: '48px', sm: '44px' },
+                                    '& .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#d1d5db'
+                                    },
+                                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#3b82f6'
+                                    },
+                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#3b82f6',
+                                        borderWidth: '2px'
+                                    }
+                                }}
                             >
-                                <MenuItem value="all">All</MenuItem>
+                                <MenuItem value="all">All Statuses</MenuItem>
                                 <MenuItem value="pending">Pending</MenuItem>
                                 <MenuItem value="approved">Approved</MenuItem>
                                 <MenuItem value="rejected">Rejected</MenuItem>
                             </Select>
                         </FormControl>
-                    </Grid>
-                </Grid>
+                    </Box>
+                </Paper>
             </Box>
 
-            {/* Enrollments Table */}
-            <Box className="mb-4">
-                <Typography variant="h6" className="mb-3" sx={{ fontSize: { xs: '1.125rem', sm: '1.25rem' } }}>
-                    Enrollment Records
-                </Typography>
-                <TableContainer component={Paper} sx={{
-                    overflowX: 'auto',
-                    '& .MuiTable-root': {
-                        minWidth: { xs: '600px', sm: 'auto' }
-                    }
-                }}>
-                    <Table>
-                        <TableHead>
-                            <TableRow>
-                                <TableCell sx={{
-                                    fontWeight: 600,
-                                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                                    backgroundColor: 'grey.50'
+            {/* Modern Enrollment Cards */}
+            <Box sx={{
+                maxWidth: { xs: '100%', sm: '1200px' },
+                mx: 'auto',
+                mb: 4,
+                px: { xs: 2, sm: 3 }
+            }}>
+                {loading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+                        <CircularProgress size={40} />
+                    </Box>
+                ) : enrollments.length === 0 ? (
+                    <Paper sx={{ p: 6, textAlign: 'center', borderRadius: '16px' }}>
+                        <PersonIcon sx={{ fontSize: 48, color: '#9ca3af', mb: 2 }} />
+                        <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                            No enrollments found
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Students will appear here when they enroll in classes
+                        </Typography>
+                    </Paper>
+                ) : (
+                    <Box sx={{
+                        display: 'grid',
+                        gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
+                        gap: { xs: 2, sm: 3 }
+                    }}>
+                        {enrollments.map((enrollment) => (
+                            <Box key={enrollment.id} sx={{ width: '100%', minWidth: 0 }}>
+                                <Paper sx={{
+                                    p: { xs: 2, sm: 3 },
+                                    borderRadius: '16px',
+                                    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                                    border: '1px solid #e5e7eb',
+                                    transition: 'all 0.2s ease-in-out',
+                                    width: '100%',
+                                    minWidth: 0,
+                                    '&:hover': {
+                                        boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                                        transform: 'translateY(-1px)',
+                                        borderColor: '#3b82f6'
+                                    }
                                 }}>
-                                    Student
-                                </TableCell>
-                                <TableCell sx={{
-                                    fontWeight: 600,
-                                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                                    backgroundColor: 'grey.50'
-                                }}>
-                                    Class
-                                </TableCell>
-                                <TableCell sx={{
-                                    fontWeight: 600,
-                                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                                    backgroundColor: 'grey.50'
-                                }}>
-                                    Session Date
-                                </TableCell>
-                                <TableCell sx={{
-                                    fontWeight: 600,
-                                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                                    backgroundColor: 'grey.50'
-                                }}>
-                                    Enrollment Date
-                                </TableCell>
-                                <TableCell sx={{
-                                    fontWeight: 600,
-                                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                                    backgroundColor: 'grey.50'
-                                }}>
-                                    Status
-                                </TableCell>
-                                <TableCell sx={{
-                                    fontWeight: 600,
-                                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                                    backgroundColor: 'grey.50'
-                                }}>
-                                    Actions
-                                </TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {enrollments.map((enrollment) => (
-                                <TableRow key={enrollment.id} hover>
-                                    <TableCell sx={{
-                                        fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                                        py: 2
-                                    }}>
-                                        {enrollment.student_name}
-                                    </TableCell>
-                                    <TableCell sx={{
-                                        fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                                        py: 2
-                                    }}>
-                                        {enrollment.class_name}
-                                    </TableCell>
-                                    <TableCell sx={{
-                                        fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                                        py: 2
-                                    }}>
-                                        {new Date(enrollment.session_date).toLocaleDateString()}
-                                    </TableCell>
-                                    <TableCell sx={{
-                                        fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                                        py: 2
-                                    }}>
-                                        {new Date(enrollment.enrollment_date).toLocaleDateString()}
-                                    </TableCell>
-                                    <TableCell sx={{ py: 2 }}>
+                                    {/* Enrollment Header */}
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
+                                            <Avatar sx={{
+                                                bgcolor: getStatusColor(enrollment.enrollment_status) === 'success' ? '#10b981' :
+                                                    getStatusColor(enrollment.enrollment_status) === 'warning' ? '#f59e0b' :
+                                                        getStatusColor(enrollment.enrollment_status) === 'error' ? '#ef4444' : '#6b7280',
+                                                width: 48,
+                                                height: 48
+                                            }}>
+                                                {enrollment.student_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'S'}
+                                            </Avatar>
+                                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                                                <Typography
+                                                    variant="h6"
+                                                    sx={{
+                                                        fontWeight: 600,
+                                                        fontSize: { xs: '1rem', sm: '1.125rem' },
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: 'nowrap'
+                                                    }}
+                                                >
+                                                    {enrollment.student_name}
+                                                </Typography>
+                                                <Typography
+                                                    variant="body2"
+                                                    color="text.secondary"
+                                                    sx={{
+                                                        fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: 'nowrap'
+                                                    }}
+                                                >
+                                                    {enrollment.class_name}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
                                         <Chip
                                             label={enrollment.enrollment_status}
                                             color={getStatusColor(enrollment.enrollment_status)}
                                             size="small"
-                                            sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
+                                            sx={{ fontSize: '0.75rem' }}
                                         />
-                                    </TableCell>
-                                    <TableCell sx={{ py: 2 }}>
-                                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                                            <Tooltip title="View Details" placement="top" arrow>
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={() => handleViewDetails(enrollment)}
-                                                    sx={{
-                                                        p: 1,
-                                                        '&:hover': { backgroundColor: 'primary.50' }
-                                                    }}
-                                                >
-                                                    <VisibilityIcon sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />
-                                                </IconButton>
-                                            </Tooltip>
+                                    </Box>
+
+                                    {/* Enrollment Details */}
+                                    <Box sx={{ mb: 3 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                            <SchoolIcon sx={{ fontSize: 16, color: '#6b7280' }} />
+                                            <Typography
+                                                variant="body2"
+                                                sx={{
+                                                    color: '#374151',
+                                                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                            >
+                                                {enrollment.class_name}
+                                            </Typography>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                            <ScheduleIcon sx={{ fontSize: 16, color: '#6b7280' }} />
+                                            <Typography
+                                                variant="body2"
+                                                sx={{
+                                                    color: '#374151',
+                                                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                                                }}
+                                            >
+                                                Session: {new Date(enrollment.session_date).toLocaleDateString()}
+                                            </Typography>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <CalendarIcon sx={{ fontSize: 16, color: '#6b7280' }} />
+                                            <Typography
+                                                variant="body2"
+                                                sx={{
+                                                    color: '#374151',
+                                                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                                                }}
+                                            >
+                                                Enrolled: {new Date(enrollment.enrollment_date).toLocaleDateString()}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+
+                                    {/* Enrollment Actions */}
+                                    <Box sx={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        pt: 2,
+                                        borderTop: '1px solid #f3f4f6'
+                                    }}>
+                                        <Box sx={{ display: 'flex', gap: 1 }}>
                                             {enrollment.enrollment_status !== 'pending' && (
-                                                <Tooltip title="Set Pending" placement="top" arrow>
+                                                <Tooltip title="Set Pending">
                                                     <IconButton
                                                         size="small"
                                                         onClick={() => handleStatusUpdate(enrollment.id, 'pending')}
-                                                        color="warning"
                                                         sx={{
-                                                            p: 1,
-                                                            '&:hover': { backgroundColor: 'warning.50' }
+                                                            color: '#6b7280',
+                                                            '&:hover': { color: '#f59e0b' }
                                                         }}
                                                     >
-                                                        <PendingIcon sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />
+                                                        <PendingIcon sx={{ fontSize: 18 }} />
                                                     </IconButton>
                                                 </Tooltip>
                                             )}
                                             {enrollment.enrollment_status !== 'approved' && (
-                                                <Tooltip title="Approve Enrollment" placement="top" arrow>
+                                                <Tooltip title="Approve">
                                                     <IconButton
                                                         size="small"
                                                         onClick={() => handleStatusUpdate(enrollment.id, 'approved')}
-                                                        color="success"
                                                         sx={{
-                                                            p: 1,
-                                                            '&:hover': { backgroundColor: 'success.50' }
+                                                            color: '#6b7280',
+                                                            '&:hover': { color: '#10b981' }
                                                         }}
                                                     >
-                                                        <CheckIcon sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />
+                                                        <CheckIcon sx={{ fontSize: 18 }} />
                                                     </IconButton>
                                                 </Tooltip>
                                             )}
                                             {enrollment.enrollment_status !== 'rejected' && (
-                                                <Tooltip title="Reject Enrollment" placement="top" arrow>
+                                                <Tooltip title="Reject">
                                                     <IconButton
                                                         size="small"
                                                         onClick={() => handleStatusUpdate(enrollment.id, 'rejected')}
-                                                        color="error"
                                                         sx={{
-                                                            p: 1,
-                                                            '&:hover': { backgroundColor: 'error.50' }
+                                                            color: '#6b7280',
+                                                            '&:hover': { color: '#ef4444' }
                                                         }}
                                                     >
-                                                        <Block sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />
+                                                        <Block sx={{ fontSize: 18 }} />
                                                     </IconButton>
                                                 </Tooltip>
                                             )}
                                         </Box>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+                                    </Box>
+                                </Paper>
+                            </Box>
+                        ))}
+                    </Box>
+                )}
             </Box>
 
-            {/* Pagination Controls */}
-            <Box display="flex" justifyContent="center" mt={3}>
-                <Pagination
-                    count={Math.ceil(total / pageSize)}
-                    page={page}
-                    onChange={(_, value) => setPage(value)}
-                    color="primary"
-                    size="small"
-                    showFirstButton
-                    showLastButton
-                />
+            {/* Modern Pagination */}
+            <Box sx={{
+                maxWidth: { xs: '100%', sm: '1200px' },
+                mx: 'auto',
+                mb: 4,
+                px: { xs: 2, sm: 3 }
+            }}>
+                <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                    <Pagination
+                        count={Math.ceil(total / pageSize)}
+                        page={page}
+                        onChange={(_, value) => setPage(value)}
+                        color="primary"
+                        size="small"
+                        showFirstButton
+                        showLastButton
+                        sx={{
+                            '& .MuiPaginationItem-root': {
+                                borderRadius: '8px',
+                                '&.Mui-selected': {
+                                    backgroundColor: '#3b82f6',
+                                    color: 'white',
+                                    '&:hover': {
+                                        backgroundColor: '#2563eb'
+                                    }
+                                }
+                            }
+                        }}
+                    />
+                </Box>
             </Box>
 
-            {/* Enrollment Details Dialog */}
-            {enrollmentDialogOpen && selectedEnrollment && (
-                <Dialog
-                    open={enrollmentDialogOpen}
-                    onClose={handleCloseEnrollmentDialog}
-                    maxWidth="md"
-                    fullWidth
-                    sx={{ zIndex: 1450 }}
-                >
-                    <DialogTitle>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="h6">Enrollment Details</Typography>
-                            <IconButton onClick={handleCloseEnrollmentDialog} size="small">
-                                <CloseIcon />
-                            </IconButton>
-                        </Box>
-                    </DialogTitle>
-                    <DialogContent>
-                        <Grid container spacing={2}>
-                            <Grid item xs={12} md={6}>
-                                <Typography variant="subtitle2" color="textSecondary">Student</Typography>
-                                <Typography variant="body1">{selectedEnrollment.student_name}</Typography>
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                                <Typography variant="subtitle2" color="textSecondary">Class</Typography>
-                                <Typography variant="body1">{selectedEnrollment.class_name}</Typography>
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                                <Typography variant="subtitle2" color="textSecondary">Status</Typography>
-                                <Typography variant="body1">{selectedEnrollment.enrollment_status}</Typography>
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                                <Typography variant="subtitle2" color="textSecondary">Date</Typography>
-                                <Typography variant="body1">
-                                    {new Date(selectedEnrollment.enrollment_date).toLocaleDateString()}
-                                </Typography>
-                            </Grid>
-                            {selectedEnrollment.admin_notes && (
-                                <Grid item xs={12}>
-                                    <Typography variant="subtitle2" color="textSecondary">Notes</Typography>
-                                    <Typography variant="body1">{selectedEnrollment.admin_notes}</Typography>
-                                </Grid>
-                            )}
-                        </Grid>
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={handleCloseEnrollmentDialog}>Close</Button>
-                    </DialogActions>
-                </Dialog>
-            )}
         </Box>
     );
 }

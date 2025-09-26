@@ -6,8 +6,8 @@ const { cloudinary } = require('../config/cloudinary');
 
 // Helper function to generate verification code
 const generateVerificationCode = () => {
-    return Math.random().toString(36).substring(2, 15) + 
-           Math.random().toString(36).substring(2, 15);
+    return Math.random().toString(36).substring(2, 15) +
+        Math.random().toString(36).substring(2, 15);
 };
 
 // Get certificate by ID
@@ -110,7 +110,7 @@ const generateCertificate = async (certificateId) => {
 
     // Update DB with Cloudinary URL
     await pool.query(
-        'UPDATE certificates SET certificate_url = $1, cloudinary_id = $2 WHERE id = $3', 
+        'UPDATE certificates SET certificate_url = $1, cloudinary_id = $2 WHERE id = $3',
         [uploadResult.secure_url, uploadResult.public_id, certificateId]
     );
 
@@ -123,7 +123,7 @@ const generateCertificate = async (certificateId) => {
 // Update certificate URL
 const updateCertificateUrl = async (certificateId, url) => {
     const result = await pool.query(
-        'UPDATE certificates SET certificate_url = $1 WHERE id = $2 RETURNING *', 
+        'UPDATE certificates SET certificate_url = $1 WHERE id = $2 RETURNING *',
         [url, certificateId]
     );
     return result.rows[0];
@@ -194,16 +194,16 @@ const uploadCertificate = async ({ user_id, class_id, session_id, certificate_na
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'approved') 
             RETURNING *`,
             [
-                user_id, 
-                class_id, 
+                user_id,
+                class_id,
                 session_id,
-                certificate_name, 
+                certificate_name,
                 certificateUrl,
                 expiration_date,
                 cloudinary_id,
                 supabase_path,
-                file_type, 
-                file_size, 
+                file_type,
+                file_size,
                 uploaded_by
             ]
         );
@@ -281,7 +281,7 @@ const getDownloadUrl = async (certificateId) => {
 // Get completed sessions for a class
 const getCompletedSessions = async (classId) => {
     const result = await pool.query(`
-        SELECT 
+        SELECT
             cs.id,
             cs.session_date,
             cs.start_time,
@@ -290,7 +290,7 @@ const getCompletedSessions = async (classId) => {
             cs.enrolled_count,
             cs.status
         FROM class_sessions cs
-        WHERE cs.class_id = $1 
+        WHERE cs.class_id = $1
         AND cs.status = 'completed'
         AND cs.session_date <= CURRENT_DATE
         ORDER BY cs.session_date DESC, cs.start_time DESC

@@ -210,223 +210,457 @@ function WaitlistManagement() {
     }
 
     return (
-        <Box className="waitlist-management">
-            {/* Header */}
-            <Box mb={4}>
-                <Typography variant="h4" component="h1" gutterBottom>
-                    <QueueIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+        <Box sx={{
+            width: '100%',
+            maxWidth: '100vw',
+            overflow: 'hidden'
+        }}>
+            {/* Modern Header */}
+            <Box sx={{
+                mb: 4,
+                px: { xs: 2, sm: 3 }
+            }}>
+                <Typography
+                    variant="h4"
+                    component="h1"
+                    sx={{
+                        fontWeight: 700,
+                        color: '#111827',
+                        fontSize: { xs: '1.5rem', sm: '2rem' },
+                        mb: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1
+                    }}
+                >
+                    <QueueIcon sx={{ fontSize: { xs: '1.5rem', sm: '2rem' } }} />
                     Waitlist Management
                 </Typography>
-                <Typography variant="body1" color="text.secondary">
+                <Typography
+                    variant="body1"
+                    sx={{
+                        color: '#6b7280',
+                        fontSize: { xs: '0.875rem', sm: '1rem' }
+                    }}
+                >
                     Manage active waitlist entries (pending and waiting). Approve or reject students to move them to enrollments.
                 </Typography>
             </Box>
 
-            {/* Statistics Cards */}
-            <Grid container spacing={3} mb={4}>
-                <Grid item xs={12} sm={6} md={6}>
-                    <Card>
-                        <CardContent>
-                            <Typography color="textSecondary" gutterBottom>
-                                Pending Entries
-                            </Typography>
-                            <Typography variant="h4" component="div" color="warning.main">
-                                {uniqueEntries.filter(entry => entry.status === 'pending').length}
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
-                <Grid item xs={12} sm={6} md={6}>
-                    <Card>
-                        <CardContent>
-                            <Typography color="textSecondary" gutterBottom>
-                                Active Classes
-                            </Typography>
-                            <Typography variant="h4" component="div" color="primary.main">
-                                {new Set(uniqueEntries.map(entry => entry.class_id)).size}
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
-            </Grid>
+            {/* Modern Statistics Cards */}
+            <Box sx={{
+                maxWidth: { xs: '100%', sm: '1200px' },
+                mx: 'auto',
+                mb: 4,
+                px: { xs: 2, sm: 3 }
+            }}>
+                <Box sx={{
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+                    gap: { xs: 2, sm: 3 }
+                }}>
+                    <Paper sx={{
+                        p: { xs: 2, sm: 3 },
+                        borderRadius: '16px',
+                        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                        border: '1px solid #e5e7eb',
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                            boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                            transform: 'translateY(-1px)',
+                            borderColor: '#f59e0b'
+                        }
+                    }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                            <Box sx={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: '10px',
+                                bgcolor: '#f59e0b',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                <QueueIcon sx={{ color: 'white', fontSize: 20 }} />
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                                    Pending Entries
+                                </Typography>
+                                <Typography variant="h4" sx={{
+                                    color: '#f59e0b',
+                                    fontWeight: 700,
+                                    fontSize: { xs: '1.5rem', sm: '2rem' }
+                                }}>
+                                    {uniqueEntries.filter(entry => entry.status === 'pending').length}
+                                </Typography>
+                            </Box>
+                        </Box>
+                    </Paper>
+                    <Paper sx={{
+                        p: { xs: 2, sm: 3 },
+                        borderRadius: '16px',
+                        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                        border: '1px solid #e5e7eb',
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                            boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                            transform: 'translateY(-1px)',
+                            borderColor: '#3b82f6'
+                        }
+                    }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                            <Box sx={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: '10px',
+                                bgcolor: '#3b82f6',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                <SchoolIcon sx={{ color: 'white', fontSize: 20 }} />
+                            </Box>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                                    Active Classes
+                                </Typography>
+                                <Typography variant="h4" sx={{
+                                    color: '#3b82f6',
+                                    fontWeight: 700,
+                                    fontSize: { xs: '1.5rem', sm: '2rem' }
+                                }}>
+                                    {new Set(uniqueEntries.map(entry => entry.class_id)).size}
+                                </Typography>
+                            </Box>
+                        </Box>
+                    </Paper>
+                </Box>
+            </Box>
 
-            {/* Filters */}
-            <Paper sx={{ p: 3, mb: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                    <FilterListIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-                    Filters
-                </Typography>
-                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                    <TextField
-                        label="Search Students or Classes"
-                        variant="outlined"
-                        size="small"
-                        value={filters.search}
-                        onChange={(e) => handleFilterChange('search', e.target.value)}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon />
-                                </InputAdornment>
-                            ),
+            {/* Modern Filters */}
+            <Box sx={{
+                maxWidth: { xs: '100%', sm: '1200px' },
+                mx: 'auto',
+                mb: 4,
+                px: { xs: 2, sm: 3 }
+            }}>
+                <Paper sx={{
+                    p: { xs: 3, sm: 4 },
+                    borderRadius: '16px',
+                    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                    border: '1px solid #e5e7eb'
+                }}>
+                    <Typography
+                        variant="h6"
+                        sx={{
+                            mb: 3,
+                            fontWeight: 600,
+                            color: '#111827',
+                            fontSize: { xs: '1rem', sm: '1.125rem' },
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1
                         }}
-                        sx={{ minWidth: 250 }}
-                    />
-                    <FormControl size="small" sx={{ minWidth: 200 }}>
-                        <InputLabel>Class</InputLabel>
-                        <Select
-                            value={filters.class}
-                            label="Class"
-                            onChange={(e) => handleFilterChange('class', e.target.value)}
-                        >
-                            <MenuItem value="all">All Classes</MenuItem>
-                            {classes.map((cls) => (
-                                <MenuItem key={cls.id} value={cls.id}>
-                                    {cls.title}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                </Stack>
-            </Paper>
+                    >
+                        <FilterListIcon sx={{ fontSize: { xs: '1rem', sm: '1.125rem' } }} />
+                        Filters
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <TextField
+                            fullWidth
+                            placeholder="Search students or classes..."
+                            value={filters.search}
+                            onChange={(e) => handleFilterChange('search', e.target.value)}
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <SearchIcon sx={{ color: '#6b7280' }} />
+                                    </InputAdornment>
+                                ),
+                            }}
+                            sx={{
+                                '& .MuiOutlinedInput-root': {
+                                    borderRadius: '12px',
+                                    height: { xs: '48px', sm: '44px' },
+                                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#3b82f6'
+                                    },
+                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#3b82f6',
+                                        borderWidth: '2px'
+                                    }
+                                }
+                            }}
+                        />
+                        <FormControl fullWidth>
+                            <InputLabel sx={{
+                                '&.Mui-focused': { color: '#3b82f6' }
+                            }}>Class</InputLabel>
+                            <Select
+                                value={filters.class}
+                                label="Class"
+                                onChange={(e) => handleFilterChange('class', e.target.value)}
+                                MenuProps={{
+                                    sx: { zIndex: 1500 }
+                                }}
+                                sx={{
+                                    borderRadius: '12px',
+                                    height: { xs: '48px', sm: '44px' },
+                                    '& .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#d1d5db'
+                                    },
+                                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#3b82f6'
+                                    },
+                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#3b82f6',
+                                        borderWidth: '2px'
+                                    }
+                                }}
+                            >
+                                <MenuItem value="all">All Classes</MenuItem>
+                                {classes.map((cls) => (
+                                    <MenuItem key={cls.id} value={cls.id}>
+                                        {cls.title}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </Box>
+                </Paper>
+            </Box>
 
             {/* Error Display */}
             {error && (
-                <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-                    {error}
-                </Alert>
+                <Box sx={{
+                    maxWidth: { xs: '100%', sm: '1200px' },
+                    mx: 'auto',
+                    mb: 3,
+                    px: { xs: 2, sm: 3 }
+                }}>
+                    <Alert severity="error" sx={{ borderRadius: '12px' }} onClose={() => setError(null)}>
+                        {error}
+                    </Alert>
+                </Box>
             )}
 
-            {/* Waitlist Table */}
-            <Paper>
-                <TableContainer>
-                    <Table>
-                        <TableHead>
-                            <TableRow>
-                                <TableCell>
-                                    <PersonIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-                                    Student
-                                </TableCell>
-                                <TableCell>
-                                    <EmailIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-                                    Email
-                                </TableCell>
-                                <TableCell>
-                                    <SchoolIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-                                    Class
-                                </TableCell>
-                                <TableCell>
-                                    <LocationIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-                                    Location
-                                </TableCell>
-                                <TableCell>
-                                    <QueueIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-                                    Position
-                                </TableCell>
-                                <TableCell>
-                                    <ScheduleIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-                                    Next Session
-                                </TableCell>
-                                <TableCell>Actions</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {filteredEntries.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                                        <Typography variant="body1" color="text.secondary">
-                                            {filters.class !== 'all' || filters.search
-                                                ? 'No active waitlist entries match your filters'
-                                                : 'No active waitlist entries found'}
-                                        </Typography>
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                filteredEntries.map((entry) => (
-                                    <TableRow key={entry.id} hover>
-                                        <TableCell>
-                                            <Typography variant="body2" fontWeight="medium">
-                                                {entry.user_name || entry.student_name || entry.user || entry.name || 'N/A'}
-                                            </Typography>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Typography variant="body2" color="text.secondary">
-                                                {entry.user_email || entry.student_email || entry.email || 'N/A'}
-                                            </Typography>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Typography variant="body2" fontWeight="medium">
+            {/* Modern Waitlist Cards */}
+            <Box sx={{
+                maxWidth: { xs: '100%', sm: '1200px' },
+                mx: 'auto',
+                mb: 4,
+                px: { xs: 2, sm: 3 }
+            }}>
+                {loading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+                        <CircularProgress size={40} />
+                    </Box>
+                ) : filteredEntries.length === 0 ? (
+                    <Paper sx={{ p: 6, textAlign: 'center', borderRadius: '16px' }}>
+                        <QueueIcon sx={{ fontSize: 48, color: '#9ca3af', mb: 2 }} />
+                        <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                            {filters.class !== 'all' || filters.search
+                                ? 'No waitlist entries match your filters'
+                                : 'No waitlist entries found'}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            {filters.class !== 'all' || filters.search
+                                ? 'Try adjusting your search criteria or filters'
+                                : 'Students will appear here when they join a waitlist'}
+                        </Typography>
+                    </Paper>
+                ) : (
+                    <Box sx={{
+                        display: 'grid',
+                        gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
+                        gap: { xs: 2, sm: 3 }
+                    }}>
+                        {filteredEntries.map((entry) => (
+                            <Box key={entry.id} sx={{ width: '100%', minWidth: 0 }}>
+                                <Paper sx={{
+                                    p: { xs: 2, sm: 3 },
+                                    borderRadius: '16px',
+                                    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                                    border: '1px solid #e5e7eb',
+                                    transition: 'all 0.2s ease-in-out',
+                                    width: '100%',
+                                    minWidth: 0,
+                                    '&:hover': {
+                                        boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                                        transform: 'translateY(-1px)',
+                                        borderColor: '#3b82f6'
+                                    }
+                                }}>
+                                    {/* Entry Header */}
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
+                                            <Box sx={{
+                                                width: 48,
+                                                height: 48,
+                                                borderRadius: '12px',
+                                                bgcolor: entry.status === 'pending' ? '#f59e0b' : '#6b7280',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center'
+                                            }}>
+                                                <PersonIcon sx={{ color: 'white', fontSize: 24 }} />
+                                            </Box>
+                                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                                                <Typography
+                                                    variant="h6"
+                                                    sx={{
+                                                        fontWeight: 600,
+                                                        fontSize: { xs: '1rem', sm: '1.125rem' },
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: 'nowrap'
+                                                    }}
+                                                >
+                                                    {entry.user_name || entry.student_name || entry.user || entry.name || 'N/A'}
+                                                </Typography>
+                                                <Typography
+                                                    variant="body2"
+                                                    color="text.secondary"
+                                                    sx={{
+                                                        fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: 'nowrap'
+                                                    }}
+                                                >
+                                                    {entry.user_email || entry.student_email || entry.email || 'N/A'}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                        <Chip
+                                            label={entry.status === 'pending' ? 'Pending' : entry.status === 'waiting' ? 'Waiting' : entry.status}
+                                            color={entry.status === 'pending' ? 'warning' : entry.status === 'waiting' ? 'info' : 'default'}
+                                            size="small"
+                                            sx={{ fontSize: '0.75rem' }}
+                                        />
+                                    </Box>
+
+                                    {/* Entry Details */}
+                                    <Box sx={{ mb: 3 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                            <SchoolIcon sx={{ fontSize: 16, color: '#6b7280' }} />
+                                            <Typography
+                                                variant="body2"
+                                                sx={{
+                                                    color: '#374151',
+                                                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                            >
                                                 {entry.class_name || entry.class_title || 'N/A'}
                                             </Typography>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Typography variant="body2" color="text.secondary">
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                            <LocationIcon sx={{ fontSize: 16, color: '#6b7280' }} />
+                                            <Typography
+                                                variant="body2"
+                                                sx={{
+                                                    color: '#374151',
+                                                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                            >
                                                 {entry.location_details || entry.location || 'N/A'}
                                             </Typography>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Typography variant="body2">
-                                                {entry.position || 'N/A'}
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                            <QueueIcon sx={{ fontSize: 16, color: '#6b7280' }} />
+                                            <Typography
+                                                variant="body2"
+                                                sx={{
+                                                    color: '#374151',
+                                                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                                                }}
+                                            >
+                                                Position: {entry.position || 'N/A'}
                                             </Typography>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Typography variant="body2" color="text.secondary">
-                                                {entry.next_session_date ? formatDate(entry.next_session_date) : 'N/A'}
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <ScheduleIcon sx={{ fontSize: 16, color: '#6b7280' }} />
+                                            <Typography
+                                                variant="body2"
+                                                sx={{
+                                                    color: '#374151',
+                                                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                                                }}
+                                            >
+                                                Next: {entry.next_session_date ? formatDate(entry.next_session_date) : 'N/A'}
                                             </Typography>
-                                        </TableCell>
-                                        <TableCell>
-                                            {(entry.status === 'waiting' || entry.status === 'pending') && (
-                                                <Stack direction="row" spacing={1}>
-                                                    <Tooltip title="Approve and enroll student">
-                                                        <Button
-                                                            size="small"
-                                                            variant="contained"
-                                                            color="success"
-                                                            onClick={() => handleWaitlistAction(entry, 'approved')}
-                                                            disabled={loading}
-                                                            startIcon={<CheckCircleIcon />}
-                                                        >
-                                                            Approve
-                                                        </Button>
-                                                    </Tooltip>
-                                                    <Tooltip title="Reject waitlist entry">
-                                                        <Button
-                                                            size="small"
-                                                            variant="contained"
-                                                            color="error"
-                                                            onClick={() => handleWaitlistAction(entry, 'rejected')}
-                                                            disabled={loading}
-                                                            startIcon={<CancelIcon />}
-                                                        >
-                                                            Reject
-                                                        </Button>
-                                                    </Tooltip>
-                                                </Stack>
-                                            )}
-                                            {entry.status === 'approved' && (
-                                                <Chip
-                                                    label="Approved"
+                                        </Box>
+                                    </Box>
+
+                                    {/* Entry Actions */}
+                                    <Box sx={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        pt: 2,
+                                        borderTop: '1px solid #f3f4f6'
+                                    }}>
+                                        {(entry.status === 'waiting' || entry.status === 'pending') ? (
+                                            <Box sx={{ display: 'flex', gap: 1, width: '100%' }}>
+                                                <Button
+                                                    size="small"
+                                                    variant="contained"
                                                     color="success"
+                                                    onClick={() => handleWaitlistAction(entry, 'approved')}
+                                                    disabled={loading}
+                                                    startIcon={<CheckCircleIcon />}
+                                                    sx={{
+                                                        flex: 1,
+                                                        borderRadius: '8px',
+                                                        textTransform: 'none',
+                                                        fontWeight: 500,
+                                                        fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                                                    }}
+                                                >
+                                                    Approve
+                                                </Button>
+                                                <Button
                                                     size="small"
-                                                    icon={<CheckCircleIcon />}
-                                                />
-                                            )}
-                                            {entry.status === 'rejected' && (
-                                                <Chip
-                                                    label="Rejected"
+                                                    variant="contained"
                                                     color="error"
+                                                    onClick={() => handleWaitlistAction(entry, 'rejected')}
+                                                    disabled={loading}
+                                                    startIcon={<CancelIcon />}
+                                                    sx={{
+                                                        flex: 1,
+                                                        borderRadius: '8px',
+                                                        textTransform: 'none',
+                                                        fontWeight: 500,
+                                                        fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                                                    }}
+                                                >
+                                                    Reject
+                                                </Button>
+                                            </Box>
+                                        ) : (
+                                            <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                                                <Chip
+                                                    label={entry.status === 'approved' ? 'Approved' : 'Rejected'}
+                                                    color={entry.status === 'approved' ? 'success' : 'error'}
                                                     size="small"
-                                                    icon={<CancelIcon />}
+                                                    icon={entry.status === 'approved' ? <CheckCircleIcon /> : <CancelIcon />}
+                                                    sx={{ fontSize: '0.75rem' }}
                                                 />
-                                            )}
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-            </Paper>
+                                            </Box>
+                                        )}
+                                    </Box>
+                                </Paper>
+                            </Box>
+                        ))}
+                    </Box>
+                )}
+            </Box>
         </Box>
     );
 }
