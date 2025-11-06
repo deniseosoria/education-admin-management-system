@@ -10,10 +10,10 @@ function Landing() {
                 <div className="absolute inset-0 bg-black opacity-30 z-10" />
                 <div className="relative z-20 flex flex-col items-center justify-center w-full h-full px-4">
                     <h1 className="hero-title font-normal mb-3 sm:mb-4 text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-[64px]" style={{ fontFamily: 'Montserrat, sans-serif' }}>
-                        Professional Training for Child Care Providers
+                        Training Classes for Child Care Providers
                     </h1>
                     <h3 className="hero-txt mb-6 sm:mb-8 max-w-xs sm:max-w-md md:max-w-lg lg:max-w-2xl mx-auto text-sm sm:text-base lg:text-lg" style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 400 }}>
-                        Advance your career with expert-led classes, CDA certification, CPR training, and comprehensive professional development programs designed for child care professionals.
+                        Expert-led classes, CDA certification, and professional development programs.
                     </h3>
                     <button
                         onClick={() => document.getElementById('who-we-are').scrollIntoView({ behavior: 'smooth' })}
@@ -32,7 +32,7 @@ function Landing() {
             <section id="statement-container" className="text-center px-4 sm:px-6 lg:px-8" style={{ margin: '80px auto', maxWidth: '1200px' }}>
                 <p id="statement-title" className="uppercase tracking-widest mb-2" style={{ color: '#979797', fontSize: '11px', fontFamily: 'Montserrat, sans-serif' }}>WHAT WE BELIEVE IN</p>
                 <p id="statement-text" className="mb-2 text-xl sm:text-2xl md:text-3xl lg:text-[34px] px-4" style={{ color: 'black', fontFamily: 'Montserrat, sans-serif' }}>
-                    Grow your business, establish your brand, and put children first.
+                    Empower providers with quality training, advance careers, and put children first.
                 </p>
             </section>
 
