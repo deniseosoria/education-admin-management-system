@@ -10,17 +10,17 @@ function Landing() {
                 <div className="absolute inset-0 bg-black opacity-30 z-10" />
                 <div className="relative z-20 flex flex-col items-center justify-center w-full h-full px-4">
                     <h1 className="hero-title font-normal mb-3 sm:mb-4 text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-[64px]" style={{ fontFamily: 'Montserrat, sans-serif' }}>
-                        Grow your business.
+                        Professional Training for Child Care Providers
                     </h1>
                     <h3 className="hero-txt mb-6 sm:mb-8 max-w-xs sm:max-w-md md:max-w-lg lg:max-w-2xl mx-auto text-sm sm:text-base lg:text-lg" style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 400 }}>
-                        Give your business a boost with a beautifully crafted homepage.
+                        Advance your career with expert-led classes, CDA certification, CPR training, and comprehensive professional development programs designed for child care professionals.
                     </h3>
                     <button
                         onClick={() => document.getElementById('who-we-are').scrollIntoView({ behavior: 'smooth' })}
                         className="hero-button bg-white text-black px-4 sm:px-6 lg:px-8 py-2 sm:py-3 lg:py-4 font-normal border-0 hover:bg-gray-100 transition-colors text-sm sm:text-base"
                         style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 400 }}
                     >
-                        LEARN MORE
+                        VIEW OUR CLASSES
                     </button>
                 </div>
             </section>
