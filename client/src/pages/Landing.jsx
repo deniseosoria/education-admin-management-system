@@ -15,13 +15,13 @@ function Landing() {
                     <h3 className="hero-txt mb-6 sm:mb-8 max-w-xs sm:max-w-md md:max-w-lg lg:max-w-2xl mx-auto text-sm sm:text-base lg:text-lg" style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 400 }}>
                         Expert-led classes, CDA certification, and professional development programs.
                     </h3>
-                    <button
-                        onClick={() => document.getElementById('who-we-are').scrollIntoView({ behavior: 'smooth' })}
-                        className="hero-button bg-white text-black px-4 sm:px-6 lg:px-8 py-2 sm:py-3 lg:py-4 font-normal border-0 hover:bg-gray-100 transition-colors text-sm sm:text-base"
+                    <Link
+                        to="/classes"
+                        className="hero-button bg-white text-black px-4 sm:px-6 lg:px-8 py-2 sm:py-3 lg:py-4 font-normal border-0 hover:bg-gray-100 transition-colors text-sm sm:text-base inline-block"
                         style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 400 }}
                     >
                         VIEW OUR CLASSES
-                    </button>
+                    </Link>
                 </div>
             </section>
 
