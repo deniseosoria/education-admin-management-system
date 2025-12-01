@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Footer from '../components/layout/Footer';
 
 const Signup = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { register, error: authError, clearError } = useAuth();
+    
+    // Get the redirect path from location state or default to home
+    const from = location.state?.from || '/';
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
@@ -114,9 +118,9 @@ const Signup = () => {
             console.log('Registration result:', result); // Debug log
 
             if (result.success) {
-                console.log('Registration successful, navigating to home'); // Debug log
+                console.log('Registration successful, navigating to:', from); // Debug log
                 clearError(); // Clear any previous errors on successful registration
-                navigate('/');
+                navigate(from, { replace: true });
             } else {
                 console.log('Registration failed:', result.error); // Debug log
                 // Error is already handled by AuthContext

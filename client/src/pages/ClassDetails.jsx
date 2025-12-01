@@ -303,7 +303,26 @@ function ClassDetails() {
                             </div>
                         </div>
 
-                        {sessions.length > 0 && (
+                        {/* Show single Enroll button if user is not logged in */}
+                        {!user && sessions.length > 0 && (
+                            <div>
+                                <h2 className="text-2xl font-semibold mb-4 text-gray-900">Ready to Enroll?</h2>
+                                <div className="bg-gray-50 p-6 rounded-lg shadow-sm">
+                                    <p className="text-gray-700 mb-4">
+                                        Sign up to view available sessions and enroll in this class.
+                                    </p>
+                                    <button
+                                        className="px-6 py-2 rounded-lg font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700"
+                                        onClick={() => navigate('/signup', { state: { from: `/classes/${id}` } })}
+                                    >
+                                        Enroll Now
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Show Available Sessions if user is logged in */}
+                        {user && sessions.length > 0 && (
                             <div>
                                 <h2 className="text-2xl font-semibold mb-4 text-gray-900">Available Sessions</h2>
                                 <div className="space-y-6">
