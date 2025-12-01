@@ -834,8 +834,8 @@ const updateClassWithSessions = async (classId, classData) => {
           await client.query(
             `UPDATE class_sessions 
              SET session_date = $1, end_date = $2, start_time = $3, end_time = $4, 
-                 capacity = $5, instructor_id = $6, location_details = $7, updated_at = CURRENT_TIMESTAMP
-             WHERE id = $8 AND class_id = $9 AND deleted_at IS NULL`,
+                 capacity = $5, instructor_id = $6, location_details = $7, duration = $8, updated_at = CURRENT_TIMESTAMP
+             WHERE id = $9 AND class_id = $10 AND deleted_at IS NULL`,
             [
               dateData.date,
               dateData.end_date || dateData.date,
@@ -844,6 +844,7 @@ const updateClassWithSessions = async (classId, classData) => {
               dateData.capacity,
               dateData.instructor_id,
               dateData.location,
+              (dateData.duration && dateData.duration.trim() !== '') ? dateData.duration.trim() : null,
               dateData.id,
               classId
             ]
@@ -853,8 +854,8 @@ const updateClassWithSessions = async (classId, classData) => {
           await client.query(
             `INSERT INTO class_sessions (
               class_id, session_date, end_date, start_time, end_time, 
-              capacity, instructor_id, status, location_details
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+              capacity, instructor_id, status, location_details, duration
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
             [
               classId,
               dateData.date,
@@ -864,7 +865,8 @@ const updateClassWithSessions = async (classId, classData) => {
               dateData.capacity,
               dateData.instructor_id,
               'scheduled',
-              dateData.location
+              dateData.location,
+              (dateData.duration && dateData.duration.trim() !== '') ? dateData.duration.trim() : null
             ]
           );
         }

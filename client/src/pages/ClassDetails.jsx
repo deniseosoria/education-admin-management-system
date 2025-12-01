@@ -354,7 +354,7 @@ function ClassDetails() {
                                                             <span className="font-medium">Time:</span> {formatTime(session.start_time)} - {formatTime(session.end_time)} ({hoursPerDay} hours/day)
                                                         </div>
                                                         <div className="text-gray-700">
-                                                            <span className="font-medium">Duration:</span> {getDurationString(classData)}
+                                                            <span className="font-medium">Duration:</span> {session.duration || getDurationString(classData)}
                                                         </div>
                                                         <div className="text-gray-700">
                                                             <span className="font-medium">Instructor:</span> {session.instructor_name || 'TBA'}
@@ -372,8 +372,8 @@ function ClassDetails() {
                                                 <div className="mt-4 flex justify-start">
                                                     <button
                                                         className={`px-6 py-2 rounded-lg font-medium transition-colors ${canEnroll
-                                                                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                                            ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                                             }`}
                                                         disabled={!canEnroll}
                                                         onClick={() => canEnroll && handleEnroll(session.id)}

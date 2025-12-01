@@ -105,7 +105,7 @@ function ClassManagement() {
     title: "",
     instructor_id: "",
     description: "",
-    dates: [{ date: "", end_date: "", start_time: "", end_time: "", location: "", capacity: "" }],
+    dates: [{ date: "", end_date: "", start_time: "", end_time: "", location: "", capacity: "", duration: "" }],
     price: "",
   });
   const [sessionsClass, setSessionsClass] = useState(null);
@@ -160,7 +160,7 @@ function ClassManagement() {
       title: "",
       instructor_id: "",
       description: "",
-      dates: [{ date: "", end_date: "", start_time: "", end_time: "", location: "", capacity: "" }],
+      dates: [{ date: "", end_date: "", start_time: "", end_time: "", location: "", capacity: "", duration: "" }],
       price: "",
     });
     setShowModal(true);
@@ -180,20 +180,24 @@ function ClassManagement() {
       }
 
       // Initialize with empty dates array if no sessions exist
-      let formattedDates = [{ date: "", end_date: "", start_time: "", end_time: "", location: "", capacity: "", instructor_id: "" }];
+      let formattedDates = [{ date: "", end_date: "", start_time: "", end_time: "", location: "", capacity: "", instructor_id: "", duration: "" }];
 
       // Only try to format dates if sessions exist and are in the expected format
       if (Array.isArray(classDetails.sessions) && classDetails.sessions.length > 0) {
-        formattedDates = classDetails.sessions.map(session => ({
-          id: session.id,
-          date: session.session_date ? new Date(session.session_date).toISOString().split('T')[0] : "",
-          end_date: session.end_date ? new Date(session.end_date).toISOString().split('T')[0] : "",
-          start_time: session.start_time ? session.start_time.substring(0, 5) : "",
-          end_time: session.end_time ? session.end_time.substring(0, 5) : "",
-          location: session.location_details || "",
-          capacity: session.capacity || "",
-          instructor_id: session.instructor_id || ""
-        }));
+        formattedDates = classDetails.sessions.map(session => {
+          console.log('Loading session for edit:', session.id, 'duration:', session.duration);
+          return {
+            id: session.id,
+            date: session.session_date ? new Date(session.session_date).toISOString().split('T')[0] : "",
+            end_date: session.end_date ? new Date(session.end_date).toISOString().split('T')[0] : "",
+            start_time: session.start_time ? session.start_time.substring(0, 5) : "",
+            end_time: session.end_time ? session.end_time.substring(0, 5) : "",
+            location: session.location_details || "",
+            capacity: session.capacity || "",
+            instructor_id: session.instructor_id || "",
+            duration: session.duration || ""
+          };
+        });
       }
 
       setForm({
@@ -254,7 +258,7 @@ function ClassManagement() {
   const handleAddDate = () => {
     setForm(prev => ({
       ...prev,
-      dates: [...prev.dates, { date: "", end_date: "", start_time: "", end_time: "", location: "", capacity: "", instructor_id: "" }]
+      dates: [...prev.dates, { date: "", end_date: "", start_time: "", end_time: "", location: "", capacity: "", instructor_id: "", duration: "" }]
     }));
   };
 
@@ -314,6 +318,7 @@ function ClassManagement() {
           !date.location || !date.capacity || !date.instructor_id) {
           throw new Error("Please fill in all date fields including location, capacity, and instructor");
         }
+        // Duration is optional, so we don't validate it
 
         // Validate that end_date is not before start date
         const startDate = new Date(date.date);
@@ -347,6 +352,9 @@ function ClassManagement() {
         price: Number(form.price),
         deletedSessionIds: deletedSessionIds
       };
+
+      // Debug: Log the data being sent
+      console.log('Saving class with dates:', formattedData.dates);
 
       if (editClass) {
         await classService.updateClass(editClass.id, formattedData);
@@ -920,6 +928,14 @@ function ClassManagement() {
                         required
                         fullWidth
                         inputProps={{ min: 1 }}
+                      />
+                      <TextField
+                        label="Duration"
+                        value={date.duration || ""}
+                        onChange={(e) => handleDateChange(index, 'duration', e.target.value)}
+                        placeholder="e.g., 4 weeks, 3 months, 1 day"
+                        fullWidth
+                        helperText="Enter the duration of this session (optional)"
                       />
                       <FormControl fullWidth required>
                         <InputLabel>Instructor</InputLabel>
