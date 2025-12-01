@@ -13,31 +13,20 @@ const NotificationDetail = () => {
     const [notification, setNotification] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [isAdmin, setIsAdmin] = useState(false);
 
-    // Admin state for sending detailed notifications
-    const [showAdminForm, setShowAdminForm] = useState(false);
-    const [adminMessage, setAdminMessage] = useState('');
-    const [adminLinks, setAdminLinks] = useState([{ label: '', url: '' }]);
-    const [sendingMessage, setSendingMessage] = useState(false);
 
-    useEffect(() => {
-        const checkUserRole = () => {
-            if (user && (user.role === 'admin' || user.role === 'instructor')) {
-                setIsAdmin(true);
-            }
-        };
-
-        checkUserRole();
-    }, [user]);
 
     useEffect(() => {
         const fetchNotification = async () => {
             try {
                 setLoading(true);
+                setError(null); // Clear any previous errors
                 let notificationData;
 
-                if (isAdmin) {
+                // Check user role directly instead of relying on isAdmin state
+                const userIsAdmin = user && (user.role === 'admin' || user.role === 'instructor');
+
+                if (userIsAdmin) {
                     // Admin can fetch any notification
                     notificationData = await adminService.getNotification(id);
                 } else {
@@ -45,26 +34,48 @@ const NotificationDetail = () => {
                     notificationData = await userService.getNotification(id);
                 }
 
-                setNotification(notificationData);
+                console.log('NotificationDetail: Fetched notification data:', notificationData);
+
+                // Handle different response structures
+                if (notificationData) {
+                    // Ensure the notification has required fields
+                    const processedNotification = {
+                        ...notificationData,
+                        // Handle both is_read and read field names
+                        is_read: notificationData.is_read !== undefined ? notificationData.is_read : notificationData.read
+                    };
+                    setNotification(processedNotification);
+                    setError(null); // Clear any previous errors
+                } else {
+                    setError('Notification data is empty');
+                    setNotification(null);
+                }
             } catch (error) {
                 console.error('Error fetching notification:', error);
-                setError('Failed to load notification details');
+                setError(error.message || 'Failed to load notification details');
+                setNotification(null);
                 // Don't call showError here to avoid infinite re-renders
             } finally {
                 setLoading(false);
             }
         };
 
-        if (id) {
+        if (id && user) {
             fetchNotification();
+        } else if (!user) {
+            // If user is not loaded yet, wait
+            setLoading(true);
         }
-    }, [id, isAdmin]); // Removed showError from dependencies
+    }, [id, user]); // Depend on user instead of isAdmin
 
     const handleMarkAsRead = async () => {
         if (!notification || notification.is_read) return;
 
         try {
-            if (isAdmin) {
+            // Check user role directly instead of relying on isAdmin state
+            const userIsAdmin = user && (user.role === 'admin' || user.role === 'instructor');
+
+            if (userIsAdmin) {
                 await adminService.markNotificationAsRead(id);
             } else {
                 await userService.markNotificationAsRead(id);
@@ -78,53 +89,6 @@ const NotificationDetail = () => {
         }
     };
 
-    const handleAddLink = () => {
-        setAdminLinks(prev => [...prev, { label: '', url: '' }]);
-    };
-
-    const handleRemoveLink = (index) => {
-        setAdminLinks(prev => prev.filter((_, i) => i !== index));
-    };
-
-    const handleLinkChange = (index, field, value) => {
-        setAdminLinks(prev => prev.map((link, i) =>
-            i === index ? { ...link, [field]: value } : link
-        ));
-    };
-
-    const handleSendDetailedMessage = async () => {
-        if (!adminMessage.trim()) {
-            showError('Please enter a message');
-            return;
-        }
-
-        try {
-            setSendingMessage(true);
-
-            // Filter out empty links
-            const validLinks = adminLinks.filter(link => link.label.trim() && link.url.trim());
-
-            const detailedMessage = {
-                originalNotificationId: id,
-                message: adminMessage,
-                links: validLinks,
-                timestamp: new Date().toISOString()
-            };
-
-            // Send detailed message to the notification recipient
-            await adminService.sendDetailedNotification(detailedMessage);
-
-            showSuccess('Detailed message sent successfully');
-            setShowAdminForm(false);
-            setAdminMessage('');
-            setAdminLinks([{ label: '', url: '' }]);
-        } catch (error) {
-            console.error('Error sending detailed message:', error);
-            showError('Failed to send detailed message');
-        } finally {
-            setSendingMessage(false);
-        }
-    };
 
     if (loading) {
         return (
@@ -134,14 +98,48 @@ const NotificationDetail = () => {
         );
     }
 
-    if (error || !notification) {
+    // Only show error if we're not loading and there's actually an error
+    // Don't show error if notification is null but we're still waiting for user to load
+    if (error && !loading) {
         return (
             <div className="max-w-4xl mx-auto p-6">
                 <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
                     <h2 className="text-xl font-semibold text-red-800 mb-2">Error</h2>
-                    <p className="text-red-600">{error || 'Notification not found'}</p>
+                    <p className="text-red-600">{error}</p>
                     <button
-                        onClick={() => navigate('/profile?section=notifications')}
+                        onClick={() => {
+                            // Navigate back based on user role
+                            if (user && (user.role === 'admin' || user.role === 'instructor')) {
+                                navigate('/admin/notifications');
+                            } else {
+                                navigate('/profile?section=notifications');
+                            }
+                        }}
+                        className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                    >
+                        Go Back
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // Show error if notification is null after loading completes
+    if (!notification && !loading) {
+        return (
+            <div className="max-w-4xl mx-auto p-6">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+                    <h2 className="text-xl font-semibold text-red-800 mb-2">Error</h2>
+                    <p className="text-red-600">Notification not found</p>
+                    <button
+                        onClick={() => {
+                            // Navigate back based on user role
+                            if (user && (user.role === 'admin' || user.role === 'instructor')) {
+                                navigate('/admin/notifications');
+                            } else {
+                                navigate('/profile?section=notifications');
+                            }
+                        }}
                         className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
                     >
                         Go Back
@@ -155,7 +153,14 @@ const NotificationDetail = () => {
         <div className="max-w-4xl mx-auto p-6">
             <div className="mb-6">
                 <button
-                    onClick={() => navigate('/profile?section=notifications')}
+                    onClick={() => {
+                        // Navigate back based on user role
+                        if (user && (user.role === 'admin' || user.role === 'instructor')) {
+                            navigate('/admin/notifications');
+                        } else {
+                            navigate('/profile?section=notifications');
+                        }
+                    }}
                     className="flex items-center text-blue-600 hover:text-blue-800 mb-4"
                 >
                     <i className="fas fa-arrow-left mr-2"></i>
@@ -210,95 +215,32 @@ const NotificationDetail = () => {
                                 </div>
                             </div>
                         )}
-                    </div>
 
-                    {/* Admin Actions */}
-                    {isAdmin && (
-                        <div className="border-t pt-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-semibold text-gray-900">Admin Actions</h3>
-                                <button
-                                    onClick={() => setShowAdminForm(!showAdminForm)}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                                >
-                                    {showAdminForm ? 'Cancel' : 'Send Detailed Message'}
-                                </button>
-                            </div>
-
-                            {showAdminForm && (
-                                <div className="bg-gray-50 rounded-lg p-4">
-                                    <h4 className="text-md font-semibold mb-3">Send Detailed Message</h4>
-
-                                    <div className="mb-4">
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Detailed Message
-                                        </label>
-                                        <textarea
-                                            value={adminMessage}
-                                            onChange={(e) => setAdminMessage(e.target.value)}
-                                            placeholder="Enter a detailed message with any additional information, links, or instructions..."
-                                            className="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        />
-                                    </div>
-
-                                    <div className="mb-4">
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Links (Optional)
-                                        </label>
-                                        {adminLinks.map((link, index) => (
-                                            <div key={index} className="flex items-center space-x-2 mb-2">
-                                                <input
-                                                    type="text"
-                                                    placeholder="Link label"
-                                                    value={link.label}
-                                                    onChange={(e) => handleLinkChange(index, 'label', e.target.value)}
-                                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                />
-                                                <input
-                                                    type="url"
-                                                    placeholder="URL"
-                                                    value={link.url}
-                                                    onChange={(e) => handleLinkChange(index, 'url', e.target.value)}
-                                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                />
-                                                {adminLinks.length > 1 && (
-                                                    <button
-                                                        onClick={() => handleRemoveLink(index)}
-                                                        className="px-3 py-2 text-red-600 hover:text-red-800"
-                                                    >
-                                                        <i className="fas fa-trash"></i>
-                                                    </button>
-                                                )}
-                                            </div>
-                                        ))}
-                                        <button
-                                            onClick={handleAddLink}
-                                            className="text-blue-600 hover:text-blue-800 text-sm"
+                        {/* Display attachments if they exist in metadata */}
+                        {notification.metadata?.attachments && notification.metadata.attachments.length > 0 && (
+                            <div className="mt-4">
+                                <h4 className="text-md font-semibold text-gray-900 mb-2">Attachments:</h4>
+                                <div className="space-y-2">
+                                    {notification.metadata.attachments.map((attachment, index) => (
+                                        <a
+                                            key={index}
+                                            href={attachment.fileUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            download={attachment.fileName}
+                                            className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 underline"
                                         >
-                                            <i className="fas fa-plus mr-1"></i>
-                                            Add Another Link
-                                        </button>
-                                    </div>
-
-                                    <div className="flex justify-end space-x-3">
-                                        <button
-                                            onClick={() => setShowAdminForm(false)}
-                                            className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            onClick={handleSendDetailedMessage}
-                                            disabled={sendingMessage || !adminMessage.trim()}
-                                            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
-                                        >
-                                            {sendingMessage ? 'Sending...' : 'Send Message'}
-                                        </button>
-                                    </div>
+                                            <i className={`fas ${attachment.fileType === 'application/pdf' ? 'fa-file-pdf text-red-600' : 'fa-file-image text-blue-600'}`}></i>
+                                            <span>{attachment.fileName}</span>
+                                            <span className="text-xs text-gray-500">
+                                                ({attachment.fileSize ? `${(attachment.fileSize / 1024).toFixed(2)} KB` : ''})
+                                            </span>
+                                        </a>
+                                    ))}
                                 </div>
-                            )}
-                        </div>
-                    )}
+                            </div>
+                        )}
+                    </div>
 
                     {/* User Actions */}
                     <div className="border-t pt-6">
@@ -316,7 +258,14 @@ const NotificationDetail = () => {
                                     </button>
                                 )}
                                 <button
-                                    onClick={() => navigate('/profile?section=notifications')}
+                                    onClick={() => {
+                                        // Navigate back based on user role
+                                        if (user && (user.role === 'admin' || user.role === 'instructor')) {
+                                            navigate('/admin/notifications');
+                                        } else {
+                                            navigate('/profile?section=notifications');
+                                        }
+                                    }}
                                     className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
                                 >
                                     Close

@@ -78,6 +78,8 @@ const NotificationsSection = ({ notifications, onNotificationsUpdate }) => {
                         <div
                             key={notification.id}
                             className={`notification-item ${!notification.is_read ? 'unread' : ''}`}
+                            onClick={() => navigate(`/notifications/${notification.id}`)}
+                            style={{ cursor: 'pointer' }}
                         >
                             <div className="notification-icon">
                                 <i className={`fas ${getNotificationIcon(notification.type)}`}></i>
@@ -86,30 +88,28 @@ const NotificationsSection = ({ notifications, onNotificationsUpdate }) => {
                                 <div className="notification-header">
                                     <h3>{notification.title}</h3>
                                     <span className="notification-time">
-                                        {new Date(notification.created_at).toLocaleDateString()}
+                                        {new Date(notification.created_at).toLocaleString()}
                                     </span>
                                 </div>
-                                <p className="notification-message">{notification.message}</p>
-                                <button
-                                    onClick={() => navigate(`/notifications/${notification.id}`)}
-                                    className="notification-action"
-                                >
-                                    View Details
-                                    <i className="fas fa-arrow-right"></i>
-                                </button>
                             </div>
                             <div className="notification-actions">
                                 {!notification.is_read && (
                                     <button
                                         className="btn btn-secondary"
-                                        onClick={() => handleMarkAsRead(notification.id)}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleMarkAsRead(notification.id);
+                                        }}
                                     >
                                         <i className="fas fa-check"></i>
                                     </button>
                                 )}
                                 <button
                                     className="btn btn-danger"
-                                    onClick={() => handleDelete(notification.id)}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDelete(notification.id);
+                                    }}
                                 >
                                     <i className="fas fa-trash"></i>
                                 </button>

@@ -105,6 +105,49 @@ class SupabaseStorageService {
     }
   }
 
+  // Upload notification attachment
+  async uploadNotificationAttachment(file, senderId) {
+    try {
+      // Validate file
+      this.validateFile(file)
+
+      // Generate unique filename
+      const timestamp = Date.now()
+      const fileExtension = file.name.split('.').pop()
+      const fileName = `notification_${senderId}_${timestamp}.${fileExtension}`
+      const filePath = `${senderId}/${fileName}`
+
+      // Upload to Supabase storage (use USER_UPLOADS bucket for notifications)
+      const { data, error } = await supabase.storage
+        .from(STORAGE_BUCKETS.USER_UPLOADS)
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        })
+
+      if (error) {
+        throw new Error(`Upload failed: ${error.message}`)
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from(STORAGE_BUCKETS.USER_UPLOADS)
+        .getPublicUrl(filePath)
+
+      return {
+        success: true,
+        filePath,
+        publicUrl: urlData.publicUrl,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type
+      }
+    } catch (error) {
+      console.error('Notification attachment upload error:', error)
+      throw error
+    }
+  }
+
   // Get file URL
   getFileUrl(filePath, bucket = STORAGE_BUCKETS.CERTIFICATES) {
     const { data } = supabase.storage

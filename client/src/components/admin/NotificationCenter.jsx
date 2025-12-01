@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Typography,
@@ -18,7 +19,6 @@ import {
   FormControl,
   InputLabel,
   Chip,
-  Badge,
   Divider,
   Paper,
   Tab,
@@ -36,22 +36,30 @@ import {
 import {
   Notifications as NotificationIcon,
   Delete as DeleteIcon,
-  CheckCircle as ReadIcon,
   Send as SendIcon,
   Add as AddIcon,
   Announcement as BroadcastIcon,
   Edit as EditIcon,
+  CloudUpload as UploadIcon,
+  AttachFile as AttachFileIcon,
+  PictureAsPdf as PdfIcon,
+  Image as ImageIcon,
+  Download as DownloadIcon,
 } from "@mui/icons-material";
 import adminService from "../../services/adminService";
 import { useSnackbar } from "notistack";
+import { useAuth } from "../../contexts/AuthContext";
+import supabaseStorageService from "../../services/supabaseStorageService";
 
 const NotificationCenter = () => {
   console.log('NotificationCenter: Component rendering...');
 
+  const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
+  const { user } = useAuth();
   const errorTimeoutRef = React.useRef();
 
-  const [activeTab, setActiveTab] = useState(1); // Start with Sent Notifications
+  const [activeTab, setActiveTab] = useState(0); // Start with Sent Notifications
   const [notifications, setNotifications] = useState([]);
   const [sentNotifications, setSentNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -71,21 +79,22 @@ const NotificationCenter = () => {
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [classes, setClasses] = useState([]);
   const [classesLoaded, setClassesLoaded] = useState(false);
-  const [selectedNotification, setSelectedNotification] = useState(null);
-  const [notificationDialogOpen, setNotificationDialogOpen] = useState(false);
   const [showSendDialog, setShowSendDialog] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [showBroadcastDialog, setShowBroadcastDialog] = useState(false);
   const [selectedRecipientType, setSelectedRecipientType] = useState("user");
   const [selectedRecipient, setSelectedRecipient] = useState(null);
   const [selectedClass, setSelectedClass] = useState(null);
-  const [notificationMessage, setNotificationMessage] = useState("");
   const [notificationTitle, setNotificationTitle] = useState("");
+  const [detailedMessage, setDetailedMessage] = useState("");
+  const [notificationLinks, setNotificationLinks] = useState([{ label: '', url: '' }]);
+  const [attachedFiles, setAttachedFiles] = useState([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const fileInputRef = React.useRef(null);
   const [studentSearchTerm, setStudentSearchTerm] = useState("");
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
-  const [showSimpleSelect, setShowSimpleSelect] = useState(false);
 
   // Add refs to prevent duplicate API calls
   const hasInitialized = React.useRef(false);
@@ -103,45 +112,6 @@ const NotificationCenter = () => {
     notifications: false,
   });
 
-  // Force refresh function to clear cache and reload data
-  const forceRefreshUsers = React.useCallback(async () => {
-    console.log('Force refreshing users...');
-    hasFetchedUsers.current = false;
-    setDataFetched(prev => ({ ...prev, users: false }));
-    setUsers([]);
-    setLoadingUsers(true);
-
-    try {
-      const response = await adminService.getAllUsers();
-      console.log('Force refreshed users:', response);
-
-      // Handle paginated response from search endpoint
-      if (response && response.users && response.pagination) {
-        const validUsers = response.users.filter(user => {
-          const isValid = user &&
-            user.id &&
-            (user.first_name || user.last_name || user.email);
-          return isValid;
-        }).map(user => ({
-          ...user,
-          displayName: user.first_name && user.last_name
-            ? `${user.first_name} ${user.last_name}`
-            : user.email || 'Unnamed User'
-        }));
-
-        setUsers(validUsers);
-        saveToLocalStorage('users', true);
-      } else {
-        console.error('Invalid response format:', response);
-        setError('Failed to refresh users');
-      }
-    } catch (error) {
-      console.error('Force refresh failed:', error);
-      setError('Failed to refresh users');
-    } finally {
-      setLoadingUsers(false);
-    }
-  }, []);
 
   // Check session storage for already fetched data
   const checkSessionStorage = () => {
@@ -322,12 +292,11 @@ const NotificationCenter = () => {
 
       // Check if we already have data from localStorage
       const storedData = checkSessionStorage();
-      if (storedData?.notifications && storedData?.templates) {
-        console.log('NotificationCenter: Notifications and templates already fetched, skipping...');
+      if (storedData?.templates) {
+        console.log('NotificationCenter: Templates already fetched, skipping...');
         return;
       }
 
-      fetchNotifications();
       fetchTemplates();
     }
 
@@ -357,7 +326,7 @@ const NotificationCenter = () => {
 
   // Separate effect for sent notifications when tab changes
   useEffect(() => {
-    if (activeTab === 1) { // If on sent notifications tab
+    if (activeTab === 0) { // If on sent notifications tab
       fetchSentNotifications();
     }
   }, [activeTab]); // Only depend on activeTab
@@ -621,11 +590,65 @@ const NotificationCenter = () => {
     }
   };
 
+  // File upload handlers
+  const handleFileSelect = (event) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+
+    const validFiles = [];
+    const errors = [];
+
+    files.forEach(file => {
+      // Validate file type
+      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+      if (!allowedTypes.includes(file.type)) {
+        errors.push(`${file.name}: Invalid file type. Only PDF and images (JPEG, PNG) are allowed.`);
+        return;
+      }
+
+      // Validate file size (5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        errors.push(`${file.name}: File size too large. Maximum size is 5MB.`);
+        return;
+      }
+
+      validFiles.push({ file, fileName: file.name, fileSize: file.size, fileType: file.type });
+    });
+
+    if (errors.length > 0) {
+      errors.forEach(error => {
+        enqueueSnackbar(error, { variant: "error", style: { zIndex: 1450 } });
+      });
+    }
+
+    if (validFiles.length > 0) {
+      setAttachedFiles(prev => [...prev, ...validFiles]);
+    }
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveFile = (index) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
   const handleSendNotification = async () => {
     try {
       setLoading(true);
 
-      if (!notificationTitle.trim() || !notificationMessage.trim()) {
+      if (!notificationTitle.trim() || !detailedMessage.trim()) {
         enqueueSnackbar("Please provide both a title and message", { variant: "error", style: { zIndex: 1450 } });
         return;
       }
@@ -690,7 +713,7 @@ const NotificationCenter = () => {
           // Log the notification data we're about to send
           console.log('Preparing to send notification with data:', {
             title: notificationTitle,
-            message: notificationMessage,
+            message: detailedMessage,
             recipient: selectedClass,
             recipientType: selectedRecipientType,
             templateId: selectedTemplateId,
@@ -703,24 +726,55 @@ const NotificationCenter = () => {
         }
       }
 
+      // Filter out empty links
+      const validLinks = notificationLinks.filter(link => link.label.trim() && link.url.trim());
+
+      // Upload attached files if any
+      let uploadedFiles = [];
+      if (attachedFiles.length > 0 && user?.id) {
+        setUploadingFiles(true);
+        try {
+          const uploadPromises = attachedFiles.map(file =>
+            supabaseStorageService.uploadNotificationAttachment(file.file, user.id)
+          );
+          uploadedFiles = await Promise.all(uploadPromises);
+        } catch (uploadError) {
+          console.error('Error uploading files:', uploadError);
+          enqueueSnackbar("Failed to upload files. Please try again.", { variant: "error", style: { zIndex: 1450 } });
+          setUploadingFiles(false);
+          return;
+        } finally {
+          setUploadingFiles(false);
+        }
+      }
+
       const notificationData = {
         title: notificationTitle,
-        message: notificationMessage,
+        message: detailedMessage.trim(), // Use detailed message as the main message
         recipient: selectedRecipientType === "class" ? selectedClass : selectedRecipient.id,
         recipientType: selectedRecipientType,
         templateId: selectedTemplateId || undefined,
         template: selectedTemplateId ? templates.find(t => t.id === selectedTemplateId) : undefined,
-        user: selectedRecipientType === "user" ? selectedRecipient : undefined
+        user: selectedRecipientType === "user" ? selectedRecipient : undefined,
+        // Include links and files in metadata
+        metadata: {
+          ...(validLinks.length > 0 && { links: validLinks }),
+          ...(uploadedFiles.length > 0 && {
+            attachments: uploadedFiles.map(f => ({
+              fileName: f.fileName,
+              fileUrl: f.publicUrl,
+              fileSize: f.fileSize,
+              fileType: f.fileType
+            }))
+          })
+        }
       };
 
       console.log('Sending notification with data:', notificationData);
       await adminService.sendNotification(notificationData);
 
-      // Refresh both notifications and sent notifications
-      await Promise.all([
-        fetchNotifications(),
-        fetchSentNotifications()
-      ]);
+      // Refresh sent notifications
+      await fetchSentNotifications();
 
       enqueueSnackbar(
         selectedRecipientType === "class"
@@ -733,9 +787,14 @@ const NotificationCenter = () => {
       setSelectedRecipientType("user");
       setSelectedRecipient(null);
       setSelectedClass(null);
-      setNotificationMessage("");
       setNotificationTitle("");
       setSelectedTemplateId("");
+      setDetailedMessage("");
+      setNotificationLinks([{ label: '', url: '' }]);
+      setAttachedFiles([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     } catch (error) {
       console.error('Error sending notification:', error);
 
@@ -877,16 +936,6 @@ const NotificationCenter = () => {
     }
   };
 
-  const handleViewNotification = (notification) => {
-    setSelectedNotification(notification);
-    setNotificationDialogOpen(true);
-    if (!notification.read) {
-      handleMarkAsRead(notification.id);
-    }
-  };
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
   const handleError = (error, customMessage = "An error occurred") => {
     console.error(error);
     setError(error.message || customMessage);
@@ -938,14 +987,6 @@ const NotificationCenter = () => {
           >
             <NotificationIcon sx={{ fontSize: { xs: '1.5rem', sm: '2rem' } }} />
             Notification Center
-            {unreadCount > 0 && (
-              <Chip
-                label={`${unreadCount} unread`}
-                color="primary"
-                size="small"
-                sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
-              />
-            )}
           </Typography>
           <Typography
             variant="body1"
@@ -963,20 +1004,6 @@ const NotificationCenter = () => {
             gap: 2,
             flexWrap: 'wrap'
           }}>
-            <Button
-              startIcon={<AddIcon />}
-              onClick={() => setShowTemplateDialog(true)}
-              sx={{
-                borderRadius: '12px',
-                textTransform: 'none',
-                fontWeight: 600,
-                px: 3,
-                py: 1.5,
-                fontSize: { xs: '0.875rem', sm: '1rem' }
-              }}
-            >
-              New Template
-            </Button>
             <Button
               startIcon={<SendIcon />}
               onClick={() => setShowSendDialog(true)}
@@ -1059,170 +1086,14 @@ const NotificationCenter = () => {
               }
             }}
           >
-            <Tab label="Received Notifications" />
             <Tab label="Sent Notifications" />
             <Tab label="Templates" />
           </Tabs>
         </Paper>
       </Box>
 
-      {/* Received Notifications Tab */}
-      {activeTab === 0 && (
-        <Box sx={{
-          maxWidth: { xs: '100%', sm: '1200px' },
-          mx: 'auto',
-          px: { xs: 2, sm: 3 }
-        }}>
-          <Box sx={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            mb: 3
-          }}>
-            <Button
-              startIcon={<ReadIcon />}
-              onClick={handleMarkAllAsRead}
-              disabled={unreadCount === 0}
-              sx={{
-                borderRadius: '12px',
-                textTransform: 'none',
-                fontWeight: 600,
-                px: 3,
-                py: 1.5
-              }}
-            >
-              Mark All as Read
-            </Button>
-          </Box>
-
-          {notifications.length === 0 ? (
-            <Paper sx={{
-              p: 4,
-              textAlign: 'center',
-              borderRadius: '16px',
-              boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-              border: '1px solid #e5e7eb'
-            }}>
-              <NotificationIcon sx={{ fontSize: 48, color: '#9ca3af', mb: 2 }} />
-              <Typography variant="h6" color="text.secondary" gutterBottom>
-                No notifications received
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                You'll see notifications here when they arrive
-              </Typography>
-            </Paper>
-          ) : (
-            <Box sx={{
-              display: 'grid',
-              gap: 2,
-              gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(400px, 1fr))' }
-            }}>
-              {notifications.map((notification, index) => (
-                <Paper
-                  key={`notification-${notification.id || index}`}
-                  onClick={() => handleViewNotification(notification)}
-                  sx={{
-                    p: 3,
-                    borderRadius: '16px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease-in-out',
-                    border: '1px solid #e5e7eb',
-                    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-                    '&:hover': {
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                      transform: 'translateY(-1px)'
-                    },
-                    position: 'relative',
-                    ...(notification.read ? {} : {
-                      borderLeft: '4px solid #3b82f6',
-                      bgcolor: '#f8fafc'
-                    })
-                  }}
-                >
-                  <Box sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    mb: 2
-                  }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Badge
-                        color="primary"
-                        variant="dot"
-                        invisible={notification.read}
-                      >
-                        <NotificationIcon sx={{ color: notification.read ? '#9ca3af' : '#3b82f6' }} />
-                      </Badge>
-                      <Typography
-                        variant="h6"
-                        sx={{
-                          fontWeight: notification.read ? 500 : 700,
-                          color: '#111827'
-                        }}
-                      >
-                        {notification.title}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      {!notification.read && (
-                        <Tooltip title="Mark as Read">
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleMarkAsRead(notification.id);
-                            }}
-                            sx={{ color: '#6b7280' }}
-                          >
-                            <ReadIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      <Tooltip title="Delete">
-                        <IconButton
-                          size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteNotification(notification.id);
-                          }}
-                          sx={{ color: '#ef4444' }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </Box>
-
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{
-                      mb: 2,
-                      lineHeight: 1.6,
-                      wordBreak: 'break-word'
-                    }}
-                  >
-                    {notification.message}
-                  </Typography>
-
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{
-                      display: 'block',
-                      textAlign: 'right'
-                    }}
-                  >
-                    {new Date(notification.timestamp).toLocaleString()}
-                  </Typography>
-                </Paper>
-              ))}
-            </Box>
-          )}
-        </Box>
-      )}
-
       {/* Sent Notifications Tab */}
-      {activeTab === 1 && (
+      {activeTab === 0 && (
         <Box sx={{
           maxWidth: { xs: '100%', sm: '1200px' },
           mx: 'auto',
@@ -1253,12 +1124,14 @@ const NotificationCenter = () => {
               {sentNotifications.map((notification, index) => (
                 <Paper
                   key={`sent-notification-${notification.id || index}`}
+                  onClick={() => navigate(`/notifications/${notification.id}`)}
                   sx={{
                     p: 3,
                     borderRadius: '16px',
                     transition: 'all 0.2s ease-in-out',
                     border: '1px solid #e5e7eb',
                     boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                    cursor: 'pointer',
                     '&:hover': {
                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
                       transform: 'translateY(-1px)'
@@ -1310,27 +1183,16 @@ const NotificationCenter = () => {
                     </Tooltip>
                   </Box>
 
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{
-                      mb: 2,
-                      lineHeight: 1.6,
-                      wordBreak: 'break-word'
-                    }}
-                  >
-                    {notification.message}
-                  </Typography>
-
                   <Box sx={{
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    pt: 1,
+                    mt: 2,
+                    pt: 2,
                     borderTop: '1px solid #f3f4f6'
                   }}>
                     <Typography
-                      variant="caption"
+                      variant="body2"
                       color="text.secondary"
                     >
                       Sent to: {notification.is_broadcast ? "Everyone" : (notification.recipient_name || 'Multiple recipients')}
@@ -1339,10 +1201,10 @@ const NotificationCenter = () => {
                       )}
                     </Typography>
                     <Typography
-                      variant="caption"
+                      variant="body2"
                       color="text.secondary"
                     >
-                      {new Date(notification.created_at).toLocaleDateString()}
+                      {new Date(notification.created_at).toLocaleString()}
                     </Typography>
                   </Box>
                 </Paper>
@@ -1353,12 +1215,33 @@ const NotificationCenter = () => {
       )}
 
       {/* Templates Tab */}
-      {activeTab === 2 && (
+      {activeTab === 1 && (
         <Box sx={{
           maxWidth: { xs: '100%', sm: '1200px' },
           mx: 'auto',
           px: { xs: 2, sm: 3 }
         }}>
+          <Box sx={{
+            display: 'flex',
+            justifyContent: 'flex-start',
+            mb: 3
+          }}>
+            <Button
+              startIcon={<AddIcon />}
+              onClick={() => setShowTemplateDialog(true)}
+              variant="contained"
+              sx={{
+                borderRadius: '12px',
+                textTransform: 'none',
+                fontWeight: 600,
+                px: 3,
+                py: 1.5,
+                fontSize: { xs: '0.875rem', sm: '1rem' }
+              }}
+            >
+              New Template
+            </Button>
+          </Box>
           {templates.length === 0 ? (
             <Paper sx={{
               p: 4,
@@ -1534,77 +1417,6 @@ const NotificationCenter = () => {
         </Box>
       )}
 
-      {/* Modern Notification Dialog */}
-      <Dialog
-        open={notificationDialogOpen}
-        onClose={() => setNotificationDialogOpen(false)}
-        aria-labelledby="notification-dialog-title"
-        keepMounted={false}
-        maxWidth="sm"
-        fullWidth
-        sx={{ zIndex: 1450 }}
-        PaperProps={{
-          sx: {
-            borderRadius: '16px',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-          }
-        }}
-      >
-        <DialogTitle
-          id="notification-dialog-title"
-          sx={{
-            fontSize: '1.25rem',
-            fontWeight: 600,
-            color: '#111827',
-            pb: 1
-          }}
-        >
-          {selectedNotification?.title}
-        </DialogTitle>
-        <DialogContent sx={{ pt: 0 }}>
-          <Typography
-            variant="body1"
-            sx={{
-              whiteSpace: 'pre-wrap',
-              lineHeight: 1.6,
-              color: '#374151'
-            }}
-          >
-            {selectedNotification?.message}
-          </Typography>
-          {selectedNotification?.action_url && (
-            <Button
-              href={selectedNotification.action_url}
-              variant="contained"
-              sx={{
-                mt: 3,
-                borderRadius: '12px',
-                textTransform: 'none',
-                fontWeight: 600,
-                px: 3,
-                py: 1.5
-              }}
-            >
-              View Details
-            </Button>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: 3, pt: 1 }}>
-          <Button
-            onClick={() => setNotificationDialogOpen(false)}
-            sx={{
-              borderRadius: '12px',
-              textTransform: 'none',
-              fontWeight: 600,
-              px: 3,
-              py: 1.5
-            }}
-          >
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
-
       {/* Modern Send Notification Dialog */}
       <Dialog
         open={showSendDialog}
@@ -1613,9 +1425,10 @@ const NotificationCenter = () => {
           setSelectedRecipientType("user");
           setSelectedRecipient(null);
           setSelectedClass(null);
-          setNotificationMessage("");
           setNotificationTitle("");
           setSelectedTemplateId("");
+          setDetailedMessage("");
+          setNotificationLinks([{ label: '', url: '' }]);
         }}
         aria-labelledby="send-notification-dialog-title"
         keepMounted={false}
@@ -1650,7 +1463,7 @@ const NotificationCenter = () => {
                   setSelectedClass(null);
                   setSelectedTemplateId('');
                   setNotificationTitle('');
-                  setNotificationMessage('');
+                  setDetailedMessage('');
                 }}
                 MenuProps={{
                   sx: { zIndex: 1500 }
@@ -1663,66 +1476,15 @@ const NotificationCenter = () => {
 
             {selectedRecipientType === "user" ? (
               <Box sx={{ mb: 2 }}>
-                {console.log('Rendering Autocomplete with users:', users, 'loadingUsers:', loadingUsers)}
-                {/* Debug info */}
-                {process.env.NODE_ENV === 'development' && (
-                  <Box sx={{ mb: 1, p: 1, bgcolor: 'grey.100', borderRadius: 1 }}>
-                    <Typography variant="caption">
-                      Debug: Users loaded: {users?.length || 0}, Loading: {loadingUsers ? 'Yes' : 'No'}
-                    </Typography>
-                    <Button
-                      size="small"
-                      onClick={forceRefreshUsers}
-                      sx={{ ml: 1 }}
-                    >
-                      Refresh Users
-                    </Button>
-                    {/* Test with simple Select if Autocomplete fails */}
-                    <Button
-                      size="small"
-                      onClick={() => setShowSimpleSelect(!showSimpleSelect)}
-                      sx={{ ml: 1 }}
-                    >
-                      {showSimpleSelect ? 'Hide' : 'Show'} Simple Select
-                    </Button>
-                  </Box>
-                )}
-
-                {/* Simple Select Test */}
-                {showSimpleSelect && (
-                  <FormControl fullWidth sx={{ mb: 2 }}>
-                    <InputLabel>Test Simple Select</InputLabel>
-                    <Select
-                      value={selectedRecipient?.id || ''}
-                      label="Test Simple Select"
-                      onChange={(e) => {
-                        const selectedId = e.target.value;
-                        const selectedUser = users.find(u => u.id === selectedId);
-                        setSelectedRecipient(selectedUser);
-                      }}
-                      MenuProps={{
-                        sx: { zIndex: 1500 }
-                      }}
-                    >
-                      {users.map((user) => (
-                        <MenuItem key={user.id} value={user.id}>
-                          {user.displayName || `${user.first_name} ${user.last_name}`.trim() || user.email}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
-                {/* Alternative Autocomplete with custom styling */}
+                {/* Autocomplete for selecting student */}
                 <Box sx={{ position: 'relative' }}>
                   <Autocomplete
                     value={selectedRecipient}
                     onChange={(event, newValue) => {
-                      console.log('Selected recipient:', newValue);
                       setSelectedRecipient(newValue);
                     }}
                     options={users || []}
                     filterOptions={(options, { inputValue }) => {
-                      console.log('Filtering options:', { options, inputValue });
                       if (!inputValue) return options;
                       return options.filter(option => {
                         const searchTerm = inputValue.toLowerCase();
@@ -1739,13 +1501,10 @@ const NotificationCenter = () => {
                     }}
                     getOptionLabel={(option) => {
                       if (!option) return '';
-                      console.log('Getting label for option:', option);
                       return option.displayName || `${option.first_name} ${option.last_name}`.trim() || option.email || 'Unnamed User';
                     }}
                     isOptionEqualToValue={(option, value) => {
-                      const isEqual = option?.id === value?.id;
-                      console.log('Comparing options:', { option, value, isEqual });
-                      return isEqual;
+                      return option?.id === value?.id;
                     }}
                     PopperProps={{
                       sx: {
@@ -1793,7 +1552,6 @@ const NotificationCenter = () => {
                       />
                     )}
                     renderOption={(props, option) => {
-                      console.log('Rendering option:', option);
                       const { key, ...otherProps } = props;
                       return (
                         <li key={option.id || key} {...otherProps}>
@@ -1822,9 +1580,6 @@ const NotificationCenter = () => {
                     closeText="Close"
                     loading={loadingUsers}
                     fullWidth
-                    onOpen={() => console.log('Autocomplete opened, users:', users)}
-                    onClose={() => console.log('Autocomplete closed')}
-                    onInputChange={(event, value) => console.log('Input changed:', value)}
                     disablePortal={false}
                     disableScrollLock={false}
                     slotProps={{
@@ -1938,12 +1693,14 @@ const NotificationCenter = () => {
 
                       if (mappedType === selectedRecipientType) {
                         setNotificationTitle(template.title_template || '');
-                        setNotificationMessage(template.message_template || '');
+                        setDetailedMessage(template.message_template || '');
+                        // Don't clear links when selecting template
                       } else {
                         // If template type doesn't match, reset the selection
                         setSelectedTemplateId('');
                         setNotificationTitle('');
-                        setNotificationMessage('');
+                        setDetailedMessage('');
+                        // Don't clear links when template doesn't match
                         enqueueSnackbar(`This template is for ${mappedType} notifications, not ${selectedRecipientType} notifications`, {
                           variant: "warning",
                           style: { zIndex: 1450 }
@@ -1952,7 +1709,8 @@ const NotificationCenter = () => {
                     }
                   } else {
                     setNotificationTitle('');
-                    setNotificationMessage('');
+                    setDetailedMessage('');
+                    // Don't clear links when clearing template
                   }
                 }}
                 MenuProps={{
@@ -2035,12 +1793,137 @@ const NotificationCenter = () => {
             <TextField
               fullWidth
               multiline
-              rows={4}
+              rows={6}
               label="Message"
-              value={notificationMessage}
-              onChange={(e) => setNotificationMessage(e.target.value)}
+              value={detailedMessage}
+              onChange={(e) => setDetailedMessage(e.target.value)}
               placeholder="Enter your notification message..."
+              required
+              sx={{ mb: 2 }}
             />
+
+            {/* Links Section */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                Related Links (Optional)
+              </Typography>
+              {notificationLinks.map((link, index) => (
+                <Box key={index} sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Link Label"
+                    value={link.label}
+                    onChange={(e) => {
+                      const newLinks = [...notificationLinks];
+                      newLinks[index] = { ...newLinks[index], label: e.target.value };
+                      setNotificationLinks(newLinks);
+                    }}
+                    placeholder="e.g., View Class Details"
+                  />
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="URL"
+                    value={link.url}
+                    onChange={(e) => {
+                      const newLinks = [...notificationLinks];
+                      newLinks[index] = { ...newLinks[index], url: e.target.value };
+                      setNotificationLinks(newLinks);
+                    }}
+                    placeholder="https://example.com"
+                  />
+                  {notificationLinks.length > 1 && (
+                    <IconButton
+                      size="small"
+                      onClick={() => {
+                        setNotificationLinks(notificationLinks.filter((_, i) => i !== index));
+                      }}
+                      sx={{ color: '#ef4444' }}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                </Box>
+              ))}
+              <Button
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => {
+                  setNotificationLinks([...notificationLinks, { label: '', url: '' }]);
+                }}
+                sx={{ mt: 1 }}
+              >
+                Add Another Link
+              </Button>
+            </Box>
+
+            {/* File Attachments Section */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                Attachments (Optional)
+              </Typography>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                accept=".pdf,.jpg,.jpeg,.png"
+                multiple
+                style={{ display: 'none' }}
+              />
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<AttachFileIcon />}
+                onClick={() => fileInputRef.current?.click()}
+                sx={{ mb: 1 }}
+              >
+                Attach Files
+              </Button>
+              {attachedFiles.length > 0 && (
+                <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {attachedFiles.map((fileItem, index) => (
+                    <Box
+                      key={index}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        p: 1,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        bgcolor: 'background.paper'
+                      }}
+                    >
+                      {fileItem.fileType === 'application/pdf' ? (
+                        <PdfIcon color="error" fontSize="small" />
+                      ) : (
+                        <ImageIcon color="primary" fontSize="small" />
+                      )}
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body2" noWrap>
+                          {fileItem.fileName}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {formatFileSize(fileItem.fileSize)}
+                        </Typography>
+                      </Box>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleRemoveFile(index)}
+                        sx={{ color: '#ef4444' }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                Supported formats: PDF, JPEG, PNG (max 5MB per file)
+              </Typography>
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3, pt: 1 }}>
@@ -2050,9 +1933,14 @@ const NotificationCenter = () => {
               setSelectedRecipientType("user");
               setSelectedRecipient(null);
               setSelectedClass(null);
-              setNotificationMessage("");
               setNotificationTitle("");
               setSelectedTemplateId("");
+              setDetailedMessage("");
+              setNotificationLinks([{ label: '', url: '' }]);
+              setAttachedFiles([]);
+              if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+              }
             }}
             sx={{
               borderRadius: '12px',
@@ -2070,9 +1958,11 @@ const NotificationCenter = () => {
             color="primary"
             disabled={
               !notificationTitle.trim() ||
-              !notificationMessage.trim() ||
+              !detailedMessage.trim() ||
               (selectedRecipientType === "user" && !selectedRecipient?.id) ||
-              (selectedRecipientType === "class" && !selectedClass)
+              (selectedRecipientType === "class" && !selectedClass) ||
+              loading ||
+              uploadingFiles
             }
             sx={{
               borderRadius: '12px',
@@ -2082,7 +1972,7 @@ const NotificationCenter = () => {
               py: 1.5
             }}
           >
-            Send
+            {uploadingFiles ? 'Uploading Files...' : loading ? 'Sending...' : 'Send'}
           </Button>
         </DialogActions>
       </Dialog>

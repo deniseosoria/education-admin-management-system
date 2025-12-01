@@ -12,7 +12,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 // Storage bucket configuration
 export const STORAGE_BUCKETS = {
   CERTIFICATES: 'certificates',
-  USER_UPLOADS: 'user-uploads'
+  USER_UPLOADS: 'user-uploads',
+  NOTIFICATIONS: 'notifications'
 }
 
 // File upload configuration

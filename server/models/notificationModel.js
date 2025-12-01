@@ -41,7 +41,7 @@ async function getTemplateByName(name) {
 }
 
 // Create bulk notifications from template or custom message
-async function createBulkFromTemplate(templateName, userIds, variables = {}, actionUrl = null, senderId = null) {
+async function createBulkFromTemplate(templateName, userIds, variables = {}, actionUrl = null, senderId = null, requestMetadata = null) {
   let template;
   let title;
   let message;
@@ -92,6 +92,7 @@ async function createBulkFromTemplate(templateName, userIds, variables = {}, act
         message: message,
         action_url: actionUrl,
         metadata: {
+          ...(requestMetadata || {}), // Include links and attachments from request
           ...(template?.metadata || { isCustom: true }),
           recipient: recipient ? {
             id: recipient.id,

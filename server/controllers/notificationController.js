@@ -141,7 +141,7 @@ const deleteTemplate = async (req, res) => {
 // @access  Private/Admin
 const sendBulkNotification = async (req, res) => {
     try {
-        const { template_name, user_ids, variables, action_url } = req.body;
+        const { template_name, user_ids, variables, action_url, metadata } = req.body;
 
         if (!template_name || !user_ids || !Array.isArray(user_ids)) {
             return res.status(400).json({ error: 'Missing required fields' });
@@ -158,7 +158,8 @@ const sendBulkNotification = async (req, res) => {
             user_ids,
             variables,
             action_url,
-            req.user.id
+            req.user.id,
+            metadata // Pass metadata (includes links and attachments)
         );
 
         // Send email alerts to all recipients
@@ -319,6 +320,9 @@ const sendNotification = async (req, res) => {
 
         // Create notifications for all recipients
         const notifications = [];
+        // Get metadata from request body (includes links and attachments)
+        const requestMetadata = req.body.metadata || {};
+
         for (const userId of userIds) {
             const notification = await Notification.createNotification({
                 user_id: userId,
@@ -327,6 +331,7 @@ const sendNotification = async (req, res) => {
                 title,
                 message,
                 metadata: {
+                    ...requestMetadata, // Include links and attachments from request
                     sent_by: req.user.id,
                     sent_at: new Date().toISOString()
                 }

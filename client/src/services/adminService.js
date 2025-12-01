@@ -21,12 +21,12 @@ const adminService = {
             console.log('Fetching users from', url); // Add logging
             const response = await api.get(url);
             console.log('getAllUsers response:', response); // Add logging
-            
+
             // The search endpoint always returns paginated response
             if (response && response.users && response.pagination) {
                 return response;
             }
-            
+
             console.error('Invalid response format:', response);
             throw new Error('Invalid response format from server');
         } catch (error) {
@@ -284,7 +284,7 @@ const adminService = {
     },
 
     sendNotification: async (notificationData) => {
-        const { recipientType, recipient, title, message, templateId, template, user } = notificationData;
+        const { recipientType, recipient, title, message, templateId, template, user, metadata } = notificationData;
 
         if (!recipient) {
             throw new Error('No recipient specified');
@@ -353,6 +353,7 @@ const adminService = {
             },
             type: recipientType === 'class' ? 'class_notification' : 'user_notification',
             metadata: {
+                ...metadata, // Include links and attachments from notificationData
                 recipient_type: recipientType,
                 ...(recipientType === 'class' ? { class_id: recipient } : { user_id: recipient }),
                 ...(user ? { user_name: `${user.first_name} ${user.last_name}` } : {})
@@ -375,7 +376,8 @@ const adminService = {
                 recipientType: 'user',
                 templateId: templateId,
                 template: template,
-                user: user
+                user: user,
+                metadata: metadata // Include metadata with links and attachments
             };
             const response = await api.post('/notifications/admin/send', individualPayload);
             return response;
@@ -615,8 +617,10 @@ const adminService = {
     // Get single notification (admin can view any notification)
     getNotification: async (notificationId) => {
         try {
-            const response = await api.get(`/admin/notifications/${notificationId}`);
-            return response.data;
+            const notification = await api.get(`/notifications/admin/${notificationId}`);
+            console.log('getNotification response:', notification);
+            // The api.get() returns the data directly, not a response object
+            return notification;
         } catch (error) {
             console.error('Error fetching notification:', error);
             throw error;
