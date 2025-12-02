@@ -97,6 +97,40 @@ const registerUser = async (req, res) => {
         // Don't fail the registration if email fails
       });
 
+    // Send admin notification email (non-blocking)
+    console.log(`📧 Attempting to send admin notification for new account: ${user.email}`);
+    console.log(`📧 User object:`, {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      phone_number: user.phone_number,
+      role: user.role,
+      status: user.status
+    });
+
+    // Ensure we have a valid function call
+    if (emailService && typeof emailService.sendAdminNewAccountNotification === 'function') {
+      emailService.sendAdminNewAccountNotification(user.email, user.name || user.email, {
+        first_name: user.first_name || null,
+        last_name: user.last_name || null,
+        phone_number: user.phone_number || null,
+        role: user.role || 'student',
+        status: user.status || 'active'
+      })
+        .then((result) => {
+          console.log(`✅ Admin notification sent for new account: ${user.email}`, result);
+        })
+        .catch((emailError) => {
+          console.error('❌ Failed to send admin notification:', emailError);
+          console.error('❌ Error details:', emailError?.message, emailError?.stack);
+          // Don't fail the registration if email fails
+        });
+    } else {
+      console.error('❌ emailService.sendAdminNewAccountNotification is not a function!');
+    }
+
     res.status(201).json({
       user: {
         id: user.id,

@@ -934,6 +934,160 @@ const emailService = {
       </div>
     `;
     await sendEmail({ to: userEmail, subject, html });
+  },
+
+  // Send admin notification for new account creation
+  async sendAdminNewAccountNotification(userEmail, userName, userDetails) {
+    try {
+      console.log(`📧 sendAdminNewAccountNotification called for: ${userEmail}`);
+      const adminEmails = ['yvelisse225@gmail.com', 'deniseosoria04@gmail.com'];
+      const subject = `🔔 New Account Created: ${userName}`;
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+          <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #2c3e50; margin: 0; font-size: 28px;">New Account Created</h1>
+              <p style="color: #7f8c8d; margin: 10px 0 0 0; font-size: 16px;">A new user has registered</p>
+            </div>
+            
+            <div style="margin-bottom: 25px;">
+              <h2 style="color: #34495e; font-size: 20px; margin-bottom: 15px;">Account Details</h2>
+              <div style="background-color: #e8f4fd; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #3498db;">
+                <div style="color: #2c3e50; line-height: 1.8;">
+                  <p><strong>Name:</strong> ${userName}</p>
+                  <p><strong>Email:</strong> ${userEmail}</p>
+                  ${userDetails?.first_name ? `<p><strong>First Name:</strong> ${userDetails.first_name}</p>` : ''}
+                  ${userDetails?.last_name ? `<p><strong>Last Name:</strong> ${userDetails.last_name}</p>` : ''}
+                  ${userDetails?.phone_number ? `<p><strong>Phone:</strong> ${userDetails.phone_number}</p>` : ''}
+                  <p><strong>Role:</strong> ${userDetails?.role || 'student'}</p>
+                  <p><strong>Status:</strong> ${userDetails?.status || 'active'}</p>
+                  <p><strong>Created At:</strong> ${new Date().toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div style="background-color: #fff3cd; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #ffc107;">
+              <h3 style="color: #2c3e50; margin-top: 0; font-size: 18px;">Next Steps</h3>
+              <ul style="color: #2c3e50; line-height: 1.8; padding-left: 20px;">
+                <li>Review the new user's profile in the admin dashboard</li>
+                <li>Verify user information if needed</li>
+                <li>Monitor user activity and enrollments</li>
+              </ul>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1;">
+              <p style="color: #95a5a6; font-size: 12px; margin: 0;">
+                This is an automated notification from YJ Child Care Plus<br>
+                <strong>Website:</strong> ${process.env.CLIENT_URL || 'https://yjchildcareplus.com'}
+              </p>
+            </div>
+          </div>
+        </div>
+      `;
+
+      console.log(`📧 Preparing to send admin notifications to: ${adminEmails.join(', ')}`);
+
+      // Send to all admin emails
+      const emailPromises = adminEmails.map(email =>
+        sendEmail({ to: email, subject, html })
+      );
+
+      const results = await Promise.allSettled(emailPromises);
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          console.log(`✅ Admin notification sent to: ${adminEmails[index]}`);
+        } else {
+          console.error(`❌ Failed to send admin notification to: ${adminEmails[index]}`, result.reason);
+        }
+      });
+
+      const allSuccessful = results.every(result => result.status === 'fulfilled');
+      console.log(`📧 Admin notification sending complete. All successful: ${allSuccessful}`);
+      return allSuccessful;
+    } catch (error) {
+      console.error('❌ Error in sendAdminNewAccountNotification:', error);
+      console.error('❌ Error stack:', error.stack);
+      throw error;
+    }
+  },
+
+  // Send admin notification for class enrollment
+  async sendAdminEnrollmentNotification(userEmail, userName, className, classDetails, sessionDetails) {
+    const adminEmails = ['yvelisse225@gmail.com', 'deniseosoria04@gmail.com'];
+    const subject = `🔔 New Enrollment: ${userName} enrolled in ${className}`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+        <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #2c3e50; margin: 0; font-size: 28px;">New Class Enrollment</h1>
+            <p style="color: #7f8c8d; margin: 10px 0 0 0; font-size: 16px;">A student has enrolled in a class</p>
+          </div>
+          
+          <div style="margin-bottom: 25px;">
+            <h2 style="color: #34495e; font-size: 20px; margin-bottom: 15px;">Student Information</h2>
+            <div style="background-color: #e8f4fd; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #3498db;">
+              <div style="color: #2c3e50; line-height: 1.8;">
+                <p><strong>Name:</strong> ${userName}</p>
+                <p><strong>Email:</strong> ${userEmail}</p>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 25px;">
+            <h2 style="color: #34495e; font-size: 20px; margin-bottom: 15px;">Class Information</h2>
+            <div style="background-color: #d4edda; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #28a745;">
+              <div style="color: #2c3e50; line-height: 1.8;">
+                <p><strong>Class:</strong> ${className}</p>
+                <p><strong>Date:</strong> ${new Date(sessionDetails.session_date).toLocaleDateString()}</p>
+                <p><strong>Time:</strong> ${formatTime(sessionDetails.start_time)} - ${formatTime(sessionDetails.end_time)}</p>
+                <p><strong>Location:</strong> ${classDetails.location_details}</p>
+                <p><strong>Enrollment Status:</strong> <span style="color: #ffc107; font-weight: bold;">⏳ Pending Approval</span></p>
+                <p><strong>Enrolled At:</strong> ${new Date().toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div style="background-color: #fff3cd; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #ffc107;">
+            <h3 style="color: #2c3e50; margin-top: 0; font-size: 18px;">Action Required</h3>
+            <ul style="color: #2c3e50; line-height: 1.8; padding-left: 20px;">
+              <li>Review the enrollment in the admin dashboard</li>
+              <li>Approve or reject the enrollment request</li>
+              <li>Check class capacity and availability</li>
+            </ul>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.CLIENT_URL || 'https://yjchildcareplus.com'}/admin/enrollments" 
+               style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
+              View Enrollments
+            </a>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1;">
+            <p style="color: #95a5a6; font-size: 12px; margin: 0;">
+              This is an automated notification from YJ Child Care Plus<br>
+              <strong>Website:</strong> ${process.env.CLIENT_URL || 'https://yjchildcareplus.com'}
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Send to all admin emails
+    const emailPromises = adminEmails.map(email =>
+      sendEmail({ to: email, subject, html })
+    );
+
+    const results = await Promise.allSettled(emailPromises);
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        console.log(`✅ Admin enrollment notification sent to: ${adminEmails[index]}`);
+      } else {
+        console.error(`❌ Failed to send admin enrollment notification to: ${adminEmails[index]}`, result.reason);
+      }
+    });
+
+    return results.every(result => result.status === 'fulfilled');
   }
 
 };

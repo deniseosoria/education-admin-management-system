@@ -149,6 +149,26 @@ const enrollInClass = async (req, res) => {
       console.error("Email sending failed:", emailError);
     });
 
+    // Send admin notification email (non-blocking)
+    emailService.sendAdminEnrollmentNotification(
+      userDetails.email,
+      userDetails.name || `${userDetails.first_name} ${userDetails.last_name}`,
+      classDetails.title,
+      {
+        location_details: classDetails.location_details
+      },
+      {
+        session_date: session.rows[0].session_date,
+        start_time: session.rows[0].start_time,
+        end_time: session.rows[0].end_time
+      }
+    ).then(() => {
+      console.log(`Admin enrollment notification sent for: ${userDetails.email} in ${classDetails.title}`);
+    }).catch((emailError) => {
+      console.error("Failed to send admin enrollment notification:", emailError);
+      // Don't fail the enrollment if email fails
+    });
+
     // Send response immediately without waiting for email
     res.status(201).json(enrollment);
   } catch (err) {
