@@ -101,7 +101,16 @@ const adminGetClasses = async (req, res) => {
          WHERE cs.class_id = c.id AND cs.deleted_at IS NULL 
          LIMIT 1) as instructor_name,
         (SELECT COUNT(*) FROM class_sessions cs WHERE cs.class_id = c.id AND cs.deleted_at IS NULL) as total_sessions,
-        (SELECT COUNT(*) FROM enrollments e WHERE e.class_id = c.id AND e.enrollment_status IN ('approved', 'pending')) as total_enrollments
+        (SELECT COUNT(*) 
+         FROM enrollments e 
+         JOIN class_sessions cs ON cs.id = e.session_id AND cs.deleted_at IS NULL
+         WHERE e.class_id = c.id 
+         AND e.enrollment_status IN ('approved', 'pending')
+         AND (
+           (cs.end_date IS NOT NULL AND cs.end_date > CURRENT_DATE) OR
+           (cs.end_date IS NULL AND cs.session_date > CURRENT_DATE)
+         )
+        ) as total_enrollments
       FROM classes c
       WHERE c.deleted_at IS NULL
       ORDER BY c.created_at DESC

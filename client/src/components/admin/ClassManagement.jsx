@@ -96,6 +96,58 @@ const formatDate = (dateString) => {
   });
 };
 
+// Helper function to format time from 24-hour to 12-hour format
+const formatTime = (timeString) => {
+  if (!timeString) return 'N/A';
+  try {
+    // Handle both "HH:mm" and "HH:mm:ss" formats
+    const [hours, minutes] = timeString.split(':').map(Number);
+    if (isNaN(hours) || isNaN(minutes)) return timeString;
+
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+    const displayMinutes = minutes.toString().padStart(2, '0');
+
+    return `${displayHours}:${displayMinutes} ${period}`;
+  } catch (error) {
+    return timeString;
+  }
+};
+
+// Helper function to format date range for sessions
+const formatSessionDate = (startDate, endDate) => {
+  if (!startDate) return 'N/A';
+  try {
+    const start = new Date(startDate);
+    if (isNaN(start.getTime())) return 'Invalid Date';
+
+    const end = endDate ? new Date(endDate) : null;
+
+    const startFormatted = start.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
+
+    // If no end date or same day, return just the start date
+    if (!end || isNaN(end.getTime()) || start.toDateString() === end.toDateString()) {
+      return startFormatted;
+    }
+
+    // If different dates, show range
+    const endFormatted = end.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: start.getFullYear() !== end.getFullYear() ? 'numeric' : undefined
+    });
+
+    return `${startFormatted} - ${endFormatted}`;
+  } catch (error) {
+    return 'Invalid Date';
+  }
+};
+
 function ClassManagement() {
   const [classes, setClasses] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -451,6 +503,12 @@ function ClassManagement() {
         case "enrollments":
           handleViewAllEnrollments(selectedClassForMenu);
           break;
+        case "viewStudents":
+          handleViewStudents(selectedClassForMenu);
+          break;
+        case "delete":
+          handleDelete(selectedClassForMenu.id);
+          break;
         default:
           break;
       }
@@ -564,9 +622,10 @@ function ClassManagement() {
         ) : (
           <Box sx={{
             display: 'flex',
-            flexWrap: 'wrap',
-            gap: { xs: 2, sm: 2.5 },
-            justifyContent: { xs: 'center', sm: 'flex-start' },
+            flexDirection: { xs: 'row', sm: 'row', md: 'column' },
+            flexWrap: { xs: 'wrap', sm: 'wrap', md: 'nowrap' },
+            gap: { xs: 2, sm: 2.5, md: 2 },
+            justifyContent: { xs: 'center', sm: 'flex-start', md: 'stretch' },
             width: '100%'
           }}>
             {classes.map((cls) => (
@@ -576,9 +635,10 @@ function ClassManagement() {
                 boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
                 border: '1px solid #e5e7eb',
                 transition: 'all 0.2s ease-in-out',
-                flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 10px)', md: '1 1 calc(33.333% - 17px)' },
-                minWidth: { xs: '280px', sm: '250px' },
-                maxWidth: { xs: '100%', sm: '280px' },
+                flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 10px)', md: '0 0 auto' },
+                minWidth: { xs: '280px', sm: '250px', md: 'auto' },
+                maxWidth: { xs: '100%', sm: 'calc(50% - 10px)', md: '100%' },
+                width: { xs: '100%', sm: 'auto', md: '100%' },
                 '&:hover': {
                   boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
                   transform: 'translateY(-1px)',
@@ -587,44 +647,19 @@ function ClassManagement() {
               }}>
                 {/* Class Header */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
-                    <Box sx={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: '12px',
-                      bgcolor: '#3b82f6',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      <EventIcon sx={{ color: 'white', fontSize: 24 }} />
-                    </Box>
-                    <Box sx={{ minWidth: 0, flex: 1 }}>
-                      <Typography
-                        variant="h6"
-                        sx={{
-                          fontWeight: 600,
-                          fontSize: { xs: '1rem', sm: '1.125rem' },
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {cls.title}
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{
-                          fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {cls.instructor_name || 'No instructor assigned'}
-                      </Typography>
-                    </Box>
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        fontWeight: 600,
+                        fontSize: { xs: '1rem', sm: '1.125rem' },
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {cls.title}
+                    </Typography>
                   </Box>
                   <Tooltip title="More Actions">
                     <IconButton
@@ -641,8 +676,26 @@ function ClassManagement() {
                 </Box>
 
                 {/* Class Details */}
-                <Box sx={{ mb: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <Box sx={{ mb: 2 }}>
+                  <Box
+                    onClick={() => handleViewSessions(cls)}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      mb: 1,
+                      cursor: 'pointer',
+                      '&:hover': {
+                        '& .MuiSvgIcon-root': {
+                          color: '#3b82f6'
+                        },
+                        '& .MuiTypography-root': {
+                          color: '#3b82f6'
+                        }
+                      },
+                      transition: 'color 0.2s ease-in-out'
+                    }}
+                  >
                     <ScheduleIcon sx={{ fontSize: 16, color: '#6b7280' }} />
                     <Typography
                       variant="body2"
@@ -654,7 +707,24 @@ function ClassManagement() {
                       {cls.total_sessions || 0} sessions
                     </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <Box
+                    onClick={() => handleViewAllEnrollments(cls)}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      cursor: 'pointer',
+                      '&:hover': {
+                        '& .MuiSvgIcon-root': {
+                          color: '#3b82f6'
+                        },
+                        '& .MuiTypography-root': {
+                          color: '#3b82f6'
+                        }
+                      },
+                      transition: 'color 0.2s ease-in-out'
+                    }}
+                  >
                     <PeopleIcon sx={{ fontSize: 16, color: '#6b7280' }} />
                     <Typography
                       variant="body2"
@@ -666,53 +736,6 @@ function ClassManagement() {
                       {cls.total_enrollments || 0} enrollments
                     </Typography>
                   </Box>
-                </Box>
-
-                {/* Class Actions */}
-                <Box sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  pt: 2,
-                  borderTop: '1px solid #f3f4f6'
-                }}>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Tooltip title="View Sessions">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleViewStudents(cls)}
-                        sx={{
-                          color: '#6b7280',
-                          '&:hover': { color: '#3b82f6' }
-                        }}
-                      >
-                        <ScheduleIcon sx={{ fontSize: 18 }} />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Edit Class">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleEdit(cls)}
-                        sx={{
-                          color: '#6b7280',
-                          '&:hover': { color: '#10b981' }
-                        }}
-                      >
-                        <EditIcon sx={{ fontSize: 18 }} />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                  <Tooltip title="Delete Class">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDelete(cls.id)}
-                      sx={{
-                        color: '#6b7280',
-                        '&:hover': { color: '#ef4444' }
-                      }}
-                    >
-                      <DeleteIcon sx={{ fontSize: 18 }} />
-                    </IconButton>
-                  </Tooltip>
                 </Box>
               </Paper>
             ))}
@@ -759,11 +782,23 @@ function ClassManagement() {
           </ListItemIcon>
           <ListItemText>Edit Class</ListItemText>
         </MenuItem>
+        <MenuItem onClick={() => handleMenuAction('viewStudents')}>
+          <ListItemIcon>
+            <ScheduleIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>View Sessions</ListItemText>
+        </MenuItem>
         <MenuItem onClick={() => handleMenuAction('enrollments')}>
           <ListItemIcon>
             <PeopleIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>View All Enrollments</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => handleMenuAction('delete')} sx={{ color: 'error.main' }}>
+          <ListItemIcon>
+            <DeleteIcon fontSize="small" sx={{ color: 'error.main' }} />
+          </ListItemIcon>
+          <ListItemText>Delete Class</ListItemText>
         </MenuItem>
       </Menu>
 
@@ -1121,17 +1156,25 @@ function ClassManagement() {
                     }
                   }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                      <Box>
-                        <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
-                          {new Date(session.session_date).toLocaleDateString('en-US', {
-                            weekday: 'short',
-                            month: 'short',
-                            day: 'numeric'
-                          })}
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem', mb: 0.5 }}>
+                          {formatSessionDate(session.session_date, session.end_date)}
                         </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {session.start_time} - {session.end_time}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              color: '#374151',
+                              fontWeight: 500,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 0.5
+                            }}
+                          >
+                            <ScheduleIcon sx={{ fontSize: 14, color: '#6b7280' }} />
+                            {formatTime(session.start_time)} - {formatTime(session.end_time)}
+                          </Typography>
+                        </Box>
                       </Box>
                       <Chip
                         label={session.status || 'Scheduled'}
@@ -1139,7 +1182,7 @@ function ClassManagement() {
                           session.status === 'cancelled' ? 'error' :
                             'primary'}
                         size="small"
-                        sx={{ fontSize: '0.75rem' }}
+                        sx={{ fontSize: '0.75rem', ml: 1 }}
                       />
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
