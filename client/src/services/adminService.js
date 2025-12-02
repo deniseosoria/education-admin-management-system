@@ -389,7 +389,8 @@ const adminService = {
             const response = await api.post('/notifications/admin/broadcast', {
                 title: broadcastData.title,
                 message: broadcastData.message,
-                type: 'broadcast'
+                type: 'broadcast',
+                metadata: broadcastData.metadata || {}
             });
             // Return the response data directly
             return response;

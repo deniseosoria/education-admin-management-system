@@ -2,12 +2,21 @@ const nodemailer = require('nodemailer');
 const { Resend } = require('resend');
 require('dotenv').config();
 
+// Helper function to get client URL with production fallback
+const getClientUrl = () => {
+  // Use CLIENT_URL if set, otherwise fallback to production URL
+  // Remove trailing slash if present
+  const url = (process.env.CLIENT_URL || 'https://yjchildcareplus.com').replace(/\/$/, '');
+  return url;
+};
+
 // Log email configuration status
 console.log('Email configuration check:');
 console.log('RESEND_API_KEY exists:', !!process.env.RESEND_API_KEY);
 console.log('EMAIL_USER exists:', !!process.env.EMAIL_USER);
 console.log('EMAIL_APP_PASSWORD exists:', !!process.env.EMAIL_APP_PASSWORD);
 console.log('EMAIL_PASS exists:', !!process.env.EMAIL_PASS);
+console.log('CLIENT_URL:', getClientUrl());
 
 // Create transporter only if credentials are available
 let transporter = null;
@@ -72,7 +81,12 @@ const sendEmail = async ({ to, subject, html }) => {
 
       if (error) {
         console.error('❌ Resend error:', error);
-        return false;
+        // Throw error so it can be caught and handled (especially for rate limits)
+        const emailError = new Error(error.message || 'Failed to send email');
+        emailError.statusCode = error.statusCode;
+        emailError.name = error.name;
+        emailError.originalError = error;
+        throw emailError;
       }
 
       console.log('✅ Email sent successfully via Resend to:', to);
@@ -97,7 +111,14 @@ const sendEmail = async ({ to, subject, html }) => {
     }
   } catch (error) {
     console.error('❌ Error sending email:', error.message);
-    return false;
+    // Re-throw if it's already an error with statusCode (from Resend)
+    if (error.statusCode || error.name === 'rate_limit_exceeded') {
+      throw error;
+    }
+    // Otherwise throw a generic error
+    const emailError = new Error(error.message || 'Failed to send email');
+    emailError.originalError = error;
+    throw emailError;
   }
 };
 
@@ -245,7 +266,7 @@ const emailService = {
             </div>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.CLIENT_URL}/profile" 
+              <a href="${getClientUrl()}/profile" 
                  style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
                 Access Your Profile
               </a>
@@ -295,7 +316,7 @@ const emailService = {
 
   // Send password reset email
   async sendPasswordResetEmail(userEmail, resetToken) {
-    const resetLink = `${process.env.CLIENT_URL}/reset-password?token=${resetToken}`;
+    const resetLink = `${getClientUrl()}/reset-password?token=${resetToken}`;
 
     console.log('🔐 Sending password reset email to:', userEmail);
     console.log('🔐 Reset token length:', resetToken ? resetToken.length : 'undefined');
@@ -411,7 +432,7 @@ const emailService = {
         </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.CLIENT_URL}/profile?section=waitlist" 
+            <a href="${getClientUrl()}/profile?section=waitlist" 
                style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
               View My Waitlist
             </a>
@@ -544,7 +565,7 @@ const emailService = {
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.CLIENT_URL}/classes" 
+            <a href="${getClientUrl()}/classes" 
                style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
                 Browse Classes
             </a>
@@ -843,7 +864,7 @@ const emailService = {
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.CLIENT_URL}/classes" 
+            <a href="${getClientUrl()}/classes" 
                style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
               Browse Available Classes
             </a>
@@ -909,7 +930,7 @@ const emailService = {
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.CLIENT_URL}/profile?section=notifications" 
+            <a href="${getClientUrl()}/profile?section=notifications" 
                style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
               View My Notifications
             </a>
@@ -978,7 +999,7 @@ const emailService = {
             <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1;">
               <p style="color: #95a5a6; font-size: 12px; margin: 0;">
                 This is an automated notification from YJ Child Care Plus<br>
-                <strong>Website:</strong> ${process.env.CLIENT_URL || 'https://yjchildcareplus.com'}
+                <strong>Website:</strong> ${getClientUrl()}
               </p>
             </div>
           </div>
@@ -1057,7 +1078,7 @@ const emailService = {
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.CLIENT_URL || 'https://yjchildcareplus.com'}/admin/enrollments" 
+            <a href="${getClientUrl()}/admin/enrollments" 
                style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
               View Enrollments
             </a>

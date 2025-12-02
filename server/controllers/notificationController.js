@@ -207,7 +207,7 @@ const sendBulkNotification = async (req, res) => {
 // @access  Private/Admin
 const broadcastNotification = async (req, res) => {
     try {
-        const { title, message, type } = req.body;
+        const { title, message, type, metadata } = req.body;
 
         if (!title || !message) {
             return res.status(400).json({ error: 'Title and message are required' });
@@ -222,7 +222,8 @@ const broadcastNotification = async (req, res) => {
             title,
             message,
             user_ids,
-            req.user.id
+            req.user.id,
+            metadata || {}
         );
 
         // Send response immediately after database operations
@@ -239,18 +240,22 @@ const broadcastNotification = async (req, res) => {
             try {
                 console.log(`Starting async email processing for ${users.length} users...`);
 
-                // Process emails in batches to avoid overwhelming the email service
-                const batchSize = emailConfig.batchProcessing.batchSize || 10;
-                const batches = [];
-
-                for (let i = 0; i < users.length; i += batchSize) {
-                    batches.push(users.slice(i, i + batchSize));
-                }
+                // Resend API rate limit: 2 requests per second
+                // Process emails sequentially with proper delays to respect rate limit
+                const delayBetweenEmails = 600; // 600ms between emails = ~1.67 emails/second (under 2/second limit)
+                const maxRetries = 3;
+                const retryDelay = 2000; // 2 seconds delay on rate limit error
 
                 let processedCount = 0;
-                for (const batch of batches) {
-                    // Process each batch concurrently
-                    const emailPromises = batch.map(async (user) => {
+                let successCount = 0;
+                let failedCount = 0;
+
+                for (let i = 0; i < users.length; i++) {
+                    const user = users[i];
+                    let retries = 0;
+                    let success = false;
+
+                    while (retries < maxRetries && !success) {
                         try {
                             await emailService.sendNotificationAlertEmail(
                                 user.email,
@@ -259,26 +264,43 @@ const broadcastNotification = async (req, res) => {
                                 title
                             );
                             console.log(`Broadcast alert email sent to: ${user.email}`);
-                            return { success: true, email: user.email };
+                            success = true;
+                            successCount++;
                         } catch (emailError) {
-                            console.error(`Failed to send broadcast alert email to ${user.email}:`, emailError);
-                            return { success: false, email: user.email, error: emailError.message };
+                            // Check if it's a rate limit error (429)
+                            if (emailError.statusCode === 429 || emailError.name === 'rate_limit_exceeded') {
+                                retries++;
+                                if (retries < maxRetries) {
+                                    console.log(`Rate limit hit for ${user.email}, retrying in ${retryDelay}ms (attempt ${retries}/${maxRetries})...`);
+                                    await new Promise(resolve => setTimeout(resolve, retryDelay));
+                                    continue; // Retry
+                                } else {
+                                    console.error(`Failed to send broadcast alert email to ${user.email} after ${maxRetries} retries: Rate limit exceeded`);
+                                    failedCount++;
+                                }
+                            } else {
+                                // Non-rate-limit error, don't retry
+                                console.error(`Failed to send broadcast alert email to ${user.email}:`, emailError.message);
+                                failedCount++;
+                                break; // Move to next user
+                            }
                         }
-                    });
+                    }
 
-                    // Wait for batch to complete before processing next batch
-                    const batchResults = await Promise.allSettled(emailPromises);
-                    processedCount += batch.length;
+                    processedCount++;
 
-                    console.log(`Processed batch: ${processedCount}/${users.length} users`);
+                    // Log progress every 10 users
+                    if (processedCount % 10 === 0) {
+                        console.log(`Progress: ${processedCount}/${users.length} users processed (${successCount} sent, ${failedCount} failed)`);
+                    }
 
-                    // Small delay between batches to avoid overwhelming email service
-                    if (batches.indexOf(batch) < batches.length - 1) {
-                        await new Promise(resolve => setTimeout(resolve, emailConfig.batchProcessing.batchDelay || 100));
+                    // Add delay between emails to respect rate limit (except for the last email)
+                    if (i < users.length - 1) {
+                        await new Promise(resolve => setTimeout(resolve, delayBetweenEmails));
                     }
                 }
 
-                console.log(`Async email processing completed for ${users.length} users`);
+                console.log(`Async email processing completed: ${processedCount}/${users.length} users processed (${successCount} sent, ${failedCount} failed)`);
             } catch (emailError) {
                 console.error('Failed to process broadcast alert emails:', emailError);
                 // Don't fail the broadcast creation if emails fail

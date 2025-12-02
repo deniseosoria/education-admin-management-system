@@ -187,8 +187,14 @@ async function deleteTemplate(id) {
 }
 
 // Create a direct broadcast notification
-async function createDirectBroadcast(title, message, userIds, senderId) {
+async function createDirectBroadcast(title, message, userIds, senderId, requestMetadata = {}) {
   try {
+    // Merge request metadata with broadcast flag
+    const metadata = {
+      isBroadcast: true,
+      ...requestMetadata
+    };
+
     // Use batch insert for better performance
     const values = [];
     const placeholders = [];
@@ -202,7 +208,7 @@ async function createDirectBroadcast(title, message, userIds, senderId) {
         title,
         message,
         null, // action_url
-        JSON.stringify({ isBroadcast: true }), // metadata
+        JSON.stringify(metadata), // metadata
         senderId
       );
     }
@@ -228,6 +234,12 @@ async function createDirectBroadcast(title, message, userIds, senderId) {
     const notifications = [];
     const failedUsers = [];
 
+    // Merge request metadata with broadcast flag
+    const metadata = {
+      isBroadcast: true,
+      ...requestMetadata
+    };
+
     for (const userId of userIds) {
       try {
         const notification = await createNotification({
@@ -236,7 +248,7 @@ async function createDirectBroadcast(title, message, userIds, senderId) {
           title: title,
           message: message,
           action_url: null,
-          metadata: { isBroadcast: true },
+          metadata: metadata,
           sender_id: senderId
         });
         notifications.push(notification);

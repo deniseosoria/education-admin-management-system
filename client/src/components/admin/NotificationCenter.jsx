@@ -69,6 +69,10 @@ const NotificationCenter = () => {
   const [broadcastTitle, setBroadcastTitle] = useState("");
   const [broadcastProgress, setBroadcastProgress] = useState({ isProcessing: false, message: "" });
   const [broadcastStats, setBroadcastStats] = useState(null);
+  const [broadcastLinks, setBroadcastLinks] = useState([{ label: '', url: '' }]);
+  const [broadcastAttachedFiles, setBroadcastAttachedFiles] = useState([]);
+  const [uploadingBroadcastFiles, setUploadingBroadcastFiles] = useState(false);
+  const broadcastFileInputRef = React.useRef(null);
   const [newTemplate, setNewTemplate] = useState({
     name: "",
     content: "",
@@ -880,12 +884,47 @@ const NotificationCenter = () => {
         return;
       }
 
+      // Filter out empty links
+      const validLinks = broadcastLinks.filter(link => link.label.trim() && link.url.trim());
+
+      // Upload attached files if any
+      let uploadedFiles = [];
+      if (broadcastAttachedFiles.length > 0 && user?.id) {
+        setUploadingBroadcastFiles(true);
+        setBroadcastProgress({ isProcessing: true, message: "Uploading files..." });
+        try {
+          const uploadPromises = broadcastAttachedFiles.map(file =>
+            supabaseStorageService.uploadNotificationAttachment(file.file, user.id)
+          );
+          uploadedFiles = await Promise.all(uploadPromises);
+        } catch (uploadError) {
+          console.error('Error uploading files:', uploadError);
+          enqueueSnackbar("Failed to upload files. Please try again.", { variant: "error", style: { zIndex: 1450 } });
+          setUploadingBroadcastFiles(false);
+          setBroadcastProgress({ isProcessing: false, message: "" });
+          return;
+        } finally {
+          setUploadingBroadcastFiles(false);
+        }
+      }
+
       setBroadcastProgress({ isProcessing: true, message: "Sending broadcast to all users..." });
 
       const response = await adminService.sendBroadcast({
         title: broadcastTitle,
         message: broadcastMessage,
-        is_broadcast: true
+        is_broadcast: true,
+        metadata: {
+          ...(validLinks.length > 0 && { links: validLinks }),
+          ...(uploadedFiles.length > 0 && {
+            attachments: uploadedFiles.map(f => ({
+              fileName: f.fileName,
+              fileUrl: f.publicUrl,
+              fileSize: f.fileSize,
+              fileType: f.fileType
+            }))
+          })
+        }
       });
 
       // Show immediate success feedback
@@ -907,8 +946,13 @@ const NotificationCenter = () => {
         setShowBroadcastDialog(false);
         setBroadcastMessage("");
         setBroadcastTitle("");
+        setBroadcastLinks([{ label: '', url: '' }]);
+        setBroadcastAttachedFiles([]);
         setBroadcastProgress({ isProcessing: false, message: "" });
         setBroadcastStats(null);
+        if (broadcastFileInputRef.current) {
+          broadcastFileInputRef.current.value = '';
+        }
       }, 3000);
 
       // Refresh sent notifications to get the updated list from server
@@ -2156,8 +2200,13 @@ const NotificationCenter = () => {
             setShowBroadcastDialog(false);
             setBroadcastMessage("");
             setBroadcastTitle("");
+            setBroadcastLinks([{ label: '', url: '' }]);
+            setBroadcastAttachedFiles([]);
             setBroadcastProgress({ isProcessing: false, message: "" });
             setBroadcastStats(null);
+            if (broadcastFileInputRef.current) {
+              broadcastFileInputRef.current.value = '';
+            }
           }
         }}
         aria-labelledby="broadcast-dialog-title"
@@ -2228,7 +2277,179 @@ const NotificationCenter = () => {
               onChange={(e) => setBroadcastMessage(e.target.value)}
               helperText="This message will be sent to all users"
               disabled={broadcastProgress.isProcessing}
+              sx={{ mb: 2 }}
             />
+
+            {/* Links Section */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                Related Links (Optional)
+              </Typography>
+              {broadcastLinks.map((link, index) => (
+                <Box key={index} sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Link Label"
+                    value={link.label}
+                    onChange={(e) => {
+                      const newLinks = [...broadcastLinks];
+                      newLinks[index] = { ...newLinks[index], label: e.target.value };
+                      setBroadcastLinks(newLinks);
+                    }}
+                    placeholder="e.g., View Class Details"
+                    disabled={broadcastProgress.isProcessing}
+                  />
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="URL"
+                    value={link.url}
+                    onChange={(e) => {
+                      const newLinks = [...broadcastLinks];
+                      newLinks[index] = { ...newLinks[index], url: e.target.value };
+                      setBroadcastLinks(newLinks);
+                    }}
+                    placeholder="https://example.com"
+                    disabled={broadcastProgress.isProcessing}
+                  />
+                  {broadcastLinks.length > 1 && (
+                    <IconButton
+                      size="small"
+                      onClick={() => {
+                        setBroadcastLinks(broadcastLinks.filter((_, i) => i !== index));
+                      }}
+                      disabled={broadcastProgress.isProcessing}
+                      sx={{ color: '#ef4444' }}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                </Box>
+              ))}
+              <Button
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => {
+                  setBroadcastLinks([...broadcastLinks, { label: '', url: '' }]);
+                }}
+                disabled={broadcastProgress.isProcessing}
+                sx={{ mt: 1 }}
+              >
+                Add Another Link
+              </Button>
+            </Box>
+
+            {/* File Attachments Section */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                Attachments (Optional)
+              </Typography>
+              <input
+                type="file"
+                ref={broadcastFileInputRef}
+                onChange={(event) => {
+                  const files = Array.from(event.target.files || []);
+                  if (files.length === 0) return;
+
+                  const validFiles = [];
+                  const errors = [];
+
+                  files.forEach(file => {
+                    // Validate file type
+                    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+                    if (!allowedTypes.includes(file.type)) {
+                      errors.push(`${file.name}: Invalid file type. Only PDF and images (JPEG, PNG) are allowed.`);
+                      return;
+                    }
+
+                    // Validate file size (5MB)
+                    const maxSize = 5 * 1024 * 1024; // 5MB
+                    if (file.size > maxSize) {
+                      errors.push(`${file.name}: File size too large. Maximum size is 5MB.`);
+                      return;
+                    }
+
+                    validFiles.push({ file, fileName: file.name, fileSize: file.size, fileType: file.type });
+                  });
+
+                  if (errors.length > 0) {
+                    errors.forEach(error => {
+                      enqueueSnackbar(error, { variant: "error", style: { zIndex: 1450 } });
+                    });
+                  }
+
+                  if (validFiles.length > 0) {
+                    setBroadcastAttachedFiles(prev => [...prev, ...validFiles]);
+                  }
+
+                  // Reset input
+                  if (broadcastFileInputRef.current) {
+                    broadcastFileInputRef.current.value = '';
+                  }
+                }}
+                accept=".pdf,.jpg,.jpeg,.png"
+                multiple
+                style={{ display: 'none' }}
+                disabled={broadcastProgress.isProcessing}
+              />
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<AttachFileIcon />}
+                onClick={() => broadcastFileInputRef.current?.click()}
+                disabled={broadcastProgress.isProcessing}
+                sx={{ mb: 1 }}
+              >
+                Attach Files
+              </Button>
+              {broadcastAttachedFiles.length > 0 && (
+                <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {broadcastAttachedFiles.map((fileItem, index) => (
+                    <Box
+                      key={index}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        p: 1,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        bgcolor: 'background.paper'
+                      }}
+                    >
+                      {fileItem.fileType === 'application/pdf' ? (
+                        <PdfIcon color="error" fontSize="small" />
+                      ) : (
+                        <ImageIcon color="primary" fontSize="small" />
+                      )}
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body2" noWrap>
+                          {fileItem.fileName}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {formatFileSize(fileItem.fileSize)}
+                        </Typography>
+                      </Box>
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setBroadcastAttachedFiles(prev => prev.filter((_, i) => i !== index));
+                        }}
+                        disabled={broadcastProgress.isProcessing}
+                        sx={{ color: '#ef4444' }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                Supported formats: PDF, JPEG, PNG (max 5MB per file)
+              </Typography>
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3, pt: 1 }}>
@@ -2238,8 +2459,13 @@ const NotificationCenter = () => {
                 setShowBroadcastDialog(false);
                 setBroadcastMessage("");
                 setBroadcastTitle("");
+                setBroadcastLinks([{ label: '', url: '' }]);
+                setBroadcastAttachedFiles([]);
                 setBroadcastProgress({ isProcessing: false, message: "" });
                 setBroadcastStats(null);
+                if (broadcastFileInputRef.current) {
+                  broadcastFileInputRef.current.value = '';
+                }
               }
             }}
             disabled={broadcastProgress.isProcessing}
@@ -2257,7 +2483,7 @@ const NotificationCenter = () => {
             onClick={handleBroadcast}
             variant="contained"
             color="primary"
-            disabled={!broadcastTitle.trim() || !broadcastMessage.trim() || broadcastProgress.isProcessing}
+            disabled={!broadcastTitle.trim() || !broadcastMessage.trim() || broadcastProgress.isProcessing || uploadingBroadcastFiles}
             startIcon={broadcastProgress.isProcessing ? <CircularProgress size={16} /> : <BroadcastIcon />}
             sx={{
               borderRadius: '12px',
@@ -2267,7 +2493,7 @@ const NotificationCenter = () => {
               py: 1.5
             }}
           >
-            {broadcastProgress.isProcessing ? 'Broadcasting...' : 'Broadcast'}
+            {uploadingBroadcastFiles ? 'Uploading Files...' : broadcastProgress.isProcessing ? 'Broadcasting...' : 'Broadcast'}
           </Button>
         </DialogActions>
       </Dialog>
