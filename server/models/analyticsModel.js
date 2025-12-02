@@ -398,35 +398,24 @@ async function getDashboardSummary({ startDate, endDate }) {
                 
                 (SELECT COUNT(*) 
                  FROM payments p 
-                 JOIN enrollments e ON p.user_id = e.user_id AND p.class_id = e.class_id
-                 JOIN class_sessions cs ON e.session_id = cs.id
                  WHERE p.status = 'completed' 
-                 AND cs.status IN ('scheduled', 'completed')
-                 AND (
-                     (cs.end_date IS NOT NULL AND cs.end_date BETWEEN $1 AND $2) OR
-                     (cs.end_date IS NULL AND cs.session_date BETWEEN $1 AND $2)
-                 )) as recent_payments,
+                 AND p.created_at::date BETWEEN $1 AND $2) as recent_payments,
                 
                 (SELECT SUM(p.amount) 
                  FROM payments p 
-                 JOIN enrollments e ON p.user_id = e.user_id AND p.class_id = e.class_id
-                 JOIN class_sessions cs ON e.session_id = cs.id
                  WHERE p.status = 'completed' 
-                 AND cs.status IN ('scheduled', 'completed')
-                 AND (
-                     (cs.end_date IS NOT NULL AND cs.end_date BETWEEN $1 AND $2) OR
-                     (cs.end_date IS NULL AND cs.session_date BETWEEN $1 AND $2)
-                 )) as monthly_revenue,
+                 AND p.created_at::date BETWEEN $1 AND $2) as monthly_revenue,
                 
                 (SELECT COUNT(*) 
                  FROM class_waitlist w 
-                 JOIN class_sessions cs ON w.class_id = cs.class_id
-                 WHERE w.status = 'waiting' 
-                 AND cs.status IN ('scheduled', 'completed')
-                 AND (
-                     (cs.end_date IS NOT NULL AND cs.end_date BETWEEN $1 AND $2) OR
-                     (cs.end_date IS NULL AND cs.session_date BETWEEN $1 AND $2)
-                 )) as waitlist_count
+                 JOIN classes c ON w.class_id = c.id
+                 WHERE w.status IN ('waiting', 'pending')
+                 AND c.deleted_at IS NULL) as waitlist_count,
+                
+                (SELECT COUNT(*) 
+                 FROM certificates cert
+                 WHERE cert.created_at::date BETWEEN $1 AND $2
+                 AND cert.status = 'approved') as recent_certificates
         )
         SELECT 
             active_users,
@@ -435,6 +424,7 @@ async function getDashboardSummary({ startDate, endDate }) {
             recent_payments,
             COALESCE(monthly_revenue, 0) as monthly_revenue,
             waitlist_count,
+            COALESCE(recent_certificates, 0) as recent_certificates,
             ROUND((active_enrollments::numeric / NULLIF(active_users, 0) * 100), 2) as enrollment_rate
         FROM summary
     `;

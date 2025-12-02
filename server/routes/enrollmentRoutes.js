@@ -44,7 +44,6 @@ router.get('/waitlist/:classId', requireAuth, (req, res) => {
 
 router.post('/waitlist/:classId', requireAuth, async (req, res) => {
   console.log('Waitlist POST route hit with classId:', req.params.classId);
-  // Redirect to the class waitlist endpoint
   const { classId } = req.params;
   const userId = req.user.id;
 
@@ -55,13 +54,26 @@ router.post('/waitlist/:classId', requireAuth, async (req, res) => {
     res.status(201).json(waitlistEntry);
   } catch (err) {
     console.error('Add to waitlist error:', err);
+    console.error('Error details:', {
+      message: err.message,
+      stack: err.stack,
+      classId,
+      userId
+    });
+    
     if (err.message === 'Waitlist is not enabled for this class') {
       return res.status(400).json({ error: err.message });
     }
     if (err.message === 'Waitlist is full') {
       return res.status(400).json({ error: err.message });
     }
-    res.status(500).json({ error: 'Failed to add to waitlist' });
+    if (err.message === 'User is already on the waitlist for this class') {
+      return res.status(400).json({ error: err.message });
+    }
+    if (err.message === 'Class not found') {
+      return res.status(404).json({ error: err.message });
+    }
+    res.status(500).json({ error: err.message || 'Failed to add to waitlist' });
   }
 });
 

@@ -78,17 +78,6 @@ const getRevenueAnalytics = async (req, res) => {
             });
         }
 
-        // Validate that dates are not in the future
-        const today = new Date();
-        today.setHours(23, 59, 59, 999); // End of today
-        if (new Date(endDate) > today) {
-            return res.status(400).json({
-                error: 'End date cannot be in the future',
-                received: { startDate, endDate },
-                today: today.toISOString().slice(0, 10)
-            });
-        }
-
         const analytics = await getRevenueAnalyticsModel({
             startDate,
             endDate,
@@ -133,17 +122,6 @@ const getRevenueByClass = async (req, res) => {
             });
         }
 
-        // Validate that dates are not in the future
-        const today = new Date();
-        today.setHours(23, 59, 59, 999); // End of today
-        if (new Date(endDate) > today) {
-            return res.status(400).json({
-                error: 'End date cannot be in the future',
-                received: { startDate, endDate },
-                today: today.toISOString().slice(0, 10)
-            });
-        }
-
         const analytics = await getRevenueByClassModel({
             startDate,
             endDate
@@ -184,17 +162,6 @@ const getEnrollmentTrends = async (req, res) => {
             return res.status(400).json({
                 error: 'Start date must be before or equal to end date',
                 received: { startDate, endDate }
-            });
-        }
-
-        // Validate that dates are not in the future
-        const today = new Date();
-        today.setHours(23, 59, 59, 999); // End of today
-        if (new Date(endDate) > today) {
-            return res.status(400).json({
-                error: 'End date cannot be in the future',
-                received: { startDate, endDate },
-                today: today.toISOString().slice(0, 10)
             });
         }
 
@@ -242,17 +209,6 @@ const getClassEnrollmentStats = async (req, res) => {
             });
         }
 
-        // Validate that dates are not in the future
-        const today = new Date();
-        today.setHours(23, 59, 59, 999); // End of today
-        if (new Date(endDate) > today) {
-            return res.status(400).json({
-                error: 'End date cannot be in the future',
-                received: { startDate, endDate },
-                today: today.toISOString().slice(0, 10)
-            });
-        }
-
         const stats = await getClassEnrollmentStatsModel({
             startDate,
             endDate
@@ -296,17 +252,6 @@ const getUserEngagementMetrics = async (req, res) => {
             });
         }
 
-        // Validate that dates are not in the future
-        const today = new Date();
-        today.setHours(23, 59, 59, 999); // End of today
-        if (new Date(endDate) > today) {
-            return res.status(400).json({
-                error: 'End date cannot be in the future',
-                received: { startDate, endDate },
-                today: today.toISOString().slice(0, 10)
-            });
-        }
-
         const metrics = await getUserEngagementMetricsModel({
             startDate,
             endDate
@@ -347,17 +292,6 @@ const getUserActivityTrends = async (req, res) => {
             return res.status(400).json({
                 error: 'Start date must be before or equal to end date',
                 received: { startDate, endDate }
-            });
-        }
-
-        // Validate that dates are not in the future
-        const today = new Date();
-        today.setHours(23, 59, 59, 999); // End of today
-        if (new Date(endDate) > today) {
-            return res.status(400).json({
-                error: 'End date cannot be in the future',
-                received: { startDate, endDate },
-                today: today.toISOString().slice(0, 10)
             });
         }
 

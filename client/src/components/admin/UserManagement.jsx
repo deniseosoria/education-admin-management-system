@@ -57,6 +57,7 @@ import {
     Lock as LockIcon,
     History as HistoryIcon,
     Close as CloseIcon,
+    Email as EmailIcon,
 } from "@mui/icons-material";
 import adminService from "../../services/adminService";
 import { useNotifications } from '../../utils/notificationUtils';
@@ -218,10 +219,11 @@ const UserManagement = () => {
     const handleViewEnrollments = async (user) => {
         try {
             setLoading(true);
-            const enrollments = await adminService.getUserEnrollments(user.id);
-            const active = enrollments.filter(e => e.enrollment_type === 'active');
-            const historical = enrollments.filter(e => e.enrollment_type === 'historical');
-            setUserEnrollments({ active, historical });
+            const response = await adminService.getUserEnrollments(user.id);
+            // Handle both array and object responses
+            const enrollments = Array.isArray(response) ? response : (response.data || response.enrollments || []);
+            const categorized = categorizeEnrollments(enrollments);
+            setUserEnrollments(categorized);
             setSelectedUser(user);
             setEnrollmentDialogOpen(true);
         } catch (error) {
@@ -407,13 +409,127 @@ const UserManagement = () => {
         setActiveTab(newValue);
     };
 
+    const formatDate = (dateValue) => {
+        if (!dateValue) return 'N/A';
+        try {
+            // Handle different date formats
+            let date;
+            if (typeof dateValue === 'string') {
+                // Try parsing as-is first
+                date = new Date(dateValue);
+                // If that fails, try parsing common formats
+                if (isNaN(date.getTime())) {
+                    // Try MM/DD/YY format
+                    const parts = dateValue.split('/');
+                    if (parts.length === 3) {
+                        const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+                        date = new Date(`${parts[0]}/${parts[1]}/${year}`);
+                    }
+                }
+            } else {
+                date = new Date(dateValue);
+            }
+
+            if (isNaN(date.getTime())) {
+                return 'N/A';
+            }
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        } catch (e) {
+            console.warn('Date formatting error:', e, 'for value:', dateValue);
+            return 'N/A';
+        }
+    };
+
+    const formatEnrollmentSessionDate = (enrollment) => {
+        // Try multiple date fields from backend
+        const dateValue = enrollment.session_date ||
+            enrollment.display_date ||
+            enrollment.formatted_date ||
+            enrollment.end_date;
+
+        if (!dateValue) {
+            return 'N/A';
+        }
+
+        return formatDate(dateValue);
+    };
+
+    const categorizeEnrollments = (enrollments) => {
+        const active = [];
+        const historical = [];
+        const now = new Date();
+        now.setHours(0, 0, 0, 0); // Set to start of day for comparison
+
+        enrollments.forEach(enrollment => {
+            // Check if enrollment is completed
+            const isCompleted = enrollment.completed_at ||
+                enrollment.enrollment_status === 'completed' ||
+                enrollment.enrollment_status === 'finished' ||
+                enrollment.archived_at;
+
+            // Check if session date or end date is in the past
+            let sessionDate = null;
+            let endDate = null;
+
+            if (enrollment.session_date) {
+                try {
+                    sessionDate = new Date(enrollment.session_date);
+                    sessionDate.setHours(0, 0, 0, 0);
+                    if (isNaN(sessionDate.getTime())) {
+                        sessionDate = null;
+                    }
+                } catch (e) {
+                    sessionDate = null;
+                }
+            }
+
+            if (enrollment.end_date) {
+                try {
+                    endDate = new Date(enrollment.end_date);
+                    endDate.setHours(0, 0, 0, 0);
+                    if (isNaN(endDate.getTime())) {
+                        endDate = null;
+                    }
+                } catch (e) {
+                    endDate = null;
+                }
+            }
+
+            // Session is past if session_date is past, or if end_date exists and is past
+            const isSessionPast = (sessionDate && sessionDate < now) ||
+                (endDate && endDate < now) ||
+                (!sessionDate && !endDate && enrollment.enrollment_type === 'historical');
+
+            // Use backend's enrollment_type as primary, but also check our logic
+            // If backend says historical OR our checks say it's past/completed, it's historical
+            if (enrollment.enrollment_type === 'historical' || isCompleted || isSessionPast) {
+                historical.push(enrollment);
+            } else {
+                active.push(enrollment);
+            }
+        });
+
+        return { active, historical };
+    };
+
     const fetchUserEnrollments = async (userId) => {
         try {
             setEnrollmentsLoading(true);
-            const enrollments = await adminService.getUserEnrollments(userId);
-            const active = enrollments.filter(e => e.enrollment_type === 'active');
-            const historical = enrollments.filter(e => e.enrollment_type === 'historical');
-            setUserEnrollments({ active, historical });
+            const response = await adminService.getUserEnrollments(userId);
+            // Handle both array and object responses
+            const enrollments = Array.isArray(response) ? response : (response.data || response.enrollments || []);
+
+            console.log('Fetched enrollments:', enrollments);
+            console.log('Sample enrollment:', enrollments[0]);
+
+            const categorized = categorizeEnrollments(enrollments);
+            console.log('Categorized enrollments:', categorized);
+
+            setUserEnrollments(categorized);
         } catch (error) {
             handleError(error, "Failed to fetch user enrollments");
             setUserEnrollments({ active: [], historical: [] });
@@ -434,6 +550,243 @@ const UserManagement = () => {
         } finally {
             setUpdatingStatus(false);
         }
+    };
+
+    const renderActivityValue = (value) => {
+        if (value === null || value === undefined) {
+            return 'N/A';
+        }
+        if (typeof value === 'object') {
+            if (Array.isArray(value)) {
+                return value.length > 0 ? value.join(', ') : 'None';
+            }
+            // Handle objects - format as key-value pairs
+            return Object.entries(value)
+                .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v === true ? 'Yes' : v === false ? 'No' : v}`)
+                .join(', ');
+        }
+        if (typeof value === 'boolean') {
+            return value ? 'Yes' : 'No';
+        }
+        return String(value);
+    };
+
+    const formatActivityAction = (action, details = null) => {
+        // Handle enrollment actions with more context
+        if (action === 'enrollment' || action?.includes('enrollment')) {
+            if (details) {
+                const status = details.enrollment_status || details.status;
+                if (status === 'cancelled' || status === 'withdrawn') {
+                    return 'Enrollment Cancelled';
+                }
+                if (status === 'completed' || status === 'finished') {
+                    return 'Enrollment Completed';
+                }
+                if (status === 'approved') {
+                    return 'Enrollment Approved';
+                }
+                if (status === 'pending' || status === 'waiting') {
+                    return 'Enrollment Pending';
+                }
+            }
+            return 'Enrolled';
+        }
+
+        const actionMap = {
+            'role_update': 'Role Changed',
+            'status_update': 'Status Changed',
+            'profile_update': 'Profile Updated',
+            'email_preferences_update': 'Email Preferences Updated',
+            'password_reset': 'Password Reset',
+            'login': 'User Login',
+            'payment': 'Payment'
+        };
+        return actionMap[action] || action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    };
+
+    const getEnrollmentInfo = (activity) => {
+        // Check if this is an enrollment-related activity
+        const isEnrollment = activity.action === 'enrollment' ||
+            activity.action?.includes('enrollment') ||
+            activity.action === 'enrolled' ||
+            activity.action === 'unenrolled';
+
+        if (!activity.details || !isEnrollment) {
+            return null;
+        }
+
+        const details = activity.details;
+        const classTitle = details.class_title ||
+            details.class_name ||
+            details.class || null;
+        const enrollmentStatus = details.enrollment_status || details.status || null;
+        const sessionDate = details.session_date || details.date || null;
+
+        if (!classTitle) {
+            return null;
+        }
+
+        // Format class title nicely
+        let info = classTitle;
+
+        // Add session date if available (more important than status)
+        if (sessionDate) {
+            try {
+                const date = new Date(sessionDate);
+                const formattedDate = date.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                });
+                info = `${classTitle} - ${formattedDate}`;
+            } catch (e) {
+                // If date parsing fails, just use class title
+            }
+        }
+
+        return info;
+    };
+
+    const isFieldList = (value) => {
+        if (typeof value !== 'string') return false;
+        // Check if it looks like a list of database fields
+        const fieldListIndicators = [
+            'id,', 'name,', 'email,', 'password,', 'role,', 'status,',
+            'first_name,', 'last_name,', 'created_at,', 'updated_at,',
+            'reset_token', 'total_enrollments', 'active_enrollments'
+        ];
+        // If string contains multiple field indicators and is long, it's likely a field list
+        const matches = fieldListIndicators.filter(indicator => value.includes(indicator)).length;
+        return (value.includes(',') && value.length > 50 && matches >= 3) || value.length > 200;
+    };
+
+    const formatActivityDetails = (activity) => {
+        if (!activity.details) return null;
+
+        const details = activity.details;
+
+        // Fields to exclude (technical/internal data)
+        const excludeFields = [
+            'id', 'password', 'reset_token', 'reset_token_expires',
+            'created_at', 'updated_at', 'updated', 'fields',
+            'total_enrollments', 'active_enrollments', 'total_payments',
+            'pending_payments', 'certificates', 'payment_methods',
+            'recent_activity', 'notifications', 'enrollments', 'waitlist_entries',
+            'updated_fields', 'changed_fields', 'modified_fields'
+        ];
+
+        // Handle email preferences update
+        if (activity.action === 'email_preferences_update' && details.preferences && typeof details.preferences === 'object') {
+            const prefs = details.preferences;
+            const preferenceLabels = {
+                'class_reminders': 'Class Reminders',
+                'general_updates': 'General Updates',
+                'payment_reminders': 'Payment Reminders',
+                'email_notifications': 'Email Notifications',
+                'certificate_notifications': 'Certificate Notifications'
+            };
+
+            const activePrefs = Object.entries(prefs)
+                .filter(([_, value]) => value === true)
+                .map(([key, _]) => preferenceLabels[key] || key.replace(/_/g, ' '))
+                .join(', ');
+
+            if (activePrefs) {
+                return `Enabled: ${activePrefs}`;
+            }
+            return 'No preferences enabled';
+        }
+
+        // Handle role update
+        if (activity.action === 'role_update') {
+            if (details.old_role && details.new_role) {
+                return `Changed from ${details.old_role} to ${details.new_role}`;
+            }
+            if (details.role) {
+                return `Role set to ${details.role}`;
+            }
+        }
+
+        // Handle status update
+        if (activity.action === 'status_update') {
+            if (details.old_status && details.new_status) {
+                return `Changed from ${details.old_status} to ${details.new_status}`;
+            }
+            if (details.status) {
+                return `Status set to ${details.status}`;
+            }
+        }
+
+        // For profile updates, show only meaningful changes
+        if (activity.action === 'profile_update') {
+            const meaningfulFields = ['first_name', 'last_name', 'email', 'phone_number', 'address', 'emergency_contact'];
+            const filteredDetails = {};
+
+            Object.entries(details).forEach(([key, value]) => {
+                const lowerKey = key.toLowerCase();
+
+                // Skip excluded fields
+                if (excludeFields.includes(lowerKey)) {
+                    return;
+                }
+
+                // Skip field lists
+                if (isFieldList(value)) {
+                    return;
+                }
+
+                // Only include meaningful fields with actual values
+                if (meaningfulFields.includes(lowerKey)) {
+                    if (value && value !== 'null' && value !== 'undefined' && typeof value !== 'object') {
+                        filteredDetails[key] = value;
+                    }
+                }
+            });
+
+            // If we only have technical data, show a simple message
+            if (Object.keys(filteredDetails).length === 0) {
+                // Check if there are any non-excluded, non-field-list values
+                const hasAnyValidData = Object.entries(details).some(([key, value]) => {
+                    const lowerKey = key.toLowerCase();
+                    return !excludeFields.includes(lowerKey) && !isFieldList(value) &&
+                        value && value !== 'null' && value !== 'undefined';
+                });
+
+                if (!hasAnyValidData) {
+                    return 'Profile information updated';
+                }
+                return null;
+            }
+            return filteredDetails;
+        }
+
+        // For other activities, filter and format details
+        const filteredDetails = {};
+        Object.entries(details).forEach(([key, value]) => {
+            const lowerKey = key.toLowerCase();
+
+            // Skip excluded fields
+            if (excludeFields.includes(lowerKey)) {
+                return;
+            }
+
+            // Skip field lists
+            if (isFieldList(value)) {
+                return;
+            }
+
+            // Skip empty or invalid values
+            if (value && value !== 'null' && value !== 'undefined') {
+                filteredDetails[key] = value;
+            }
+        });
+
+        // If no meaningful details after filtering, return null
+        if (Object.keys(filteredDetails).length === 0) {
+            return null;
+        }
+
+        return filteredDetails;
     };
 
     return (
@@ -1383,9 +1736,11 @@ const UserManagement = () => {
                                                             ? "primary.main"
                                                             : activity.action === "status_update"
                                                                 ? "warning.main"
-                                                                : activity.action === "profile_update"
+                                                                : activity.action === "email_preferences_update"
                                                                     ? "info.main"
-                                                                    : "grey.500",
+                                                                    : activity.action === "profile_update"
+                                                                        ? "success.main"
+                                                                        : "grey.500",
                                                     mb: 1,
                                                     bgcolor: "background.paper",
                                                     borderRadius: 1,
@@ -1399,15 +1754,19 @@ const UserManagement = () => {
                                                                     ? "primary.main"
                                                                     : activity.action === "status_update"
                                                                         ? "warning.main"
-                                                                        : activity.action === "profile_update"
+                                                                        : activity.action === "email_preferences_update"
                                                                             ? "info.main"
-                                                                            : "grey.500",
+                                                                            : activity.action === "profile_update"
+                                                                                ? "success.main"
+                                                                                : "grey.500",
                                                         }}
                                                     >
                                                         {activity.action === "role_update" ? (
                                                             <AdminIcon />
                                                         ) : activity.action === "status_update" ? (
                                                             <BlockIcon />
+                                                        ) : activity.action === "email_preferences_update" ? (
+                                                            <EmailIcon />
                                                         ) : activity.action === "profile_update" ? (
                                                             <EditIcon />
                                                         ) : (
@@ -1419,46 +1778,35 @@ const UserManagement = () => {
                                                     primary={
                                                         <Typography
                                                             variant="body2"
-                                                            sx={{ fontWeight: "medium" }}
+                                                            sx={{ fontWeight: 600, mb: 0.5 }}
                                                         >
-                                                            {activity.action.replace("_", " ").toUpperCase()}
+                                                            {formatActivityAction(activity.action, activity.details)}
                                                         </Typography>
                                                     }
                                                     secondary={
-                                                        <Box component="span" sx={{ display: "block" }}>
-                                                            <Typography
-                                                                component="span"
-                                                                variant="caption"
-                                                                color="text.secondary"
-                                                            >
-                                                                {new Date(activity.created_at).toLocaleString()}
-                                                            </Typography>
-                                                            {activity.details && (
-                                                                <Box
-                                                                    component="span"
-                                                                    sx={{ display: "block", mt: 0.5 }}
-                                                                >
-                                                                    {Object.entries(activity.details).map(
-                                                                        ([key, value], index) => (
-                                                                            <Box
-                                                                                key={`${activity.id}-${key}-${index}`}
-                                                                                component="span"
-                                                                                sx={{ display: "flex", gap: 1 }}
+                                                        <Box>
+                                                            {(() => {
+                                                                const enrollmentInfo = getEnrollmentInfo(activity);
+                                                                return (
+                                                                    <>
+                                                                        {enrollmentInfo && (
+                                                                            <Typography
+                                                                                variant="body2"
+                                                                                color="text.secondary"
+                                                                                sx={{ mb: 0.5 }}
                                                                             >
-                                                                                <Typography
-                                                                                    component="span"
-                                                                                    sx={{ fontWeight: "bold" }}
-                                                                                >
-                                                                                    {key.replace("_", " ")}:
-                                                                                </Typography>
-                                                                                <Typography component="span">
-                                                                                    {value}
-                                                                                </Typography>
-                                                                            </Box>
-                                                                        )
-                                                                    )}
-                                                                </Box>
-                                                            )}
+                                                                                {enrollmentInfo}
+                                                                            </Typography>
+                                                                        )}
+                                                                        <Typography
+                                                                            variant="caption"
+                                                                            color="text.secondary"
+                                                                        >
+                                                                            {new Date(activity.created_at).toLocaleString()}
+                                                                        </Typography>
+                                                                    </>
+                                                                );
+                                                            })()}
                                                         </Box>
                                                     }
                                                 />
@@ -1504,9 +1852,7 @@ const UserManagement = () => {
                                                                 <TableRow key={enrollment.enrollment_id || `active-${enrollment.class_title}-${index}`}>
                                                                     <TableCell>{enrollment.class_title || 'N/A'}</TableCell>
                                                                     <TableCell>
-                                                                        {enrollment.session_date ?
-                                                                            new Date(enrollment.session_date).toLocaleDateString() :
-                                                                            'N/A'}
+                                                                        {formatEnrollmentSessionDate(enrollment)}
                                                                     </TableCell>
                                                                     <TableCell>
                                                                         <Chip
@@ -1516,7 +1862,7 @@ const UserManagement = () => {
                                                                         />
                                                                     </TableCell>
                                                                     <TableCell>
-                                                                        {new Date(enrollment.enrolled_at).toLocaleDateString()}
+                                                                        {formatDate(enrollment.enrolled_at)}
                                                                     </TableCell>
                                                                 </TableRow>
                                                             ))}
@@ -1550,7 +1896,7 @@ const UserManagement = () => {
                                                                 <TableRow key={enrollment.enrollment_id || `historical-${enrollment.class_title}-${index}`}>
                                                                     <TableCell>{enrollment.class_title || 'N/A'}</TableCell>
                                                                     <TableCell>
-                                                                        {enrollment.session_date ? new Date(enrollment.session_date).toLocaleDateString() : 'N/A'}
+                                                                        {formatEnrollmentSessionDate(enrollment)}
                                                                     </TableCell>
                                                                     <TableCell>
                                                                         <Chip
@@ -1560,8 +1906,7 @@ const UserManagement = () => {
                                                                         />
                                                                     </TableCell>
                                                                     <TableCell>
-                                                                        {enrollment.completed_at ? new Date(enrollment.completed_at).toLocaleDateString() :
-                                                                            enrollment.archived_at ? new Date(enrollment.archived_at).toLocaleDateString() : 'N/A'}
+                                                                        {formatDate(enrollment.completed_at || enrollment.archived_at)}
                                                                     </TableCell>
                                                                     <TableCell>
                                                                         <Tooltip title={enrollment.completion_reason || enrollment.archived_reason}>
@@ -1733,7 +2078,7 @@ const UserManagement = () => {
                                         <TableRow key={enrollment.enrollment_id || `active-${enrollment.class_title}-${index}`}>
                                             <TableCell>{enrollment.class_title || 'N/A'}</TableCell>
                                             <TableCell>
-                                                {enrollment.session_date ? new Date(enrollment.session_date).toLocaleDateString() : 'N/A'}
+                                                {formatEnrollmentSessionDate(enrollment)}
                                             </TableCell>
                                             <TableCell>
                                                 <Chip
@@ -1743,7 +2088,7 @@ const UserManagement = () => {
                                                 />
                                             </TableCell>
                                             <TableCell>
-                                                {new Date(enrollment.enrolled_at).toLocaleDateString()}
+                                                {formatDate(enrollment.enrolled_at)}
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -1769,7 +2114,7 @@ const UserManagement = () => {
                                         <TableRow key={enrollment.enrollment_id || `historical-${enrollment.class_title}-${index}`}>
                                             <TableCell>{enrollment.class_title || 'N/A'}</TableCell>
                                             <TableCell>
-                                                {enrollment.session_date ? new Date(enrollment.session_date).toLocaleDateString() : 'N/A'}
+                                                {formatEnrollmentSessionDate(enrollment)}
                                             </TableCell>
                                             <TableCell>
                                                 <Chip
@@ -1779,8 +2124,7 @@ const UserManagement = () => {
                                                 />
                                             </TableCell>
                                             <TableCell>
-                                                {enrollment.completed_at ? new Date(enrollment.completed_at).toLocaleDateString() :
-                                                    enrollment.archived_at ? new Date(enrollment.archived_at).toLocaleDateString() : 'N/A'}
+                                                {formatDate(enrollment.completed_at || enrollment.archived_at)}
                                             </TableCell>
                                             <TableCell>
                                                 <Tooltip title={enrollment.completion_reason || enrollment.archived_reason}>

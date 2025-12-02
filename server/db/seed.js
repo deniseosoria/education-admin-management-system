@@ -7,12 +7,16 @@ const seed = async () => {
     console.log('Starting database seeding...');
 
     // Clean up old data to prevent duplicates
+    console.log('Cleaning up existing data...');
+    await pool.query('DELETE FROM historical_enrollments');
     await pool.query('DELETE FROM enrollments');
-    await pool.query('DELETE FROM class_sessions');
     await pool.query('DELETE FROM class_waitlist');
+    await pool.query('DELETE FROM historical_sessions');
+    await pool.query('DELETE FROM class_sessions');
     await pool.query('DELETE FROM certificates');
     await pool.query('DELETE FROM payments');
     await pool.query('DELETE FROM classes');
+    console.log('Cleanup complete');
 
     // Get existing user IDs from database
 
@@ -34,7 +38,7 @@ const seed = async () => {
 
     console.log('Using existing users from database');
 
-    // Seed classes
+    // Seed classes - Active, Completed, and Test class
     const classes = [
       {
         title: 'Child Development Associate (CDA)',
@@ -46,7 +50,7 @@ const seed = async () => {
           frequency: 'weekly',
           interval: 1,
           days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-          endDate: '2025-10-31'
+          endDate: '2025-12-31'
         },
         prerequisites: 'None required',
         materials_needed: 'Computer with internet access, webcam, and microphone',
@@ -62,7 +66,7 @@ const seed = async () => {
           frequency: 'weekly',
           interval: 1,
           days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-          endDate: '2025-09-14'
+          endDate: '2025-12-31'
         },
         prerequisites: 'Basic childcare experience recommended',
         materials_needed: 'Notebook, laptop (optional)',
@@ -77,6 +81,17 @@ const seed = async () => {
         recurrence_pattern: null,
         prerequisites: 'None required',
         materials_needed: 'Comfortable clothing for practical exercises',
+        image_url: 'https://res.cloudinary.com/dufbdy0z0/image/upload/v1747786180/class-3_fealxp.jpg'
+      },
+      {
+        title: 'Test Class - Limited Capacity',
+        description: 'This is a test class with limited capacity to demonstrate waitlist functionality. Only one student can enroll.',
+        location_type: 'in-person',
+        location_details: 'Test Room, Room 99',
+        price: 99.99,
+        recurrence_pattern: null,
+        prerequisites: 'None required',
+        materials_needed: 'None',
         image_url: 'https://res.cloudinary.com/dufbdy0z0/image/upload/v1747786180/class-3_fealxp.jpg'
       }
     ];
@@ -114,7 +129,44 @@ const seed = async () => {
     const refundedAtTz = new Date('2025-07-25T00:00:00.000Z').toISOString(); // for payments refunded_at (timestamptz)
     const paymentCreatedAtTs = '2025-07-15 00:38:08'; // for payments created_at (timestamp)
 
-    // Seed class sessions with instructors - Updated with more recent future dates
+    // Get current date to determine past/future
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+
+    // Calculate dates: past sessions (completed) and future sessions (active)
+    const pastDate1 = new Date(now);
+    pastDate1.setDate(pastDate1.getDate() - 30); // 30 days ago
+    const pastDate1Str = pastDate1.toISOString().split('T')[0];
+
+    const pastDate2 = new Date(now);
+    pastDate2.setDate(pastDate2.getDate() - 20); // 20 days ago
+    const pastDate2Str = pastDate2.toISOString().split('T')[0];
+
+    const pastEndDate1 = new Date(pastDate1);
+    pastEndDate1.setDate(pastEndDate1.getDate() + 4);
+    const pastEndDate1Str = pastEndDate1.toISOString().split('T')[0];
+
+    const pastEndDate2 = new Date(pastDate2);
+    pastEndDate2.setDate(pastEndDate2.getDate() + 4);
+    const pastEndDate2Str = pastEndDate2.toISOString().split('T')[0];
+
+    const futureDate1 = new Date(now);
+    futureDate1.setDate(futureDate1.getDate() + 30); // 30 days from now
+    const futureDate1Str = futureDate1.toISOString().split('T')[0];
+
+    const futureDate2 = new Date(now);
+    futureDate2.setDate(futureDate2.getDate() + 45); // 45 days from now
+    const futureDate2Str = futureDate2.toISOString().split('T')[0];
+
+    const futureEndDate1 = new Date(futureDate1);
+    futureEndDate1.setDate(futureEndDate1.getDate() + 4);
+    const futureEndDate1Str = futureEndDate1.toISOString().split('T')[0];
+
+    const futureEndDate2 = new Date(futureDate2);
+    futureEndDate2.setDate(futureEndDate2.getDate() + 4);
+    const futureEndDate2Str = futureEndDate2.toISOString().split('T')[0];
+
+    // Seed class sessions with instructors
     await pool.query(`
       INSERT INTO class_sessions (
         class_id, 
@@ -131,124 +183,129 @@ const seed = async () => {
         status
       )
       VALUES
-        -- Child Development Associate (CDA) sessions with Instructor One (multi-day sessions)
-        -- Past sessions (completed)
-        ($1, '2025-08-01', '2025-08-05', '19:00', '22:00', 20, 18, 5, true, 10, $2, 'completed'),
-        ($1, '2025-08-08', '2025-08-12', '19:00', '22:00', 20, 15, 5, true, 10, $2, 'completed'),
+        -- Child Development Associate (CDA) - COMPLETED sessions (past dates)
+        ($1, $6, $7, '19:00', '22:00', 20, 2, 5, true, 10, $2, 'completed'),
+        ($1, $8, $9, '19:00', '22:00', 20, 2, 5, true, 10, $2, 'completed'),
         
-        -- Current sessions (this week and next week)
-        ($1, '2025-09-02', '2025-09-06', '19:00', '22:00', 20, 12, 5, true, 10, $2, 'scheduled'),
-        ($1, '2025-09-09', '2025-09-13', '19:00', '22:00', 20, 8, 5, true, 10, $2, 'scheduled'),
+        -- Child Development Associate (CDA) - ACTIVE sessions (future dates)
+        ($1, $10, $11, '19:00', '22:00', 20, 1, 5, true, 10, $2, 'scheduled'),
+        ($1, $12, $13, '19:00', '22:00', 20, 1, 5, true, 10, $2, 'scheduled'),
         
-        -- Future sessions (next month)
-        ($1, '2025-10-07', '2025-10-11', '19:00', '22:00', 20, 5, 5, true, 10, $2, 'scheduled'),
-        ($1, '2025-10-14', '2025-10-18', '19:00', '22:00', 20, 3, 5, true, 10, $2, 'scheduled'),
+        -- Development and Operations - COMPLETED sessions (past dates)
+        ($3, $6, $7, '19:00', '22:00', 15, 2, 5, true, 5, $4, 'completed'),
+        ($3, $8, $9, '19:00', '22:00', 15, 1, 5, true, 5, $4, 'completed'),
         
-        -- Development and Operations sessions with Instructor Two (multi-day sessions)
-        -- Past sessions (completed)
-        ($3, '2025-08-02', '2025-08-06', '19:00', '22:00', 15, 12, 5, true, 5, $4, 'completed'),
-        ($3, '2025-08-09', '2025-08-13', '19:00', '22:00', 15, 10, 5, true, 5, $4, 'completed'),
+        -- Development and Operations - ACTIVE sessions (future dates)
+        ($3, $10, $11, '19:00', '22:00', 15, 1, 5, true, 5, $4, 'scheduled'),
+        ($3, $12, $13, '19:00', '22:00', 15, 1, 5, true, 5, $4, 'scheduled'),
         
-        -- Current sessions
-        ($3, '2025-09-03', '2025-09-07', '19:00', '22:00', 15, 8, 5, true, 5, $4, 'scheduled'),
-        ($3, '2025-09-10', '2025-09-14', '19:00', '22:00', 15, 6, 5, true, 5, $4, 'scheduled'),
+        -- CPR and First Aid Certification - COMPLETED sessions (past dates)
+        ($5, $6, NULL, '09:00', '14:00', 12, 2, 4, true, 8, $2, 'completed'),
+        ($5, $8, NULL, '09:00', '14:00', 12, 1, 4, true, 8, $2, 'completed'),
         
-        -- Future sessions
-        ($3, '2025-10-08', '2025-10-12', '19:00', '22:00', 15, 4, 5, true, 5, $4, 'scheduled'),
-        ($3, '2025-10-15', '2025-10-19', '19:00', '22:00', 15, 2, 5, true, 5, $4, 'scheduled'),
+        -- CPR and First Aid Certification - ACTIVE sessions (future dates)
+        ($5, $10, NULL, '09:00', '14:00', 12, 1, 4, true, 8, $2, 'scheduled'),
+        ($5, $12, NULL, '09:00', '14:00', 12, 1, 4, true, 8, $2, 'scheduled'),
         
-        -- CPR and First Aid Certification sessions with Instructor One (single-day sessions)
-        -- Past sessions (completed)
-        ($5, '2025-08-03', NULL, '09:00', '14:00', 12, 10, 4, true, 8, $2, 'completed'),
-        ($5, '2025-08-10', NULL, '09:00', '14:00', 12, 8, 4, true, 8, $2, 'completed'),
-        
-        -- Current sessions
-        ($5, '2025-09-04', NULL, '09:00', '14:00', 12, 6, 4, true, 8, $2, 'scheduled'),
-        ($5, '2025-09-11', NULL, '09:00', '14:00', 12, 4, 4, true, 8, $2, 'scheduled'),
-        
-        -- Future sessions
-        ($5, '2025-10-05', NULL, '09:00', '14:00', 12, 3, 4, true, 8, $2, 'scheduled'),
-        ($5, '2025-10-12', NULL, '09:00', '14:00', 12, 1, 4, true, 8, $2, 'scheduled')
+        -- Test Class - Limited Capacity (1 student) - ACTIVE session
+        ($14, $10, NULL, '10:00', '12:00', 1, 1, 1, true, 5, $2, 'scheduled')
       ON CONFLICT DO NOTHING;
     `, [
       classMap.get('Child Development Associate (CDA)'),
       instructorOneId,
       classMap.get('Development and Operations'),
       instructorTwoId,
-      classMap.get('CPR and First Aid Certification')
+      classMap.get('CPR and First Aid Certification'),
+      pastDate1Str, // $6
+      pastEndDate1Str, // $7
+      pastDate2Str, // $8
+      pastEndDate2Str, // $9
+      futureDate1Str, // $10
+      futureEndDate1Str, // $11
+      futureDate2Str, // $12
+      futureEndDate2Str, // $13
+      classMap.get('Test Class - Limited Capacity') // $14
     ]);
 
     console.log('Sessions created successfully');
 
-    // Get session IDs for enrollment seeding
-    const { rows: enrollmentSessionRows } = await pool.query(`
-      SELECT id, class_id, session_date, ROW_NUMBER() OVER (PARTITION BY class_id ORDER BY session_date) as session_num
+    // Get completed sessions (for historical enrollments)
+    const { rows: completedSessions } = await pool.query(`
+      SELECT id, class_id, session_date, end_date
       FROM class_sessions 
+      WHERE status = 'completed'
       ORDER BY class_id, session_date
     `);
 
-    // Create a map of sessions by class and session number
-    const sessionMap = new Map();
-    enrollmentSessionRows.forEach(session => {
-      const key = `${session.class_id}-${session.session_num}`;
-      sessionMap.set(key, session.id);
-    });
+    // Get active sessions (for active enrollments)
+    const { rows: activeSessions } = await pool.query(`
+      SELECT id, class_id, session_date, end_date
+      FROM class_sessions 
+      WHERE status = 'scheduled'
+      ORDER BY class_id, session_date
+    `);
 
-    // Get sessions for different time periods
-    // Past sessions (completed)
-    const cdaPastSession = sessionMap.get(`${classMap.get('Child Development Associate (CDA)')}-1`);
-    const devOpsPastSession = sessionMap.get(`${classMap.get('Development and Operations')}-1`);
-    const cprPastSession = sessionMap.get(`${classMap.get('CPR and First Aid Certification')}-1`);
+    console.log(`Found ${completedSessions.length} completed sessions and ${activeSessions.length} active sessions`);
 
-    // Current sessions (this week)
-    const cdaCurrentSession = sessionMap.get(`${classMap.get('Child Development Associate (CDA)')}-3`);
-    const devOpsCurrentSession = sessionMap.get(`${classMap.get('Development and Operations')}-3`);
-    const cprCurrentSession = sessionMap.get(`${classMap.get('CPR and First Aid Certification')}-3`);
+    // Create historical enrollments from completed sessions
+    // For each completed session, create enrollments for Jane and John
+    for (const session of completedSessions) {
+      // Create enrollments for both users
+      await pool.query(`
+        INSERT INTO enrollments (user_id, class_id, session_id, payment_status, enrollment_status, admin_notes, reviewed_at, reviewed_by, enrolled_at)
+        VALUES
+          ($1, $2, $3, 'paid', 'approved', 'Completed session', $4, $5, $6),
+          ($7, $2, $3, 'paid', 'approved', 'Completed session', $4, $5, $6)
+        ON CONFLICT DO NOTHING
+      `, [
+        janeId,
+        session.class_id,
+        session.id,
+        reviewedAtTz,
+        adminId,
+        enrolledAtTs,
+        johnId
+      ]);
+    }
 
-    // Future sessions (next month)
-    const cdaFutureSession = sessionMap.get(`${classMap.get('Child Development Associate (CDA)')}-5`);
-    const devOpsFutureSession = sessionMap.get(`${classMap.get('Development and Operations')}-5`);
-    const cprFutureSession = sessionMap.get(`${classMap.get('CPR and First Aid Certification')}-5`);
-
-    // Seed enrollments with UUID user IDs
-    await pool.query(`
-      INSERT INTO enrollments (user_id, class_id, session_id, payment_status, enrollment_status, admin_notes, reviewed_at, reviewed_by, enrolled_at)
-      VALUES
-        -- Past session enrollments (completed)
-        ($1, $4, $7, 'paid', 'approved', 'Past session completed', $10, $3, $11),
-        ($1, $5, $8, 'paid', 'approved', 'Past session completed', $10, $3, $11),
-        ($2, $6, $9, 'paid', 'approved', 'Past session completed', $10, $3, $11),
-        
-        -- Current session enrollments
-        ($1, $4, $12, 'paid', 'approved', 'Current session enrollment', $10, $3, $11),
-        ($2, $5, $13, 'paid', 'approved', 'Current session enrollment', $10, $3, $11),
-        ($2, $6, $14, 'paid', 'pending', NULL, NULL::timestamptz, NULL, $11),
-        ($1, $6, $14, 'paid', 'rejected', 'Class capacity reached', $10, $3, $11),
-        
-        -- Future session enrollments
-        ($1, $4, $15, 'paid', 'approved', 'Future session enrollment', $10, $3, $11),
-        ($2, $5, $16, 'paid', 'approved', 'Future session enrollment', $10, $3, $11),
-        ($2, $6, $17, 'paid', 'pending', NULL, NULL::timestamptz, NULL, $11)
-      ON CONFLICT DO NOTHING
-    `, [
-      janeId, // $1
-      johnId, // $2
-      adminId, // $3
-      classMap.get('Child Development Associate (CDA)'), // $4
-      classMap.get('Development and Operations'), // $5
-      classMap.get('CPR and First Aid Certification'), // $6
-      cdaPastSession, // $7
-      devOpsPastSession, // $8
-      cprPastSession, // $9
-      reviewedAtTz, // $10
-      enrolledAtTs, // $11
-      cdaCurrentSession, // $12
-      devOpsCurrentSession, // $13
-      cprCurrentSession, // $14
-      cdaFutureSession, // $15
-      devOpsFutureSession, // $16
-      cprFutureSession // $17
-    ]);
+    // Create active enrollments from active sessions
+    // For each active session, create enrollments for Jane and John
+    for (const session of activeSessions) {
+      // Skip test class - it will have only 1 enrollment (already at capacity)
+      const testClassId = classMap.get('Test Class - Limited Capacity');
+      if (session.class_id === testClassId) {
+        // Only Jane enrolled in test class (at capacity)
+        await pool.query(`
+          INSERT INTO enrollments (user_id, class_id, session_id, payment_status, enrollment_status, admin_notes, reviewed_at, reviewed_by, enrolled_at)
+          VALUES ($1, $2, $3, 'paid', 'approved', 'Active session enrollment', $4, $5, $6)
+          ON CONFLICT DO NOTHING
+        `, [
+          janeId,
+          session.class_id,
+          session.id,
+          reviewedAtTz,
+          adminId,
+          enrolledAtTs
+        ]);
+      } else {
+        // Create enrollments for both users
+        await pool.query(`
+          INSERT INTO enrollments (user_id, class_id, session_id, payment_status, enrollment_status, admin_notes, reviewed_at, reviewed_by, enrolled_at)
+          VALUES
+            ($1, $2, $3, 'paid', 'approved', 'Active session enrollment', $4, $5, $6),
+            ($7, $2, $3, 'paid', 'approved', 'Active session enrollment', $4, $5, $6)
+          ON CONFLICT DO NOTHING
+        `, [
+          janeId,
+          session.class_id,
+          session.id,
+          reviewedAtTz,
+          adminId,
+          enrolledAtTs,
+          johnId
+        ]);
+      }
+    }
 
     console.log('Enrollments created successfully');
 
@@ -343,42 +400,21 @@ const seed = async () => {
       dueDateTz // $13
     ]);
 
-    // Seed waitlist entries with future dates for testing - Only regular users (no admins/instructors)
-    const futureWaitlistDate1 = new Date('2025-09-15T10:00:00.000Z').toISOString(); // Mid-September
-    const futureWaitlistDate2 = new Date('2025-09-20T14:30:00.000Z').toISOString(); // Late September
-    const futureWaitlistDate3 = new Date('2025-10-01T09:15:00.000Z').toISOString(); // Early October
-    const futureWaitlistDate4 = new Date('2025-10-10T16:45:00.000Z').toISOString(); // Mid-October
+    // Seed waitlist entry for test class (capacity of 1, already full, so John is on waitlist)
+    const testClassId = classMap.get('Test Class - Limited Capacity');
+    const waitlistDate = new Date().toISOString();
 
     await pool.query(`
       INSERT INTO class_waitlist (class_id, user_id, position, status, created_at)
-      VALUES
-        -- Future session waitlist entries with realistic future dates - Only regular users
-        ($1, $2::uuid, 1, 'pending', $5),  -- CDA - John Smith (position 1)
-        ($1, $6::uuid, 2, 'pending', $7),  -- CDA - Jane Doe (position 2)
-        
-        ($3, $6::uuid, 1, 'pending', $8), -- DevOps - Jane Doe (position 1)
-        ($3, $2::uuid, 2, 'pending', $9), -- DevOps - John Smith (position 2)
-        
-        ($4, $2::uuid, 1, 'pending', $10), -- CPR - John Smith (position 1)
-        ($4, $6::uuid, 2, 'pending', $11), -- CPR - Jane Doe (position 2)
-        ($4, $2::uuid, 3, 'approved', $12), -- CPR - John Smith (position 3, approved)
-        ($4, $6::uuid, 4, 'rejected', $13) -- CPR - Jane Doe (position 4, rejected)
+      VALUES ($1, $2, 1, 'pending', $3)
       ON CONFLICT (class_id, user_id) DO NOTHING;
     `, [
-      classMap.get('Child Development Associate (CDA)'), // $1
-      johnId, // $2
-      classMap.get('Development and Operations'), // $3
-      classMap.get('CPR and First Aid Certification'), // $4
-      futureWaitlistDate1, // $5
-      janeId, // $6
-      futureWaitlistDate2, // $7
-      futureWaitlistDate3, // $8
-      futureWaitlistDate4, // $9
-      futureWaitlistDate1, // $10
-      futureWaitlistDate2, // $11
-      futureWaitlistDate3, // $12
-      futureWaitlistDate4 // $13
+      testClassId,
+      johnId, // John is on waitlist since Jane already enrolled (capacity = 1)
+      waitlistDate
     ]);
+
+    console.log('Waitlist created for test class');
 
     // Seed notification templates
     await pool.query(`
@@ -445,101 +481,79 @@ const seed = async () => {
       ON CONFLICT DO NOTHING;
     `, [janeId, johnId, reviewedAtTz]);
 
-    // --- Seed historical sessions ---
-    const { rows: sessionRows } = await pool.query('SELECT id, class_id, session_date, end_date, start_time, end_time, capacity, enrolled_count, instructor_id, status FROM class_sessions ORDER BY session_date ASC');
-    // We'll use the first session of each class for historical data
-    const historicalSessionIds = [];
-    for (let i = 0; i < 3; i++) {
-      const s = sessionRows[i];
-      const { rows: histRows } = await pool.query(`
-        INSERT INTO historical_sessions (
-          original_session_id, class_id, session_date, end_date, start_time, end_time, capacity, enrolled_count, instructor_id, status, archived_at, archived_reason
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-        RETURNING id
-      `, [
-        s.id, s.class_id, s.session_date, s.end_date, s.start_time, s.end_time, s.capacity, s.enrolled_count, s.instructor_id, 'completed',
-        '2025-07-01T12:00:00.000Z', // archived_at
-        i === 0 ? 'Completed successfully' : (i === 1 ? 'Completed successfully' : 'Enrollment rejected')
-      ]);
-      historicalSessionIds.push(histRows[0].id);
-    }
+    // --- Move completed enrollments to historical_enrollments ---
+    console.log('Moving completed enrollments to historical...');
 
-    // --- Fetch Jane Doe's enrollments for original_enrollment_id mapping ---
-    const { rows: janeEnrollmentRows } = await pool.query(`
-      SELECT id, class_id, session_id FROM enrollments WHERE user_id = $1 ORDER BY id ASC
-    `, [janeId]);
+    // Get all enrollments from completed sessions
+    const { rows: completedEnrollments } = await pool.query(`
+      SELECT e.*, cs.session_date, cs.end_date, cs.start_time, cs.end_time, cs.capacity, cs.enrolled_count, cs.instructor_id
+      FROM enrollments e
+      JOIN class_sessions cs ON cs.id = e.session_id
+      WHERE cs.status = 'completed'
+    `);
 
-    // --- Seed historical enrollments for Jane Doe ---
-    // Use the same order as above: CDA, DevOps, CPR
-    const janeEnrollments = [
-      { classTitle: 'Child Development Associate (CDA)', status: 'approved', reason: 'Completed successfully' },
-      { classTitle: 'Development and Operations', status: 'approved', reason: 'Completed successfully' },
-      { classTitle: 'CPR and First Aid Certification', status: 'rejected', reason: 'Enrollment rejected' }
-    ];
-    for (let i = 0; i < 3; i++) {
-      const classId = classMap.get(janeEnrollments[i].classTitle);
-      const sessionId = sessionRows[i].id;
-      const histSessionId = historicalSessionIds[i];
-      const originalEnrollmentId = janeEnrollmentRows.find(e => e.class_id === classId && e.session_id === sessionId)?.id;
+    console.log(`Found ${completedEnrollments.length} enrollments from completed sessions`);
+
+    // For each completed session, create a historical_session and move enrollments
+    const processedSessions = new Map();
+
+    for (const enrollment of completedEnrollments) {
+      let historicalSessionId = processedSessions.get(enrollment.session_id);
+
+      // Create historical session if not already created
+      if (!historicalSessionId) {
+        const { rows: histSessionRows } = await pool.query(`
+          INSERT INTO historical_sessions (
+            original_session_id, class_id, session_date, end_date, start_time, end_time, 
+            capacity, enrolled_count, instructor_id, status, archived_at, archived_reason
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          RETURNING id
+        `, [
+          enrollment.session_id,
+          enrollment.class_id,
+          enrollment.session_date,
+          enrollment.end_date,
+          enrollment.start_time,
+          enrollment.end_time,
+          enrollment.capacity,
+          enrollment.enrolled_count,
+          enrollment.instructor_id,
+          'completed',
+          new Date().toISOString(), // archived_at
+          'Session completed successfully'
+        ]);
+        historicalSessionId = histSessionRows[0].id;
+        processedSessions.set(enrollment.session_id, historicalSessionId);
+      }
+
+      // Move enrollment to historical_enrollments
       await pool.query(`
         INSERT INTO historical_enrollments (
           original_enrollment_id, user_id, class_id, session_id, historical_session_id,
-          payment_status, enrollment_status, admin_notes, reviewed_at, reviewed_by, enrolled_at, archived_at, archived_reason
+          payment_status, enrollment_status, admin_notes, reviewed_at, reviewed_by, 
+          enrolled_at, archived_at, archived_reason
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       `, [
-        originalEnrollmentId,
-        janeId,
-        classId,
-        sessionId,
-        histSessionId,
-        'paid',
-        janeEnrollments[i].status,
-        janeEnrollments[i].reason,
-        reviewedAtTz,
-        adminId, // reviewed_by (admin)
-        enrolledAtTs,
-        '2025-07-01T12:00:00.000Z', // archived_at
-        janeEnrollments[i].reason
+        enrollment.id, // original_enrollment_id
+        enrollment.user_id,
+        enrollment.class_id,
+        enrollment.session_id,
+        historicalSessionId,
+        enrollment.payment_status,
+        enrollment.enrollment_status,
+        enrollment.admin_notes || 'Completed session',
+        enrollment.reviewed_at,
+        enrollment.reviewed_by,
+        enrollment.enrolled_at,
+        new Date().toISOString(), // archived_at
+        'Session completed successfully'
       ]);
+
+      // Delete the original enrollment (it's now in historical_enrollments)
+      await pool.query('DELETE FROM enrollments WHERE id = $1', [enrollment.id]);
     }
 
-    // --- Fetch John Smith's enrollments for original_enrollment_id mapping ---
-    const { rows: johnEnrollmentRows } = await pool.query(`
-      SELECT id, class_id, session_id FROM enrollments WHERE user_id = $1 ORDER BY id ASC
-    `, [johnId]);
-
-    // --- Seed historical enrollments for John Smith ---
-    const johnEnrollments = [
-      { classTitle: 'Child Development Associate (CDA)', status: 'approved', reason: 'Completed successfully' },
-      { classTitle: 'Development and Operations', status: 'approved', reason: 'Completed successfully' },
-      { classTitle: 'CPR and First Aid Certification', status: 'approved', reason: 'Completed successfully' }
-    ];
-    for (let i = 0; i < 3; i++) {
-      const classId = classMap.get(johnEnrollments[i].classTitle);
-      const sessionId = sessionRows[i].id;
-      const histSessionId = historicalSessionIds[i];
-      const originalEnrollmentId = johnEnrollmentRows.find(e => e.class_id === classId && e.session_id === sessionId)?.id;
-      await pool.query(`
-        INSERT INTO historical_enrollments (
-          original_enrollment_id, user_id, class_id, session_id, historical_session_id,
-          payment_status, enrollment_status, admin_notes, reviewed_at, reviewed_by, enrolled_at, archived_at, archived_reason
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-      `, [
-        originalEnrollmentId,
-        johnId,
-        classId,
-        sessionId,
-        histSessionId,
-        'paid',
-        johnEnrollments[i].status,
-        johnEnrollments[i].reason,
-        reviewedAtTz,
-        adminId, // reviewed_by (admin)
-        enrolledAtTs,
-        '2025-07-01T12:00:00.000Z', // archived_at
-        johnEnrollments[i].reason
-      ]);
-    }
+    console.log('Completed enrollments moved to historical successfully');
 
     console.log('Database seeded successfully!');
     console.log('\nTest Accounts:');

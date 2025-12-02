@@ -112,32 +112,44 @@ const addToWaitlist = async (classId, userId) => {
       throw new Error('User is already on the waitlist for this class');
     }
 
-    // Get class session details including waitlist settings
+    // Get class and active session details including waitlist settings
     const sessionResult = await client.query(
       `SELECT cs.*, 
+              c.title as class_title,
               COUNT(DISTINCT e.id) as current_enrollments,
-              (SELECT COUNT(*) FROM class_waitlist WHERE class_id = $1 AND status = 'waiting') as waitlist_count,
-              AVG(DATE_PART('day', e.enrolled_at - w.created_at)) as avg_wait_time
-       FROM class_sessions cs
+              (SELECT COUNT(*) FROM class_waitlist WHERE class_id = $1 AND status IN ('waiting', 'pending')) as waitlist_count
+       FROM classes c
+       LEFT JOIN class_sessions cs ON cs.class_id = c.id AND cs.status = 'scheduled' AND cs.deleted_at IS NULL
        LEFT JOIN enrollments e ON e.session_id = cs.id AND e.enrollment_status = 'approved'
-       LEFT JOIN class_waitlist w ON w.class_id = cs.class_id AND w.status = 'waiting'
-       WHERE cs.class_id = $1
-       GROUP BY cs.id`,
+       WHERE c.id = $1
+       GROUP BY cs.id, c.id, c.title
+       ORDER BY cs.session_date ASC
+       LIMIT 1`,
       [classId]
     );
 
-    if (!sessionResult.rows[0] || !sessionResult.rows[0].waitlist_enabled) {
+    // Check if class exists
+    if (!sessionResult.rows[0]) {
+      throw new Error('Class not found');
+    }
+
+    const session = sessionResult.rows[0];
+
+    // Check if waitlist is enabled (check session first, then class if no session)
+    const waitlistEnabled = session.waitlist_enabled !== false; // Default to true if not explicitly false
+    const waitlistCapacity = session.waitlist_capacity || 10; // Default capacity
+
+    if (!waitlistEnabled) {
       throw new Error('Waitlist is not enabled for this class');
     }
 
-    if (sessionResult.rows[0].waitlist_count >= sessionResult.rows[0].waitlist_capacity) {
+    const waitlistCount = parseInt(session.waitlist_count || 0);
+    if (waitlistCount >= waitlistCapacity) {
       throw new Error('Waitlist is full');
     }
 
-    // Calculate position and estimated wait time
-    const position = parseInt(sessionResult.rows[0].waitlist_count) + 1;
-    const avgWaitTime = sessionResult.rows[0].avg_wait_time || 7; // Default to 7 days if no historical data
-    const estimatedWaitTime = Math.ceil(avgWaitTime * (position / sessionResult.rows[0].capacity));
+    // Calculate position
+    const position = waitlistCount + 1;
 
     // Add to waitlist
     const result = await client.query(
@@ -148,7 +160,7 @@ const addToWaitlist = async (classId, userId) => {
         status,
         created_at
       )
-      VALUES ($1, $2, $3, 'waiting', CURRENT_TIMESTAMP)
+      VALUES ($1, $2, $3, 'pending', CURRENT_TIMESTAMP)
       RETURNING *`,
       [classId, userId, position]
     );
@@ -160,7 +172,7 @@ const addToWaitlist = async (classId, userId) => {
        FROM (
          SELECT id, ROW_NUMBER() OVER (ORDER BY created_at) as new_position
          FROM class_waitlist
-         WHERE class_id = $1 AND status = 'waiting'
+         WHERE class_id = $1 AND status IN ('pending', 'waiting')
        ) as subquery
        WHERE class_waitlist.id = subquery.id`,
       [classId]
