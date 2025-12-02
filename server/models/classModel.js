@@ -699,8 +699,8 @@ const createClassWithSessions = async (classData) => {
         await client.query(
           `INSERT INTO class_sessions (
             class_id, session_date, end_date, start_time, end_time, 
-            capacity, instructor_id, status, location_details
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            capacity, instructor_id, status, location_type, location_details
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
           [
             newClass.id,
             dateData.date,
@@ -710,6 +710,7 @@ const createClassWithSessions = async (classData) => {
             dateData.capacity,
             dateData.instructor_id,
             'scheduled',
+            dateData.location_type || 'in-person',
             dateData.location
           ]
         );
@@ -840,47 +841,99 @@ const updateClassWithSessions = async (classId, classData) => {
 
     // Update or create sessions
     if (classData.dates && Array.isArray(classData.dates)) {
-      for (const dateData of classData.dates) {
-        if (dateData.id) {
-          // Update existing session
-          await client.query(
-            `UPDATE class_sessions 
-             SET session_date = $1, end_date = $2, start_time = $3, end_time = $4, 
-                 capacity = $5, instructor_id = $6, location_details = $7, duration = $8, updated_at = CURRENT_TIMESTAMP
-             WHERE id = $9 AND class_id = $10 AND deleted_at IS NULL`,
-            [
-              dateData.date,
-              dateData.end_date || dateData.date,
-              dateData.start_time,
-              dateData.end_time,
-              dateData.capacity,
-              dateData.instructor_id,
-              dateData.location,
-              (dateData.duration && dateData.duration.trim() !== '') ? dateData.duration.trim() : null,
-              dateData.id,
-              classId
-            ]
-          );
-        } else {
-          // Create new session
-          await client.query(
-            `INSERT INTO class_sessions (
-              class_id, session_date, end_date, start_time, end_time, 
-              capacity, instructor_id, status, location_details, duration
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-            [
-              classId,
-              dateData.date,
-              dateData.end_date || dateData.date,
-              dateData.start_time,
-              dateData.end_time,
-              dateData.capacity,
-              dateData.instructor_id,
-              'scheduled',
-              dateData.location,
-              (dateData.duration && dateData.duration.trim() !== '') ? dateData.duration.trim() : null
-            ]
-          );
+      console.log(`📝 Processing ${classData.dates.length} session(s)`);
+      for (let i = 0; i < classData.dates.length; i++) {
+        const dateData = classData.dates[i];
+        try {
+          console.log(`📝 Processing session ${i + 1}/${classData.dates.length}:`, {
+            id: dateData.id,
+            date: dateData.date,
+            location_type: dateData.location_type,
+            location: dateData.location,
+            capacity: dateData.capacity,
+            instructor_id: dateData.instructor_id
+          });
+
+          // Ensure capacity is an integer
+          const capacity = parseInt(dateData.capacity, 10);
+          // instructor_id can be either UUID (string) or INTEGER, so use as-is
+          const instructorId = dateData.instructor_id || null;
+
+          if (isNaN(capacity) || capacity < 1) {
+            throw new Error(`Invalid capacity for session: ${dateData.capacity}`);
+          }
+
+          // Validate location_type
+          let locationType = dateData.location_type || 'in-person';
+          if (locationType !== 'zoom' && locationType !== 'in-person') {
+            console.warn(`⚠️ Invalid location_type "${locationType}", defaulting to "in-person"`);
+            locationType = 'in-person';
+          }
+
+          if (dateData.id) {
+            // Update existing session
+            console.log(`📝 Updating session ${dateData.id} with location_type: ${locationType}`);
+
+            const updateResult = await client.query(
+              `UPDATE class_sessions 
+               SET session_date = $1, end_date = $2, start_time = $3, end_time = $4, 
+                   capacity = $5, instructor_id = $6, location_type = $7, location_details = $8, duration = $9, updated_at = CURRENT_TIMESTAMP
+               WHERE id = $10 AND class_id = $11 AND deleted_at IS NULL
+               RETURNING id`,
+              [
+                dateData.date,
+                dateData.end_date || dateData.date,
+                dateData.start_time,
+                dateData.end_time,
+                capacity,
+                instructorId,
+                locationType,
+                dateData.location || null,
+                (dateData.duration && typeof dateData.duration === 'string' && dateData.duration.trim() !== '') ? dateData.duration.trim() : null,
+                parseInt(dateData.id, 10),
+                classId
+              ]
+            );
+
+            if (updateResult.rows.length === 0) {
+              throw new Error(`Session ${dateData.id} not found or already deleted`);
+            }
+
+            console.log(`✅ Session ${dateData.id} updated successfully`);
+          } else {
+            // Create new session
+            console.log(`📝 Creating new session with location_type: ${locationType}`);
+
+            const insertResult = await client.query(
+              `INSERT INTO class_sessions (
+                class_id, session_date, end_date, start_time, end_time, 
+                capacity, instructor_id, status, location_type, location_details, duration
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+              RETURNING id`,
+              [
+                classId,
+                dateData.date,
+                dateData.end_date || dateData.date,
+                dateData.start_time,
+                dateData.end_time,
+                capacity,
+                instructorId,
+                'scheduled',
+                locationType,
+                dateData.location || null,
+                (dateData.duration && typeof dateData.duration === 'string' && dateData.duration.trim() !== '') ? dateData.duration.trim() : null
+              ]
+            );
+
+            console.log(`✅ New session created with ID: ${insertResult.rows[0].id}`);
+          }
+        } catch (sessionError) {
+          console.error(`❌ Error processing session ${i + 1}:`, sessionError);
+          console.error('❌ Session data:', JSON.stringify(dateData, null, 2));
+          console.error('❌ Error message:', sessionError.message);
+          console.error('❌ Error code:', sessionError.code);
+          console.error('❌ Error detail:', sessionError.detail);
+          throw new Error(`Failed to process session ${i + 1}: ${sessionError.message}`);
         }
       }
     }
@@ -889,6 +942,11 @@ const updateClassWithSessions = async (classId, classData) => {
     return classResult.rows[0];
   } catch (error) {
     await client.query('ROLLBACK');
+    console.error('Error in updateClassWithSessions:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error code:', error.code);
+    console.error('Error detail:', error.detail);
+    console.error('Error hint:', error.hint);
     throw error;
   } finally {
     client.release();

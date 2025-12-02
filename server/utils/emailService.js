@@ -1088,6 +1088,93 @@ const emailService = {
     });
 
     return results.every(result => result.status === 'fulfilled');
+  },
+
+  // Send class reminder email to students (day before class)
+  async sendClassReminderEmail(userEmail, userName, className, classDetails, sessionDetails) {
+    const zoomLink = 'https://us02web.zoom.us/j/9172047844?pwd=amIyWEkxYUxYYU5ERTNDRUVHaHc4Zz09';
+
+    const subject = `📅 Reminder: Your class "${className}" starts tomorrow!`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+        <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #2c3e50; margin: 0; font-size: 28px;">Class Reminder</h1>
+            <p style="color: #7f8c8d; margin: 10px 0 0 0; font-size: 16px;">Your class starts tomorrow!</p>
+          </div>
+          
+          <div style="margin-bottom: 25px;">
+            <h2 style="color: #34495e; font-size: 20px; margin-bottom: 15px;">Hello ${userName}! 📅</h2>
+            <p style="color: #2c3e50; line-height: 1.6; margin-bottom: 15px;">
+              This is a friendly reminder that your class <strong>${className}</strong> starts tomorrow. We're looking forward to seeing you!
+            </p>
+          </div>
+          
+          <div style="background-color: #e8f4fd; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #3498db;">
+            <h3 style="color: #2c3e50; margin-top: 0; font-size: 18px;">Class Details</h3>
+            <div style="color: #2c3e50; line-height: 1.8;">
+              <p><strong>Class:</strong> ${className}</p>
+              <p><strong>Date:</strong> ${new Date(sessionDetails.session_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              <p><strong>Time:</strong> ${formatTime(sessionDetails.start_time)} - ${formatTime(sessionDetails.end_time)}</p>
+              <p><strong>Location:</strong> ${classDetails.location_details || 'TBD'}</p>
+            </div>
+          </div>
+          
+          ${classDetails.location_type === 'zoom' ? `
+          <div style="background-color: #e8f5e9; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #4caf50;">
+            <h3 style="color: #2c3e50; margin-top: 0; font-size: 18px;">🌐 Online Class Information</h3>
+            <p style="color: #2c3e50; line-height: 1.6; margin-bottom: 15px;">
+              If class location is online then join class with zoom link:
+            </p>
+            <div style="background-color: #ffffff; padding: 15px; border-radius: 6px; margin-top: 10px;">
+              <a href="${zoomLink}" 
+                 style="color: #4caf50; font-size: 16px; font-weight: bold; word-break: break-all; text-decoration: none;">
+                ${zoomLink}
+              </a>
+            </div>
+            <p style="color: #2c3e50; line-height: 1.6; margin-top: 15px; margin-bottom: 0; font-size: 14px;">
+              Click the link above to join the Zoom meeting. Please join a few minutes early to ensure your audio and video are working properly.
+            </p>
+          </div>
+          ` : ''}
+          
+          <div style="background-color: #fff3cd; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #ffc107;">
+            <h3 style="color: #2c3e50; margin-top: 0; font-size: 18px;">Important Reminders</h3>
+            <ul style="color: #2c3e50; line-height: 1.8; padding-left: 20px;">
+              <li>Please arrive 10 minutes early to check in</li>
+              <li>Bring any required materials or documents</li>
+              <li>Check your email for any last-minute updates</li>
+              <li>Contact us if you have any questions or need to make changes</li>
+            </ul>
+          </div>
+          
+          <div style="background-color: #d4edda; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #28a745;">
+            <h3 style="color: #2c3e50; margin-top: 0; font-size: 18px;">We're Excited to See You!</h3>
+            <p style="color: #2c3e50; line-height: 1.6; margin: 0;">
+              We're looking forward to having you join us for this professional development opportunity. If you have any questions before the class, please don't hesitate to reach out.
+            </p>
+          </div>
+          
+          <div style="border-top: 1px solid #ecf0f1; padding-top: 20px; margin-top: 30px;">
+            <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 10px;">
+              <strong>Need Help?</strong> Contact our support team if you have any questions.
+            </p>
+            <p style="color: #7f8c8d; font-size: 14px; margin: 0;">
+              Contact us at <a href="mailto:yvelisse225@gmail.com" style="color: #3498db;">yvelisse225@gmail.com</a>
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1;">
+            <p style="color: #95a5a6; font-size: 12px; margin: 0;">
+              Best regards,<br>
+              <strong>The YJ Child Care Plus Team</strong>
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    return sendEmail({ to: userEmail, subject, html });
   }
 
 };

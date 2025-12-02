@@ -130,12 +130,17 @@ const adminEditClass = async (req, res) => {
   const updates = req.body;
 
   try {
+    console.log('📝 adminEditClass called for class:', classId);
+    console.log('📝 Updates received:', JSON.stringify(updates, null, 2));
+    console.log('📝 Dates array:', updates.dates ? JSON.stringify(updates.dates, null, 2) : 'No dates');
+
     const classItem = await getClassById(classId);
     if (!classItem) return res.status(404).json({ error: 'Class not found' });
 
     // Validate dates array if provided
     if (updates.dates && Array.isArray(updates.dates)) {
       for (const dateData of updates.dates) {
+        console.log('📝 Validating session:', dateData);
         if (!dateData.date || !dateData.start_time || !dateData.end_time || !dateData.instructor_id) {
           return res.status(400).json({ error: 'Each session must have date, start_time, end_time, and instructor_id' });
         }
@@ -169,7 +174,18 @@ const adminEditClass = async (req, res) => {
     res.json(updatedClass);
   } catch (err) {
     console.error('Update class error:', err);
-    res.status(500).json({ error: 'Failed to update class' });
+    console.error('Error stack:', err.stack);
+    console.error('Error details:', {
+      message: err.message,
+      code: err.code,
+      detail: err.detail,
+      hint: err.hint
+    });
+    res.status(500).json({
+      error: 'Failed to update class',
+      message: err.message,
+      detail: err.detail || undefined
+    });
   }
 };
 

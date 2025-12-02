@@ -577,10 +577,54 @@ const getAllEnrollments = async (filters = {}) => {
   };
 };
 
+// Get enrollments that start tomorrow (for reminder emails)
+const getEnrollmentsStartingTomorrow = async () => {
+  try {
+    // Calculate tomorrow's date in local timezone
+    // We want to find sessions where session_date is tomorrow (regardless of time)
+    // Using DATE() function to compare dates only, ignoring time
+    const result = await pool.query(`
+      SELECT 
+        e.id as enrollment_id,
+        e.user_id,
+        e.class_id,
+        e.session_id,
+        u.email as user_email,
+        u.name as user_name,
+        u.first_name,
+        u.last_name,
+        c.title as class_title,
+        cs.location_type,
+        cs.location_details,
+        cs.session_date,
+        cs.start_time,
+        cs.end_time,
+        cs.end_date
+      FROM enrollments e
+      JOIN users u ON u.id = e.user_id
+      JOIN classes c ON c.id = e.class_id
+      JOIN class_sessions cs ON cs.id = e.session_id
+      WHERE e.enrollment_status = 'approved'
+        AND DATE(cs.session_date) = DATE(CURRENT_DATE + INTERVAL '1 day')
+        AND cs.deleted_at IS NULL
+        AND cs.status = 'scheduled'
+        AND u.email_notifications = true
+      ORDER BY cs.session_date ASC, cs.start_time ASC
+    `);
+
+    console.log(`📧 Found ${result.rows.length} enrollment(s) starting tomorrow`);
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching enrollments starting tomorrow:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   enrollUserInClass,
   approveEnrollment,
   rejectEnrollment,
+  getEnrollmentsStartingTomorrow,
   setEnrollmentPending,
   getPendingEnrollments,
   getEnrollmentById,

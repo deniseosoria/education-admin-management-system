@@ -134,12 +134,18 @@ app.get('/keepalive', (req, res) => {
 
 
 
+// Import scheduled jobs
+const { scheduleReminderEmails } = require('./jobs/reminderEmailJob');
+
 // Only start the server if this file is run directly
 if (require.main === module) {
   const server = app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🌐 Health check: http://localhost:${PORT}/health`);
+
+    // Start scheduled jobs
+    scheduleReminderEmails();
   });
 
   // Handle uncaught exceptions to prevent crashes

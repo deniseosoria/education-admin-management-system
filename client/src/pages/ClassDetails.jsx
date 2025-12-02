@@ -262,11 +262,10 @@ function ClassDetails() {
                         <div>
                             <h2 className="text-2xl font-semibold mb-4 text-gray-900">Location Information</h2>
                             <p className="text-gray-700">
-                                <span className="font-medium">Type:</span> {classData.location_type}<br />
                                 <span className="font-medium">Default Location:</span> {classData.location_details || 'See individual sessions for specific locations'}
                             </p>
                             <p className="text-sm text-gray-600 mt-2">
-                                Each session may have a different location. Check the session details below for specific location information.
+                                Each session may have a different location and type. Check the session details below for specific location information.
                             </p>
                         </div>
 
@@ -330,7 +329,7 @@ function ClassDetails() {
                                         // Calculate hours per day
                                         const [startHour, startMinute] = session.start_time.split(':').map(Number);
                                         const [endHour, endMinute] = session.end_time.split(':').map(Number);
-                                        const hoursPerDay = ((endHour + endMinute / 60) - (startHour + startMinute / 60)).toFixed(2);
+                                        const hoursPerDay = Math.round((endHour + endMinute / 60) - (startHour + startMinute / 60));
 
                                         // Use explicit end_date from database
                                         const formattedStartDate = formatDate(session.start_date || session.session_date);
@@ -344,29 +343,29 @@ function ClassDetails() {
 
                                         return (
                                             <div key={session.id} className="border border-gray-200 rounded-lg p-6 bg-white shadow-sm hover:shadow-md transition-shadow">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <div className="space-y-3">
-                                                        <div className="font-semibold text-lg text-gray-900">
-                                                            {formattedStartDate}
-                                                            {showEndDate ? ` - ${formattedEndDate}` : ''}
-                                                        </div>
-                                                        <div className="text-gray-700">
-                                                            <span className="font-medium">Time:</span> {formatTime(session.start_time)} - {formatTime(session.end_time)} ({hoursPerDay} hours/day)
-                                                        </div>
-                                                        <div className="text-gray-700">
-                                                            <span className="font-medium">Duration:</span> {session.duration || getDurationString(classData)}
-                                                        </div>
-                                                        <div className="text-gray-700">
-                                                            <span className="font-medium">Instructor:</span> {session.instructor_name || 'TBA'}
-                                                        </div>
+                                                <div className="space-y-3">
+                                                    <div className="font-semibold text-lg text-gray-900">
+                                                        {formattedStartDate}
+                                                        {showEndDate ? ` - ${formattedEndDate}` : ''}
                                                     </div>
-                                                    <div className="space-y-3">
-                                                        <div className="text-gray-700">
-                                                            <span className="font-medium">Location:</span> {session.session_location || session.location_details || 'TBA'}
-                                                        </div>
-                                                        <div className="text-gray-700">
-                                                            <span className="font-medium">Capacity:</span> {session.available_spots} of {session.capacity} spots available
-                                                        </div>
+                                                    <div className="text-gray-700">
+                                                        <span className="font-medium">Location:</span> {
+                                                            session.location_type
+                                                                ? `${session.location_type === 'zoom' ? 'Zoom (Online)' : 'In-Person'} - ${session.session_location || session.location_details || 'TBA'}`
+                                                                : (session.session_location || session.location_details || 'TBA')
+                                                        }
+                                                    </div>
+                                                    <div className="text-gray-700">
+                                                        <span className="font-medium">Time:</span> {formatTime(session.start_time)} - {formatTime(session.end_time)} ({hoursPerDay} hours/day)
+                                                    </div>
+                                                    <div className="text-gray-700">
+                                                        <span className="font-medium">Duration:</span> {session.duration || getDurationString(classData)}
+                                                    </div>
+                                                    <div className="text-gray-700">
+                                                        <span className="font-medium">Instructor:</span> {session.instructor_name || 'TBA'}
+                                                    </div>
+                                                    <div className="text-gray-700">
+                                                        <span className="font-medium">Capacity:</span> {session.available_spots} of {session.capacity} spots available
                                                     </div>
                                                 </div>
                                                 <div className="mt-4 flex justify-start">

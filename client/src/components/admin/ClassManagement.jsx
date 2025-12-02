@@ -212,7 +212,7 @@ function ClassManagement() {
       title: "",
       instructor_id: "",
       description: "",
-      dates: [{ date: "", end_date: "", start_time: "", end_time: "", location: "", capacity: "", duration: "" }],
+      dates: [{ date: "", end_date: "", start_time: "", end_time: "", location: "", location_type: "in-person", capacity: "", duration: "" }],
       price: "",
     });
     setShowModal(true);
@@ -232,7 +232,7 @@ function ClassManagement() {
       }
 
       // Initialize with empty dates array if no sessions exist
-      let formattedDates = [{ date: "", end_date: "", start_time: "", end_time: "", location: "", capacity: "", instructor_id: "", duration: "" }];
+      let formattedDates = [{ date: "", end_date: "", start_time: "", end_time: "", location: "", location_type: "", capacity: "", instructor_id: "", duration: "" }];
 
       // Only try to format dates if sessions exist and are in the expected format
       if (Array.isArray(classDetails.sessions) && classDetails.sessions.length > 0) {
@@ -245,6 +245,7 @@ function ClassManagement() {
             start_time: session.start_time ? session.start_time.substring(0, 5) : "",
             end_time: session.end_time ? session.end_time.substring(0, 5) : "",
             location: session.location_details || "",
+            location_type: session.location_type || "in-person",
             capacity: session.capacity || "",
             instructor_id: session.instructor_id || "",
             duration: session.duration || ""
@@ -948,12 +949,27 @@ function ClassManagement() {
                         required
                         fullWidth
                       />
+                      <FormControl fullWidth required>
+                        <InputLabel>Location Type</InputLabel>
+                        <Select
+                          value={date.location_type || "in-person"}
+                          onChange={(e) => handleDateChange(index, 'location_type', e.target.value)}
+                          label="Location Type"
+                          MenuProps={{
+                            sx: { zIndex: 1500 }
+                          }}
+                        >
+                          <MenuItem value="in-person">In-Person</MenuItem>
+                          <MenuItem value="zoom">Zoom (Online)</MenuItem>
+                        </Select>
+                      </FormControl>
                       <TextField
                         label="Location"
                         value={date.location}
                         onChange={(e) => handleDateChange(index, 'location', e.target.value)}
                         required
                         fullWidth
+                        helperText={date.location_type === 'zoom' ? 'Enter Zoom link or meeting details' : 'Enter physical address or room number'}
                       />
                       <TextField
                         label="Capacity"
