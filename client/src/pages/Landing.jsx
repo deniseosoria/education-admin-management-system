@@ -58,8 +58,8 @@ function Landing() {
     return (
         <div className="bg-white min-h-screen font-montserrat">
             {/* Hero Section */}
-            <section className="relative w-full h-[500px] sm:h-[400px] md:h-[500px] lg:h-[620px] flex items-center justify-center text-white text-center overflow-hidden mb-0 px-4 sm:px-6 lg:px-8">
-                <img src="/images/hero-img.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover object-center z-0" />
+            <section className="relative w-full h-[85vh] sm:h-[400px] md:h-[500px] lg:h-[620px] flex items-center justify-center text-white text-center overflow-hidden mb-0 px-4 sm:px-6 lg:px-8">
+                <img src="/images/jackie-hope-ruk6_jaflts-unsplash.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover object-center z-0" />
                 <div className="absolute inset-0 bg-black opacity-30 z-10" />
                 <div className="relative z-20 flex flex-col items-center justify-center w-full h-full px-4">
                     <h1 className="hero-title font-normal mb-3 sm:mb-4 text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-[64px]" style={{ fontFamily: 'Montserrat, sans-serif' }}>

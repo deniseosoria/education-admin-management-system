@@ -273,7 +273,7 @@ function Header() {
                         <div className="absolute right-0 top-1/2 transform -translate-y-1/2 flex lg:hidden">
                             <button
                                 onClick={toggleMenu}
-                                className="mobile-menu-toggle-button inline-flex items-center justify-center p-3 rounded-md text-gray-500 hover:text-black focus:outline-none bg-white shadow-lg border border-gray-200"
+                                className="mobile-menu-toggle-button inline-flex items-center justify-center p-3 rounded-md text-gray-500 hover:text-black focus:outline-none bg-white shadow-lg"
                                 aria-label="Toggle navigation menu"
                                 aria-expanded={isMenuOpen}
                             >
