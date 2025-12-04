@@ -51,7 +51,7 @@ const previewWelcomeEmail = async (req, res) => {
         </div>
         
         <div style="margin: 30px 0;">
-          <a href="http://localhost:3000/profile" 
+          <a href="https://yjchildcareplus.com/profile" 
              style="color: #000000; text-decoration: underline; font-weight: 600;">
             Access Your Profile
           </a>
@@ -87,7 +87,7 @@ const previewWelcomeEmail = async (req, res) => {
 // Preview URL: http://localhost:5000/api/emails/preview/password-reset?token=sample-token
 const previewPasswordResetEmail = async (req, res) => {
     const resetToken = req.query.token || 'sample-reset-token-12345';
-    const resetLink = `http://localhost:3000/reset-password?token=${resetToken}`;
+    const resetLink = `https://yjchildcareplus.com/reset-password?token=${resetToken}`;
 
     try {
         const html = `
@@ -188,7 +188,7 @@ const previewWaitlistConfirmationEmail = async (req, res) => {
         </div>
         
         <div style="margin: 30px 0;">
-          <a href="http://localhost:3000/profile?section=waitlist" 
+          <a href="https://yjchildcareplus.com/profile?section=waitlist" 
              style="color: #000000; text-decoration: underline; font-weight: 600;">
             View My Waitlist
           </a>
@@ -265,7 +265,7 @@ const previewWaitlistAcceptanceEmail = async (req, res) => {
         </div>
         
         <div style="margin: 30px 0;">
-          <a href="http://localhost:3000/profile?section=enrollments" 
+          <a href="https://yjchildcareplus.com/profile?section=enrollments" 
              style="color: #000000; text-decoration: underline; font-weight: 600;">
             View My Classes
           </a>
@@ -338,7 +338,7 @@ const previewWaitlistRejectionEmail = async (req, res) => {
         </div>
         
         <div style="margin: 30px 0;">
-          <a href="http://localhost:3000/classes" 
+          <a href="https://yjchildcareplus.com/classes" 
              style="color: #000000; text-decoration: underline; font-weight: 600;">
             Browse Classes
           </a>
@@ -429,7 +429,7 @@ const previewEnrollmentApprovalEmail = async (req, res) => {
         </div>
         
         <div style="margin: 30px 0;">
-          <a href="http://localhost:3000/profile?section=enrollments" 
+          <a href="https://yjchildcareplus.com/profile?section=enrollments" 
              style="color: #000000; text-decoration: underline; font-weight: 600;">
             View My Enrollments
           </a>
@@ -590,7 +590,7 @@ const previewEnrollmentPendingEmail = async (req, res) => {
         </div>
         
         <div style="margin: 30px 0;">
-          <a href="http://localhost:3000/profile?section=enrollments" 
+          <a href="https://yjchildcareplus.com/profile?section=enrollments" 
              style="color: #000000; text-decoration: underline; font-weight: 600;">
             View My Enrollments
           </a>
@@ -680,7 +680,7 @@ const previewEnrollmentRejectionEmail = async (req, res) => {
         </div>
         
         <div style="margin: 30px 0;">
-          <a href="http://localhost:3000/classes" 
+          <a href="https://yjchildcareplus.com/classes" 
              style="color: #000000; text-decoration: underline; font-weight: 600;">
             Browse Available Classes
           </a>
@@ -753,7 +753,7 @@ const previewNotificationAlertEmail = async (req, res) => {
         </div>
         
         <div style="margin: 30px 0;">
-          <a href="http://localhost:3000/profile?section=notifications" 
+          <a href="https://yjchildcareplus.com/profile?section=notifications" 
              style="color: #000000; text-decoration: underline; font-weight: 600;">
             View My Notifications
           </a>
@@ -835,7 +835,7 @@ const previewCertificateExpirationEmail = async (req, res) => {
         </div>
         
         <div style="margin: 30px 0;">
-          <a href="http://localhost:3000/profile?section=certificates" 
+          <a href="https://yjchildcareplus.com/profile?section=certificates" 
              style="color: #000000; text-decoration: underline; font-weight: 600;">
             View My Certificates
           </a>

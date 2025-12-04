@@ -609,7 +609,7 @@ const previewEnrollmentEmail = async (req, res) => {
         </div>
         
         <div style="margin: 30px 0;">
-          <a href="https://yjchildcareplus.com/profile?section=enrollments" 
+          <a href="${emailService.getClientUrl()}/profile?section=enrollments" 
              style="color: #000000; text-decoration: underline; font-weight: 600;">
             View My Enrollments
           </a>
@@ -690,7 +690,7 @@ const testEnrollmentEmail = async (req, res) => {
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="https://yjchildcareplus.com/profile?section=enrollments" 
+            <a href="${emailService.getClientUrl()}/profile?section=enrollments" 
                style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
               View My Enrollments
             </a>

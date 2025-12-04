@@ -473,7 +473,7 @@ const emailService = {
         </div>
         
         <div style="margin: 30px 0;">
-          <a href="https://yjchildcareplus.com/profile?section=enrollments" 
+          <a href="${getClientUrl()}/profile?section=enrollments" 
              style="color: #000000; text-decoration: underline; font-weight: 600;">
             View My Classes
           </a>
@@ -673,7 +673,7 @@ const emailService = {
         </div>
         
         <div style="margin: 30px 0;">
-          <a href="https://yjchildcareplus.com/profile?section=enrollments" 
+          <a href="${getClientUrl()}/profile?section=enrollments" 
              style="color: #000000; text-decoration: underline; font-weight: 600;">
             View My Enrollments
           </a>
@@ -745,7 +745,7 @@ const emailService = {
         </div>
         
         <div style="margin: 30px 0;">
-          <a href="https://yjchildcareplus.com/profile?section=enrollments" 
+          <a href="${getClientUrl()}/profile?section=enrollments" 
              style="color: #000000; text-decoration: underline; font-weight: 600;">
             View My Enrollments
           </a>
@@ -1190,7 +1190,10 @@ const emailService = {
     `;
 
     return sendEmail({ to: userEmail, subject, html });
-  }
+  },
+
+  // Export getClientUrl for use in other files
+  getClientUrl
 
 };
 

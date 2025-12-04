@@ -19,12 +19,6 @@ function Classes() {
     const [classes, setClasses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [filters, setFilters] = useState({
-        location: '',
-        duration: '',
-        priceRange: ''
-    });
-    const [filteredClasses, setFilteredClasses] = useState([]);
 
     useEffect(() => {
         // Scroll to top when component mounts
@@ -32,16 +26,38 @@ function Classes() {
         fetchClasses();
     }, []);
 
-    useEffect(() => {
-        filterClasses();
-    }, [classes, filters]);
-
     const fetchClasses = async () => {
         try {
             setLoading(true);
             setError('');
             const data = await classService.getAllClasses();
-            setClasses(data);
+
+            // Reorder classes: CDA to top, CPR to bottom
+            const reorderedClasses = [...data];
+
+            // Find CDA and move it to the top
+            const cdaIndex = reorderedClasses.findIndex(c =>
+                c.title.toLowerCase().includes('cda') ||
+                c.title.toLowerCase().includes('child development associate')
+            );
+
+            if (cdaIndex !== -1 && cdaIndex !== 0) {
+                const cdaClass = reorderedClasses.splice(cdaIndex, 1)[0];
+                reorderedClasses.unshift(cdaClass);
+            }
+
+            // Find CPR and move it to the bottom
+            const cprIndex = reorderedClasses.findIndex(c =>
+                c.title.toLowerCase().includes('cpr') ||
+                c.title.toLowerCase().includes('first aid')
+            );
+
+            if (cprIndex !== -1 && cprIndex !== reorderedClasses.length - 1) {
+                const cprClass = reorderedClasses.splice(cprIndex, 1)[0];
+                reorderedClasses.push(cprClass);
+            }
+
+            setClasses(reorderedClasses);
         } catch (err) {
             setError(err.message || 'Failed to load classes. Please try again later.');
         } finally {
@@ -49,30 +65,6 @@ function Classes() {
         }
     };
 
-    const filterClasses = () => {
-        let result = [...classes];
-
-        if (filters.location) {
-            result = result.filter(c => c.location.toLowerCase() === filters.location.toLowerCase());
-        }
-        if (filters.duration) {
-            result = result.filter(c => c.duration.toLowerCase().includes(filters.duration.toLowerCase()));
-        }
-        if (filters.priceRange) {
-            const [min, max] = filters.priceRange.split('-').map(Number);
-            result = result.filter(c => c.price >= min && c.price <= max);
-        }
-
-        setFilteredClasses(result);
-    };
-
-    const handleFilterChange = (e) => {
-        const { name, value } = e.target;
-        setFilters(prev => ({
-            ...prev,
-            [name]: value
-        }));
-    };
 
     // Helper function to get image source
     const getImageSource = (classItem) => {
@@ -114,48 +106,6 @@ function Classes() {
         </div>
     );
 
-    const renderFilters = () => (
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 bg-gray-50 mb-6 sm:mb-8">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <select
-                    name="location"
-                    value={filters.location}
-                    onChange={handleFilterChange}
-                    className="px-3 sm:px-4 py-2 border border-gray-200 rounded focus:outline-none focus:border-black text-sm sm:text-base"
-                >
-                    <option value="">All Locations</option>
-                    <option value="Online">Online</option>
-                    <option value="In-Person">In-Person</option>
-                    <option value="Hybrid">Hybrid</option>
-                </select>
-
-                <select
-                    name="duration"
-                    value={filters.duration}
-                    onChange={handleFilterChange}
-                    className="px-3 sm:px-4 py-2 border border-gray-200 rounded focus:outline-none focus:border-black text-sm sm:text-base"
-                >
-                    <option value="">All Durations</option>
-                    <option value="2 days">2 Days</option>
-                    <option value="8 weeks">8 Weeks</option>
-                    <option value="12 weeks">12 Weeks</option>
-                </select>
-
-                <select
-                    name="priceRange"
-                    value={filters.priceRange}
-                    onChange={handleFilterChange}
-                    className="px-3 sm:px-4 py-2 border border-gray-200 rounded focus:outline-none focus:border-black text-sm sm:text-base sm:col-span-2 lg:col-span-1"
-                >
-                    <option value="">All Prices</option>
-                    <option value="0-200">Under $200</option>
-                    <option value="200-300">$200 - $300</option>
-                    <option value="300-400">$300 - $400</option>
-                    <option value="400-1000">Over $400</option>
-                </select>
-            </div>
-        </div>
-    );
 
     return (
         <div className="bg-white min-h-screen font-montserrat">
@@ -172,9 +122,6 @@ function Classes() {
             {/* Divider */}
             <div className="w-full border-t border-gray-200 my-0" />
 
-            {/* Filters */}
-            {!loading && !error && renderFilters()}
-
             {/* Error State */}
             {error && renderErrorState()}
 
@@ -183,19 +130,13 @@ function Classes() {
 
             {/* Classes List */}
             {!loading && !error && (
-                <div className="max-w-6xl mx-auto space-y-12 sm:space-y-16 lg:space-y-20 mb-12 sm:mb-16 lg:mb-20 px-4 sm:px-6 lg:px-8">
-                    {filteredClasses.length === 0 ? (
+                <div className="max-w-6xl mx-auto space-y-12 sm:space-y-16 lg:space-y-20 mb-12 sm:mb-16 lg:mb-20 px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12">
+                    {classes.length === 0 ? (
                         <div className="text-center py-8 sm:py-12">
-                            <p className="text-gray-600 text-base sm:text-lg">No classes found matching your criteria.</p>
-                            <button
-                                onClick={() => setFilters({ location: '', duration: '', priceRange: '' })}
-                                className="mt-4 text-blue-600 hover:underline"
-                            >
-                                Clear Filters
-                            </button>
+                            <p className="text-gray-600 text-base sm:text-lg">No classes available.</p>
                         </div>
                     ) : (
-                        filteredClasses.map((classItem, index) => (
+                        classes.map((classItem, index) => (
                             <div key={classItem.id} className={`flex flex-col ${index % 2 === 1 ? 'lg:flex-row-reverse' : 'lg:flex-row'} items-center gap-6 sm:gap-8 lg:gap-12`}>
                                 <div className="flex-1 text-center lg:text-left order-2 lg:order-1">
                                     <h2 className="text-xl sm:text-2xl lg:text-[28px] font-semibold mb-3 sm:mb-4 text-gray-900" style={{ fontFamily: 'Montserrat, sans-serif' }}>{classItem.title}</h2>
