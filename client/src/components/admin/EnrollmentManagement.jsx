@@ -96,8 +96,10 @@ function EnrollmentManagement() {
     };
 
     // Deduplicate enrollments by user_id and session_id
-    // Keep the enrollment with highest priority status (approved > pending > rejected) or most recent
-    const deduplicateEnrollments = (enrollments) => {
+    // Keep only one enrollment per user per session
+    // When filtering by specific status, ONLY keep enrollments matching that status
+    // When filtering by 'all', prefer highest priority status, then most recent
+    const deduplicateEnrollments = (enrollments, filterStatus = 'all') => {
         if (!enrollments || enrollments.length === 0) {
             return enrollments;
         }
@@ -114,6 +116,12 @@ function EnrollmentManagement() {
             }
         };
 
+        // Check if status matches the filter
+        const matchesFilter = (status) => {
+            if (filterStatus === 'all') return true;
+            return status?.toLowerCase() === filterStatus?.toLowerCase();
+        };
+
         enrollments.forEach((enrollment) => {
             // Get user_id and session_id - handle both snake_case and camelCase
             const userId = enrollment.user_id || enrollment.userId;
@@ -125,6 +133,11 @@ function EnrollmentManagement() {
                 return;
             }
 
+            // When filtering by specific status, ONLY process enrollments that match the filter
+            if (filterStatus !== 'all' && !matchesFilter(enrollment.enrollment_status)) {
+                return; // Skip enrollments that don't match the filter
+            }
+
             // Create a unique key for user_id and session_id combination
             const key = `${userId}_${sessionId}`;
 
@@ -132,18 +145,30 @@ function EnrollmentManagement() {
                 enrollmentMap.set(key, enrollment);
             } else {
                 const existing = enrollmentMap.get(key);
-                const existingPriority = getStatusPriority(existing.enrollment_status);
-                const currentPriority = getStatusPriority(enrollment.enrollment_status);
 
-                // Keep the enrollment with higher priority status
-                if (currentPriority > existingPriority) {
-                    enrollmentMap.set(key, enrollment);
-                } else if (currentPriority === existingPriority) {
-                    // If same priority, keep the most recent one
+                // If filtering by specific status, both should match (we already filtered above)
+                // So just keep the most recent one
+                if (filterStatus !== 'all') {
                     const existingDate = new Date(existing.enrolled_at || existing.enrollment_date || 0);
                     const currentDate = new Date(enrollment.enrolled_at || enrollment.enrollment_date || 0);
                     if (currentDate > existingDate) {
                         enrollmentMap.set(key, enrollment);
+                    }
+                } else {
+                    // If filter is 'all', use priority logic
+                    const existingPriority = getStatusPriority(existing.enrollment_status);
+                    const currentPriority = getStatusPriority(enrollment.enrollment_status);
+
+                    // Keep the enrollment with higher priority status
+                    if (currentPriority > existingPriority) {
+                        enrollmentMap.set(key, enrollment);
+                    } else if (currentPriority === existingPriority) {
+                        // If same priority, keep the most recent one
+                        const existingDate = new Date(existing.enrolled_at || existing.enrollment_date || 0);
+                        const currentDate = new Date(enrollment.enrolled_at || enrollment.enrollment_date || 0);
+                        if (currentDate > existingDate) {
+                            enrollmentMap.set(key, enrollment);
+                        }
                     }
                 }
             }
@@ -165,26 +190,42 @@ function EnrollmentManagement() {
             };
 
             const formattedFilters = {
-                ...filters,
+                status: filters.status || 'all',
                 startDate: formatLocalDate(filters.dateRange.start),
                 endDate: formatLocalDate(filters.dateRange.end),
                 page,
                 limit: pageSize
             };
-            // Remove the dateRange object as we've extracted its values
-            delete formattedFilters.dateRange;
 
             console.log('Fetching enrollments with filters:', formattedFilters);
+            console.log('Status filter value:', formattedFilters.status);
             const { enrollments: data, total } = await enrollmentService.getEnrollments(formattedFilters);
             console.log('Enrollments data received:', data, 'Total:', total);
 
-            // Deduplicate enrollments by user_id and session_id
-            const deduplicatedData = deduplicateEnrollments(data);
-            console.log('Deduplicated enrollments:', deduplicatedData.length, 'from', data.length);
+            // First, strictly filter by status if a specific status is selected (defensive check)
+            let filteredData = data;
+            if (formattedFilters.status && formattedFilters.status !== 'all') {
+                filteredData = data.filter(enrollment => {
+                    const status = enrollment.enrollment_status?.toLowerCase();
+                    const filterStatus = formattedFilters.status.toLowerCase();
+                    return status === filterStatus;
+                });
+                console.log('After strict status filtering:', filteredData.length, 'from', data.length);
+                console.log('Status breakdown:', {
+                    requested: formattedFilters.status,
+                    found: filteredData.map(e => e.enrollment_status),
+                    allStatuses: [...new Set(data.map(e => e.enrollment_status))]
+                });
+            }
 
-            setEnrollments(deduplicatedData);
-            // Update total to reflect deduplicated count
-            setTotal(deduplicatedData.length);
+            // Always deduplicate to ensure only one enrollment card per user per session
+            // The deduplication will prefer enrollments matching the filter status when filtering
+            const processedData = deduplicateEnrollments(filteredData, formattedFilters.status);
+            console.log('Deduplicated enrollments:', processedData.length, 'from', filteredData.length);
+
+            setEnrollments(processedData);
+            // Use deduplicated count for total to reflect what's actually displayed
+            setTotal(processedData.length);
         } catch (error) {
             console.error('Error fetching enrollments:', error);
             handleError(error, 'Failed to fetch enrollments');
@@ -263,6 +304,39 @@ function EnrollmentManagement() {
             default:
                 return 'default';
         }
+    };
+
+    // Group enrollments by session
+    const groupEnrollmentsBySession = (enrollments) => {
+        const grouped = new Map();
+
+        enrollments.forEach((enrollment) => {
+            const sessionId = enrollment.session_id || enrollment.sessionId;
+            const sessionDate = enrollment.session_date;
+
+            // Create a key for grouping - use session_id if available, otherwise use session_date
+            const key = sessionId || (sessionDate ? new Date(sessionDate).toISOString() : 'no-session');
+
+            if (!grouped.has(key)) {
+                grouped.set(key, {
+                    sessionId: sessionId,
+                    sessionDate: sessionDate,
+                    class_name: enrollment.class_name,
+                    display_date: enrollment.display_date,
+                    enrollments: []
+                });
+            }
+
+            grouped.get(key).enrollments.push(enrollment);
+        });
+
+        // Convert to array and sort by session date (earliest first, or no date last)
+        return Array.from(grouped.values()).sort((a, b) => {
+            if (!a.sessionDate && !b.sessionDate) return 0;
+            if (!a.sessionDate) return 1;
+            if (!b.sessionDate) return -1;
+            return new Date(a.sessionDate) - new Date(b.sessionDate);
+        });
     };
 
     if (loading) {
@@ -581,184 +655,229 @@ function EnrollmentManagement() {
                         </Typography>
                     </Paper>
                 ) : (
-                    <Box sx={{
-                        display: 'grid',
-                        gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
-                        gap: { xs: 2, sm: 3 }
-                    }}>
-                        {enrollments.map((enrollment) => (
-                            <Box key={enrollment.id} sx={{ width: '100%', minWidth: 0 }}>
-                                <Paper sx={{
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {groupEnrollmentsBySession(enrollments).map((sessionGroup, sessionIndex) => (
+                            <Paper
+                                key={sessionGroup.sessionId || sessionIndex}
+                                sx={{
                                     p: { xs: 2, sm: 3 },
                                     borderRadius: '16px',
+                                    border: '2px solid #e5e7eb',
+                                    bgcolor: '#ffffff',
                                     boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-                                    border: '1px solid #e5e7eb',
                                     transition: 'all 0.2s ease-in-out',
-                                    width: '100%',
-                                    minWidth: 0,
                                     '&:hover': {
-                                        boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                                        transform: 'translateY(-1px)',
-                                        borderColor: '#3b82f6'
+                                        borderColor: '#3b82f6',
+                                        boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
                                     }
+                                }}
+                            >
+                                {/* Session Header */}
+                                <Box sx={{
+                                    p: { xs: 2, sm: 2.5 },
+                                    mb: 3,
+                                    borderRadius: '12px',
+                                    bgcolor: '#f9fafb',
+                                    border: '1px solid #e5e7eb'
                                 }}>
-                                    {/* Enrollment Header */}
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
-                                            <Avatar sx={{
-                                                bgcolor: getStatusColor(enrollment.enrollment_status) === 'success' ? '#10b981' :
-                                                    getStatusColor(enrollment.enrollment_status) === 'warning' ? '#f59e0b' :
-                                                        getStatusColor(enrollment.enrollment_status) === 'error' ? '#ef4444' : '#6b7280',
-                                                width: 48,
-                                                height: 48
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                                        <ScheduleIcon sx={{ fontSize: 24, color: '#3b82f6' }} />
+                                        <Box sx={{ flex: 1 }}>
+                                            <Typography variant="h6" sx={{ fontWeight: 600, color: '#111827', mb: 0.5 }}>
+                                                {sessionGroup.class_name || 'Unknown Class'}
+                                            </Typography>
+                                            <Typography variant="body2" sx={{ color: '#6b7280' }}>
+                                                {sessionGroup.display_date ||
+                                                    (sessionGroup.sessionDate ? new Date(sessionGroup.sessionDate).toLocaleDateString() : 'No date')}
+                                                {' • '}
+                                                {sessionGroup.enrollments.length} {sessionGroup.enrollments.length === 1 ? 'enrollment' : 'enrollments'}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                </Box>
+
+                                {/* Enrollment Cards for this Session */}
+                                <Box sx={{
+                                    display: 'grid',
+                                    gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
+                                    gap: { xs: 2, sm: 3 }
+                                }}>
+                                    {sessionGroup.enrollments.map((enrollment) => (
+                                        <Box key={enrollment.id} sx={{ width: '100%', minWidth: 0 }}>
+                                            <Paper sx={{
+                                                p: { xs: 2, sm: 3 },
+                                                borderRadius: '16px',
+                                                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                                                border: '1px solid #e5e7eb',
+                                                transition: 'all 0.2s ease-in-out',
+                                                width: '100%',
+                                                minWidth: 0,
+                                                '&:hover': {
+                                                    boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                                                    transform: 'translateY(-1px)',
+                                                    borderColor: '#3b82f6'
+                                                }
                                             }}>
-                                                {enrollment.student_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'S'}
-                                            </Avatar>
-                                            <Box sx={{ minWidth: 0, flex: 1 }}>
-                                                <Typography
-                                                    variant="h6"
-                                                    sx={{
-                                                        fontWeight: 600,
-                                                        fontSize: { xs: '1rem', sm: '1.125rem' },
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis',
-                                                        whiteSpace: 'nowrap'
-                                                    }}
-                                                >
-                                                    {enrollment.student_name}
-                                                </Typography>
-                                                <Typography
-                                                    variant="body2"
-                                                    color="text.secondary"
-                                                    sx={{
-                                                        fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis',
-                                                        whiteSpace: 'nowrap'
-                                                    }}
-                                                >
-                                                    {enrollment.class_name}
-                                                </Typography>
-                                            </Box>
-                                        </Box>
-                                        <Chip
-                                            label={enrollment.enrollment_status}
-                                            color={getStatusColor(enrollment.enrollment_status)}
-                                            size="small"
-                                            sx={{ fontSize: '0.75rem' }}
-                                        />
-                                    </Box>
-
-                                    {/* Enrollment Details */}
-                                    <Box sx={{ mb: 3 }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                            <SchoolIcon sx={{ fontSize: 16, color: '#6b7280' }} />
-                                            <Typography
-                                                variant="body2"
-                                                sx={{
-                                                    color: '#374151',
-                                                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    whiteSpace: 'nowrap'
-                                                }}
-                                            >
-                                                {enrollment.class_name}
-                                            </Typography>
-                                        </Box>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                            <ScheduleIcon sx={{ fontSize: 16, color: '#6b7280' }} />
-                                            <Typography
-                                                variant="body2"
-                                                sx={{
-                                                    color: '#374151',
-                                                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                                                }}
-                                            >
-                                                Session: {new Date(enrollment.session_date).toLocaleDateString()}
-                                            </Typography>
-                                        </Box>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <CalendarIcon sx={{ fontSize: 16, color: '#6b7280' }} />
-                                            <Typography
-                                                variant="body2"
-                                                sx={{
-                                                    color: '#374151',
-                                                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                                                }}
-                                            >
-                                                Enrolled: {new Date(enrollment.enrollment_date).toLocaleDateString()}
-                                            </Typography>
-                                        </Box>
-                                        {enrollment.payment_method && (
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                                                <SchoolIcon sx={{ fontSize: 16, color: '#6b7280' }} />
-                                                <Typography
-                                                    variant="body2"
-                                                    sx={{
-                                                        color: '#374151',
-                                                        fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                                                    }}
-                                                >
-                                                    Payment: {enrollment.payment_method}
-                                                </Typography>
-                                            </Box>
-                                        )}
-                                    </Box>
-
-                                    {/* Enrollment Actions */}
-                                    <Box sx={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        pt: 2,
-                                        borderTop: '1px solid #f3f4f6'
-                                    }}>
-                                        <Box sx={{ display: 'flex', gap: 1 }}>
-                                            {enrollment.enrollment_status === 'pending' ? (
-                                                <>
-                                                    <Tooltip title="Approve">
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={() => handleStatusUpdate(enrollment.id, 'approved')}
-                                                            sx={{
-                                                                color: '#6b7280',
-                                                                '&:hover': { color: '#10b981' }
-                                                            }}
-                                                        >
-                                                            <CheckIcon sx={{ fontSize: 18 }} />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                    <Tooltip title="Reject">
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={() => handleStatusUpdate(enrollment.id, 'rejected')}
-                                                            sx={{
-                                                                color: '#6b7280',
-                                                                '&:hover': { color: '#ef4444' }
-                                                            }}
-                                                        >
-                                                            <Block sx={{ fontSize: 18 }} />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                </>
-                                            ) : (
-                                                <Tooltip title="Set Pending">
-                                                    <IconButton
+                                                {/* Enrollment Header */}
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
+                                                        <Avatar sx={{
+                                                            bgcolor: getStatusColor(enrollment.enrollment_status) === 'success' ? '#10b981' :
+                                                                getStatusColor(enrollment.enrollment_status) === 'warning' ? '#f59e0b' :
+                                                                    getStatusColor(enrollment.enrollment_status) === 'error' ? '#ef4444' : '#6b7280',
+                                                            width: 48,
+                                                            height: 48
+                                                        }}>
+                                                            {enrollment.student_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'S'}
+                                                        </Avatar>
+                                                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                                                            <Typography
+                                                                variant="h6"
+                                                                sx={{
+                                                                    fontWeight: 600,
+                                                                    fontSize: { xs: '1rem', sm: '1.125rem' },
+                                                                    overflow: 'hidden',
+                                                                    textOverflow: 'ellipsis',
+                                                                    whiteSpace: 'nowrap'
+                                                                }}
+                                                            >
+                                                                {enrollment.student_name}
+                                                            </Typography>
+                                                            <Typography
+                                                                variant="body2"
+                                                                color="text.secondary"
+                                                                sx={{
+                                                                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                                                                    overflow: 'hidden',
+                                                                    textOverflow: 'ellipsis',
+                                                                    whiteSpace: 'nowrap'
+                                                                }}
+                                                            >
+                                                                {enrollment.class_name}
+                                                            </Typography>
+                                                        </Box>
+                                                    </Box>
+                                                    <Chip
+                                                        label={enrollment.enrollment_status}
+                                                        color={getStatusColor(enrollment.enrollment_status)}
                                                         size="small"
-                                                        onClick={() => handleStatusUpdate(enrollment.id, 'pending')}
-                                                        sx={{
-                                                            color: '#6b7280',
-                                                            '&:hover': { color: '#f59e0b' }
-                                                        }}
-                                                    >
-                                                        <PendingIcon sx={{ fontSize: 18 }} />
-                                                    </IconButton>
-                                                </Tooltip>
-                                            )}
+                                                        sx={{ fontSize: '0.75rem' }}
+                                                    />
+                                                </Box>
+
+                                                {/* Enrollment Details */}
+                                                <Box sx={{ mb: 3 }}>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                                        <SchoolIcon sx={{ fontSize: 16, color: '#6b7280' }} />
+                                                        <Typography
+                                                            variant="body2"
+                                                            sx={{
+                                                                color: '#374151',
+                                                                fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                whiteSpace: 'nowrap'
+                                                            }}
+                                                        >
+                                                            {enrollment.class_name}
+                                                        </Typography>
+                                                    </Box>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                                        <ScheduleIcon sx={{ fontSize: 16, color: '#6b7280' }} />
+                                                        <Typography
+                                                            variant="body2"
+                                                            sx={{
+                                                                color: '#374151',
+                                                                fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                                                            }}
+                                                        >
+                                                            Session: {new Date(enrollment.session_date).toLocaleDateString()}
+                                                        </Typography>
+                                                    </Box>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        <CalendarIcon sx={{ fontSize: 16, color: '#6b7280' }} />
+                                                        <Typography
+                                                            variant="body2"
+                                                            sx={{
+                                                                color: '#374151',
+                                                                fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                                                            }}
+                                                        >
+                                                            Enrolled: {new Date(enrollment.enrollment_date).toLocaleDateString()}
+                                                        </Typography>
+                                                    </Box>
+                                                    {enrollment.payment_method && (
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                                                            <SchoolIcon sx={{ fontSize: 16, color: '#6b7280' }} />
+                                                            <Typography
+                                                                variant="body2"
+                                                                sx={{
+                                                                    color: '#374151',
+                                                                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                                                                }}
+                                                            >
+                                                                Payment: {enrollment.payment_method}
+                                                            </Typography>
+                                                        </Box>
+                                                    )}
+                                                </Box>
+
+                                                {/* Enrollment Actions */}
+                                                <Box sx={{
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    pt: 2,
+                                                    borderTop: '1px solid #f3f4f6'
+                                                }}>
+                                                    <Box sx={{ display: 'flex', gap: 1 }}>
+                                                        {enrollment.enrollment_status === 'pending' ? (
+                                                            <>
+                                                                <Tooltip title="Approve">
+                                                                    <IconButton
+                                                                        size="small"
+                                                                        onClick={() => handleStatusUpdate(enrollment.id, 'approved')}
+                                                                        sx={{
+                                                                            color: '#6b7280',
+                                                                            '&:hover': { color: '#10b981' }
+                                                                        }}
+                                                                    >
+                                                                        <CheckIcon sx={{ fontSize: 18 }} />
+                                                                    </IconButton>
+                                                                </Tooltip>
+                                                                <Tooltip title="Reject">
+                                                                    <IconButton
+                                                                        size="small"
+                                                                        onClick={() => handleStatusUpdate(enrollment.id, 'rejected')}
+                                                                        sx={{
+                                                                            color: '#6b7280',
+                                                                            '&:hover': { color: '#ef4444' }
+                                                                        }}
+                                                                    >
+                                                                        <Block sx={{ fontSize: 18 }} />
+                                                                    </IconButton>
+                                                                </Tooltip>
+                                                            </>
+                                                        ) : (
+                                                            <Tooltip title="Set Pending">
+                                                                <IconButton
+                                                                    size="small"
+                                                                    onClick={() => handleStatusUpdate(enrollment.id, 'pending')}
+                                                                    sx={{
+                                                                        color: '#6b7280',
+                                                                        '&:hover': { color: '#f59e0b' }
+                                                                    }}
+                                                                >
+                                                                    <PendingIcon sx={{ fontSize: 18 }} />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                        )}
+                                                    </Box>
+                                                </Box>
+                                            </Paper>
                                         </Box>
-                                    </Box>
-                                </Paper>
-                            </Box>
+                                    ))}
+                                </Box>
+                            </Paper>
                         ))}
                     </Box>
                 )}

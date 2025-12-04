@@ -6,21 +6,54 @@ const enrollUserInClass = async (userId, classId, sessionId, paymentStatus = 'pa
   try {
     await client.query('BEGIN');
 
-    // Check for existing enrollment within the transaction to prevent duplicates
-    // Check for exact duplicate (same user, class, and session) - but only if status is pending or approved
-    // Allow re-enrollment if previous enrollment was rejected or cancelled
-    // NOTE: Only checks 'enrollments' table, NOT 'historical_enrollments' - allows re-enrollment after archival
-    const duplicateCheck = await client.query(
+    // Check for existing enrollment within the transaction
+    // If enrollment exists and is pending or approved, prevent duplicate
+    // If enrollment exists and is rejected, we'll update it instead of creating a new one
+    const existingEnrollment = await client.query(
       `SELECT id, enrollment_status FROM enrollments 
        WHERE user_id = $1 AND class_id = $2 AND session_id = $3
-         AND enrollment_status IN ('pending', 'approved')
        LIMIT 1`,
       [userId, classId, sessionId]
     );
 
-    if (duplicateCheck.rows.length > 0) {
-      await client.query('ROLLBACK');
-      throw new Error('User is already enrolled in this session');
+    if (existingEnrollment.rows.length > 0) {
+      const existing = existingEnrollment.rows[0];
+      // If existing enrollment is pending or approved, don't allow duplicate
+      if (existing.enrollment_status === 'pending' || existing.enrollment_status === 'approved') {
+        await client.query('ROLLBACK');
+        throw new Error('User is already enrolled in this session');
+      }
+      // If existing enrollment is rejected, update it to pending instead of creating duplicate
+      // This handles the case where a user re-enrolls after being rejected
+      const updateResult = await client.query(
+        `UPDATE enrollments 
+         SET enrollment_status = 'pending',
+             payment_status = $1,
+             payment_method = $2,
+             enrolled_at = CURRENT_TIMESTAMP,
+             reviewed_at = NULL,
+             reviewed_by = NULL,
+             admin_notes = NULL
+         WHERE id = $3
+         RETURNING *`,
+        [paymentStatus, paymentMethod, existing.id]
+      );
+
+      // Update the session enrollment count if it was decremented before
+      await client.query(
+        `UPDATE class_sessions SET enrolled_count = enrolled_count + 1 WHERE id = $1`,
+        [sessionId]
+      );
+
+      // Automatically convert user to student if not already
+      await client.query(
+        `UPDATE users SET role = 'student' WHERE id = $1 AND role != 'student'`,
+        [userId]
+      );
+
+      await client.query('COMMIT');
+      client.release();
+      return updateResult.rows[0];
     }
 
     // Check for ANY approved enrollment in the same class (users can only have ONE approved enrollment per class)
@@ -743,6 +776,7 @@ const getAllEnrollments = async (filters = {}) => {
   const { status, class_id, user_id, start_date, end_date, page = 1, limit = 20 } = filters;
 
   console.log('getAllEnrollments called with filters:', filters);
+  console.log('Status filter value:', status);
 
   let query = `
     SELECT 
@@ -779,8 +813,9 @@ const getAllEnrollments = async (filters = {}) => {
   let paramCount = 1;
 
   if (status && status !== 'all') {
-    query += ` AND e.enrollment_status = $${paramCount}`;
-    countQuery += ` AND e.enrollment_status = $${paramCount}`;
+    // Use LOWER() for case-insensitive comparison to handle any case variations
+    query += ` AND LOWER(e.enrollment_status) = LOWER($${paramCount})`;
+    countQuery += ` AND LOWER(e.enrollment_status) = LOWER($${paramCount})`;
     queryParams.push(status);
     countParams.push(status);
     paramCount++;
@@ -800,26 +835,30 @@ const getAllEnrollments = async (filters = {}) => {
     paramCount++;
   }
   if (start_date) {
-    // For pending enrollments, don't apply date filtering - they should always be visible
+    // For pending enrollments and 'all' status, don't apply date filtering - they should always be visible
+    // This ensures pending enrollments from future sessions are always visible
     if (status === 'pending' || status === 'all') {
       // When viewing pending enrollments or all enrollments, don't filter by start date
-      // This ensures pending enrollments from future sessions are always visible
     } else {
-      query += ` AND cs.session_date >= $${paramCount}`;
-      countQuery += ` AND cs.session_date >= $${paramCount}`;
+      // For specific status filters (approved, rejected), use enrollment date instead of session date
+      // This ensures we can see enrollments based on when they were enrolled, not when the session is
+      query += ` AND DATE(e.enrolled_at) >= $${paramCount}`;
+      countQuery += ` AND DATE(e.enrolled_at) >= $${paramCount}`;
       queryParams.push(start_date);
       countParams.push(start_date);
       paramCount++;
     }
   }
   if (end_date) {
-    // For pending enrollments, don't apply date filtering - they should always be visible
+    // For pending enrollments and 'all' status, don't apply date filtering - they should always be visible
+    // This ensures pending enrollments from future sessions are always visible
     if (status === 'pending' || status === 'all') {
       // When viewing pending enrollments or all enrollments, don't filter by end date
-      // This ensures pending enrollments from future sessions are always visible
     } else {
-      query += ` AND cs.session_date <= $${paramCount}`;
-      countQuery += ` AND cs.session_date <= $${paramCount}`;
+      // For specific status filters (approved, rejected), use enrollment date instead of session date
+      // This ensures we can see enrollments based on when they were enrolled, not when the session is
+      query += ` AND DATE(e.enrolled_at) <= $${paramCount}`;
+      countQuery += ` AND DATE(e.enrolled_at) <= $${paramCount}`;
       queryParams.push(end_date);
       countParams.push(end_date);
       paramCount++;
