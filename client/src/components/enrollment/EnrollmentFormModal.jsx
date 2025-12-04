@@ -23,7 +23,7 @@ import {
     Policy as PolicyIcon
 } from '@mui/icons-material';
 
-const EnrollmentFormModal = ({ open, onClose, onEnroll, sessionId, loading = false }) => {
+const EnrollmentFormModal = ({ open, onClose, onEnroll, sessionId, loading = false, enrollmentError = '', enrollmentSuccess = '' }) => {
     const [paymentMethod, setPaymentMethod] = useState('');
     const [error, setError] = useState('');
 
@@ -195,6 +195,18 @@ const EnrollmentFormModal = ({ open, onClose, onEnroll, sessionId, loading = fal
                 {error && (
                     <Alert severity="error" sx={{ mb: 2, borderRadius: '8px' }}>
                         {error}
+                    </Alert>
+                )}
+
+                {enrollmentSuccess && (
+                    <Alert severity="success" sx={{ mb: 2, borderRadius: '8px' }}>
+                        {enrollmentSuccess}
+                    </Alert>
+                )}
+
+                {enrollmentError && (
+                    <Alert severity="error" sx={{ mb: 2, borderRadius: '8px' }}>
+                        {enrollmentError}
                     </Alert>
                 )}
 

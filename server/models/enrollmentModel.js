@@ -298,6 +298,7 @@ const getUserEnrollments = async (userId) => {
     // Get active enrollments
     const activeResult = await client.query(
       `SELECT 
+        enrollments.id as enrollment_id,
         classes.id as class_id,
         classes.title as class_title,
         class_sessions.id as session_id,
@@ -345,6 +346,7 @@ const getUserEnrollments = async (userId) => {
     // Get historical enrollments (from deleted sessions) - deduplicated by original session
     const historicalResult = await client.query(
       `SELECT 
+        he.id as enrollment_id,
         he.class_id,
         c.title as class_title,
         he.session_id,
@@ -391,7 +393,14 @@ const getUserEnrollments = async (userId) => {
          FROM historical_enrollments he
          JOIN historical_sessions hs ON hs.id = he.historical_session_id
          WHERE he.user_id = $1
-         ORDER BY he.user_id, hs.original_session_id, COALESCE(he.archived_at, '1900-01-01'::timestamp) DESC
+         ORDER BY he.user_id, hs.original_session_id, 
+           CASE he.enrollment_status
+             WHEN 'approved' THEN 3
+             WHEN 'pending' THEN 2
+             WHEN 'rejected' THEN 1
+             ELSE 0
+           END DESC,
+           COALESCE(he.archived_at, '1900-01-01'::timestamp) DESC
        ) he
        JOIN classes c ON c.id = he.class_id
        JOIN historical_sessions hs ON hs.id = he.historical_session_id
@@ -401,9 +410,49 @@ const getUserEnrollments = async (userId) => {
       [userId]
     );
 
-    // Combine and sort all enrollments
+    // Combine all enrollments
     const allEnrollments = [...activeResult.rows, ...historicalResult.rows];
-    allEnrollments.sort((a, b) => {
+
+    // Filter out rejected enrollments if there's an approved enrollment for the same session
+    // Priority: approved > pending > rejected
+    const enrollmentMap = new Map();
+
+    allEnrollments.forEach(enrollment => {
+      const key = `${enrollment.class_id}-${enrollment.session_id}`;
+      const existing = enrollmentMap.get(key);
+
+      if (!existing) {
+        // First enrollment for this session
+        enrollmentMap.set(key, enrollment);
+      } else {
+        // Check if we should replace the existing enrollment
+        const statusPriority = {
+          'approved': 3,
+          'pending': 2,
+          'rejected': 1
+        };
+
+        const existingPriority = statusPriority[existing.enrollment_status] || 0;
+        const currentPriority = statusPriority[enrollment.enrollment_status] || 0;
+
+        // Replace if current enrollment has higher priority
+        // If same priority, keep the one with later enrolled_at (more recent)
+        if (currentPriority > existingPriority) {
+          enrollmentMap.set(key, enrollment);
+        } else if (currentPriority === existingPriority && currentPriority > 0) {
+          // Same priority, keep the more recent one
+          const existingDate = new Date(existing.enrolled_at || 0);
+          const currentDate = new Date(enrollment.enrolled_at || 0);
+          if (currentDate > existingDate) {
+            enrollmentMap.set(key, enrollment);
+          }
+        }
+      }
+    });
+
+    // Convert map back to array and sort
+    const filteredEnrollments = Array.from(enrollmentMap.values());
+    filteredEnrollments.sort((a, b) => {
       const dateA = a.session_date ? new Date(a.session_date) : new Date(0);
       const dateB = b.session_date ? new Date(b.session_date) : new Date(0);
       return dateA - dateB;
@@ -412,12 +461,13 @@ const getUserEnrollments = async (userId) => {
     console.log('getUserEnrollments result for user', userId, ':', {
       activeCount: activeResult.rows.length,
       historicalCount: historicalResult.rows.length,
-      totalCount: allEnrollments.length,
+      totalCountBeforeFilter: allEnrollments.length,
+      totalCountAfterFilter: filteredEnrollments.length,
       activeEnrollments: activeResult.rows,
       historicalEnrollments: historicalResult.rows
     });
 
-    return allEnrollments;
+    return filteredEnrollments;
   } catch (error) {
     console.error('Error in getUserEnrollments:', error);
     console.error('Error details:', {
@@ -472,21 +522,65 @@ const getHistoricalEnrollmentsByUserId = async (userId) => {
 };
 
 // Check if a user is already enrolled in a specific class
+// Returns true if user has pending or approved enrollment in the same class
+// Users can only enroll if their previous enrollment was completed or denied/rejected
 const isUserAlreadyEnrolled = async (userId, classId) => {
+  // Ensure classId is converted to integer for proper comparison
+  const classIdInt = parseInt(classId, 10);
+  if (isNaN(classIdInt)) {
+    console.error('Invalid classId provided to isUserAlreadyEnrolled:', classId);
+    return false;
+  }
+
+  // First, check all enrollments for debugging
+  const allEnrollmentsResult = await pool.query(
+    `SELECT e.id, e.enrollment_status, e.class_id, e.session_id, e.enrolled_at
+     FROM enrollments e
+     WHERE e.user_id = $1 AND e.class_id = $2
+     ORDER BY e.enrolled_at DESC`,
+    [userId, classIdInt]
+  );
+
+  console.log(`isUserAlreadyEnrolled - All enrollments for userId=${userId}, classId=${classIdInt}:`,
+    allEnrollmentsResult.rows.map(r => ({
+      id: r.id,
+      status: r.enrollment_status,
+      class_id: r.class_id,
+      session_id: r.session_id,
+      enrolled_at: r.enrolled_at
+    }))
+  );
+
+  // Now check only for active enrollments (pending or approved) with future sessions
+  // Only block if there's an approved/pending enrollment for a session that hasn't ended yet
+  // Historical (past) enrollments should NOT block re-enrollment
   const result = await pool.query(
-    `SELECT e.*, cs.session_date, cs.end_date 
+    `SELECT e.* 
      FROM enrollments e
      LEFT JOIN class_sessions cs ON cs.id = e.session_id AND cs.deleted_at IS NULL
      WHERE e.user_id = $1 
        AND e.class_id = $2 
        AND e.enrollment_status IN ('approved', 'pending')
        AND (
-         -- Session hasn't ended yet (either no end_date or end_date is in the future)
-         (cs.end_date IS NULL AND cs.session_date > NOW())
-         OR (cs.end_date IS NOT NULL AND cs.end_date > NOW())
+         -- Session exists and hasn't ended yet
+         (cs.id IS NOT NULL AND (
+           (cs.end_date IS NULL AND cs.session_date > NOW())
+           OR (cs.end_date IS NOT NULL AND cs.end_date > NOW())
+         ))
        )`,
-    [userId, classId]
+    [userId, classIdInt]
   );
+
+  console.log(`isUserAlreadyEnrolled - Active enrollments (pending/approved with future sessions): ${result.rows.length}`);
+  if (result.rows.length > 0) {
+    console.log('Active enrollments found:', result.rows.map(r => ({
+      id: r.id,
+      status: r.enrollment_status,
+      class_id: r.class_id,
+      session_id: r.session_id
+    })));
+  }
+
   return result.rows.length > 0;
 };
 

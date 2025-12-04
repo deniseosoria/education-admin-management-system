@@ -59,46 +59,47 @@ const enrollInClass = async (req, res) => {
   }
 
   try {
-    // Check if already enrolled
-    const alreadyEnrolled = await isUserAlreadyEnrolled(userId, classId);
+    // Ensure classId is an integer
+    const classIdInt = parseInt(classId, 10);
+    if (isNaN(classIdInt)) {
+      return res.status(400).json({ error: "Invalid class ID" });
+    }
+
+    // Check if already enrolled (pending or approved status)
+    const alreadyEnrolled = await isUserAlreadyEnrolled(userId, classIdInt);
     if (alreadyEnrolled) {
-      // Get existing enrollment details to send email
+      // Get existing enrollment details to show status
       const existingEnrollment = await pool.query(
-        'SELECT e.*, c.title, c.location_details, cs.session_date, cs.start_time, cs.end_time FROM enrollments e JOIN classes c ON c.id = e.class_id JOIN class_sessions cs ON cs.id = e.session_id WHERE e.user_id = $1 AND e.class_id = $2 ORDER BY e.enrolled_at DESC LIMIT 1',
-        [userId, classId]
+        `SELECT e.*, c.title 
+         FROM enrollments e 
+         JOIN classes c ON c.id = e.class_id 
+         WHERE e.user_id = $1 AND e.class_id = $2 
+         AND e.enrollment_status IN ('approved', 'pending')
+         ORDER BY e.enrolled_at DESC LIMIT 1`,
+        [userId, classIdInt]
       );
 
       if (existingEnrollment.rows[0]) {
         const enrollment = existingEnrollment.rows[0];
+        const statusMessage = enrollment.enrollment_status === 'pending'
+          ? 'You have a pending enrollment in this class. Please wait for approval before enrolling in another session.'
+          : 'You are already enrolled in this class. You cannot enroll in multiple sessions of the same class.';
 
-        // Send enrollment email for existing enrollment
-        emailService.sendEnrollmentPendingEmail(
-          userDetails.email,
-          userDetails.name || `${userDetails.first_name} ${userDetails.last_name}`,
-          enrollment.title,
-          {
-            location_details: enrollment.location_details
-          },
-          {
-            session_date: enrollment.session_date,
-            start_time: enrollment.start_time,
-            end_time: enrollment.end_time
-          }
-        ).then(() => {
-          console.log(`Enrollment email sent for existing enrollment to: ${userDetails.email}`);
-        }).catch((emailError) => {
-          console.error("Email sending failed for existing enrollment:", emailError);
+        return res.status(400).json({
+          error: "User already enrolled in this class",
+          message: statusMessage,
+          enrollment_status: enrollment.enrollment_status
         });
       }
 
       return res.status(400).json({
         error: "User already enrolled in this class",
-        message: "You are already enrolled in this class. Check your email for enrollment details."
+        message: "You are already enrolled in this class. Only one enrollment per class is allowed."
       });
     }
 
     // Validate class exists and is available
-    const classDetails = await getClassWithDetails(classId);
+    const classDetails = await getClassWithDetails(classIdInt);
     if (!classDetails) {
       return res.status(404).json({ error: "Class not found" });
     }
@@ -106,7 +107,7 @@ const enrollInClass = async (req, res) => {
     // Validate session exists and belongs to this class
     const session = await pool.query(
       'SELECT * FROM class_sessions WHERE id = $1 AND class_id = $2',
-      [sessionId, classId]
+      [sessionId, classIdInt]
     );
     if (!session.rows[0]) {
       return res.status(400).json({ error: "Invalid session for this class" });
@@ -122,7 +123,7 @@ const enrollInClass = async (req, res) => {
     }
 
     // Create enrollment
-    const enrollment = await enrollUserInClass(userId, classId, sessionId, "paid", paymentMethod || null);
+    const enrollment = await enrollUserInClass(userId, classIdInt, sessionId, "paid", paymentMethod || null);
 
     // Send pending enrollment email asynchronously (don't wait for it)
     console.log(`📧 Attempting to send enrollment pending email to: ${userDetails.email}`);

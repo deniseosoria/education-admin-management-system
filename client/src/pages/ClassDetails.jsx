@@ -79,7 +79,6 @@ function ClassDetails() {
     const [roleEnrollError, setRoleEnrollError] = useState('');
     const [enrollSuccess, setEnrollSuccess] = useState('');
     const [enrollLoading, setEnrollLoading] = useState(false);
-    const [sessionMessages, setSessionMessages] = useState({}); // Track messages per session
     const [selectedDateIndex, setSelectedDateIndex] = useState(null);
     const [waitlistStatus, setWaitlistStatus] = useState({});
     const [waitlistLoading, setWaitlistLoading] = useState(false);
@@ -87,6 +86,8 @@ function ClassDetails() {
     const [userWaitlist, setUserWaitlist] = useState({});
     const [enrollmentModalOpen, setEnrollmentModalOpen] = useState(false);
     const [selectedSessionId, setSelectedSessionId] = useState(null);
+    const [enrollmentError, setEnrollmentError] = useState('');
+    const [enrollmentSuccess, setEnrollmentSuccess] = useState('');
     const isAdminOrInstructor = user && (user.role === 'admin' || user.role === 'instructor');
 
     // Memoize the class data fetching effect
@@ -106,7 +107,15 @@ function ClassDetails() {
                 if (user) {
                     try {
                         const enrollments = await enrollmentService.getUserEnrollments();
-                        const isUserEnrolled = enrollments.some(enrollment => enrollment.class_id === id);
+                        // Check if user has pending or approved enrollment in this class for a FUTURE session
+                        // Only block if enrollment is active (future session), not historical (past)
+                        // Convert both to strings for comparison to handle type mismatch
+                        const activeEnrollment = enrollments.find(
+                            enrollment => String(enrollment.class_id) === String(id) &&
+                                (enrollment.enrollment_status === 'pending' || enrollment.enrollment_status === 'approved') &&
+                                enrollment.enrollment_type === 'active' // Only block active (future) enrollments
+                        );
+                        const isUserEnrolled = !!activeEnrollment;
                         setIsEnrolled(isUserEnrolled);
                         setUserEnrollments(enrollments);
 
@@ -166,21 +175,20 @@ function ClassDetails() {
 
     const handleEnrollSubmit = async (sessionId, paymentMethod) => {
         setEnrollLoading(true);
-        // Clear any previous messages for this session
-        setSessionMessages(prev => ({ ...prev, [sessionId]: { success: '', error: '' } }));
+        setEnrollmentError('');
+        setEnrollmentSuccess('');
         try {
-            console.log('Starting enrollment process...'); // Add debugging
             await enrollmentService.enrollInClass(id, { sessionId, paymentMethod });
-            console.log('Enrollment successful, updating state...'); // Add debugging
             setIsEnrolled(true);
-            console.log('Setting success message...'); // Add debugging
-            setSessionMessages(prev => ({ ...prev, [sessionId]: { success: 'Successfully enrolled in class', error: '' } }));
-            console.log('Success message set'); // Add debugging
-            setEnrollmentModalOpen(false);
-            setSelectedSessionId(null);
+            setEnrollmentSuccess('Successfully enrolled in class');
+            // Close modal after a short delay to show success message
+            setTimeout(() => {
+                setEnrollmentModalOpen(false);
+                setSelectedSessionId(null);
+                setEnrollmentSuccess('');
+            }, 2000);
         } catch (err) {
-            setSessionMessages(prev => ({ ...prev, [sessionId]: { success: '', error: err.message || 'Enrollment operation failed' } }));
-            // Don't call showError() to prevent notification blocking navigation
+            setEnrollmentError(err.message || 'Enrollment operation failed');
             console.error('Enrollment error:', err);
         } finally {
             setEnrollLoading(false);
@@ -190,6 +198,8 @@ function ClassDetails() {
     const handleCloseEnrollmentModal = () => {
         setEnrollmentModalOpen(false);
         setSelectedSessionId(null);
+        setEnrollmentError('');
+        setEnrollmentSuccess('');
     };
 
     const handleWaitlistAction = async (sessionId) => {
@@ -355,7 +365,15 @@ function ClassDetails() {
                                         // Button logic
                                         const notLoggedIn = !user;
                                         const isAdminOrInstructor = user && (user.role === 'admin' || user.role === 'instructor');
-                                        const canEnroll = !notLoggedIn && !isAdminOrInstructor;
+                                        // Check if user has pending or approved enrollment in this class for a FUTURE session
+                                        // Only block if enrollment is active (future session), not historical (past)
+                                        // Convert both to strings for comparison to handle type mismatch
+                                        const hasActiveEnrollment = userEnrollments.some(
+                                            enrollment => String(enrollment.class_id) === String(id) &&
+                                                (enrollment.enrollment_status === 'pending' || enrollment.enrollment_status === 'approved') &&
+                                                enrollment.enrollment_type === 'active' // Only block active (future) enrollments
+                                        );
+                                        const canEnroll = !notLoggedIn && !isAdminOrInstructor && !hasActiveEnrollment;
 
                                         return (
                                             <div key={session.id} className="border border-gray-200 rounded-lg p-6 bg-white shadow-sm hover:shadow-md transition-shadow">
@@ -380,9 +398,6 @@ function ClassDetails() {
                                                     <div className="text-gray-700">
                                                         <span className="font-medium">Instructor:</span> {session.instructor_name || 'TBA'}
                                                     </div>
-                                                    <div className="text-gray-700">
-                                                        <span className="font-medium">Capacity:</span> {session.available_spots} of {session.capacity} spots available
-                                                    </div>
                                                 </div>
                                                 <div className="mt-4 flex justify-start">
                                                     <button
@@ -398,45 +413,11 @@ function ClassDetails() {
                                                 </div>
                                                 {notLoggedIn && <div className="text-sm text-red-500 mt-2">Please log in to enroll</div>}
                                                 {isAdminOrInstructor && <div className="text-sm text-red-500 mt-2">Admins and instructors cannot enroll</div>}
-
-                                                {/* Session-specific success/error messages */}
-                                                {sessionMessages[session.id]?.success && (
-                                                    <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded">
-                                                        <div className="flex items-center justify-between">
-                                                            <div className="flex items-center">
-                                                                <svg className="w-4 h-4 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                                                                </svg>
-                                                                <p className="text-sm text-green-800 font-medium">{sessionMessages[session.id].success}</p>
-                                                            </div>
-                                                            <button
-                                                                onClick={() => setSessionMessages(prev => ({ ...prev, [session.id]: { ...prev[session.id], success: '' } }))}
-                                                                className="ml-2 text-green-600 hover:text-green-800 font-bold text-lg focus:outline-none"
-                                                                aria-label="Close success message"
-                                                            >
-                                                                ×
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {sessionMessages[session.id]?.error && (
-                                                    <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded">
-                                                        <div className="flex items-center justify-between">
-                                                            <div className="flex items-center">
-                                                                <svg className="w-4 h-4 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                                </svg>
-                                                                <p className="text-sm text-red-800 font-medium">{sessionMessages[session.id].error}</p>
-                                                            </div>
-                                                            <button
-                                                                onClick={() => setSessionMessages(prev => ({ ...prev, [session.id]: { ...prev[session.id], error: '' } }))}
-                                                                className="ml-2 text-red-600 hover:text-red-800 font-bold text-lg focus:outline-none"
-                                                                aria-label="Close error message"
-                                                            >
-                                                                ×
-                                                            </button>
-                                                        </div>
+                                                {hasActiveEnrollment && (
+                                                    <div className="text-sm text-yellow-600 mt-2">
+                                                        {userEnrollments.find(e => String(e.class_id) === String(id) && (e.enrollment_status === 'pending' || e.enrollment_status === 'approved') && e.enrollment_type === 'active')?.enrollment_status === 'pending'
+                                                            ? 'You have a pending enrollment in this class. Please wait for approval.'
+                                                            : 'You are already enrolled in this class. Only one enrollment per class is allowed.'}
                                                     </div>
                                                 )}
 
@@ -539,6 +520,8 @@ function ClassDetails() {
                 onEnroll={handleEnrollSubmit}
                 sessionId={selectedSessionId}
                 loading={enrollLoading}
+                enrollmentError={enrollmentError}
+                enrollmentSuccess={enrollmentSuccess}
             />
 
             <Footer />

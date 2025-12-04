@@ -24,7 +24,6 @@ import {
     Person as TeacherIcon,
     AccessTime as ScheduleIcon,
     LocationOn as LocationIcon,
-    Group as GroupIcon,
     History as HistoryIcon,
     School as SchoolIcon,
     Refresh as RefreshIcon,
@@ -97,10 +96,6 @@ const EnrollmentsSection = ({ enrollments, historicalEnrollments, loading = fals
         }
     };
 
-    const calculateCapacityPercentage = (current, total) => {
-        if (!current || !total || total === 0) return 0;
-        return Math.min((current / total) * 100, 100);
-    };
 
     const renderEnrollmentCard = (enrollment, isHistorical = false, index = 0) => {
         // Generate unique key using multiple identifiers
@@ -364,47 +359,6 @@ const EnrollmentsSection = ({ enrollments, historicalEnrollments, loading = fals
                                         </Box>
                                     </Box>
                                 )}
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, md: 2 } }}>
-                                    <Box
-                                        sx={{
-                                            width: { xs: 28, md: 32 },
-                                            height: { xs: 28, md: 32 },
-                                            borderRadius: '8px',
-                                            backgroundColor: '#f0f9ff',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            flexShrink: 0
-                                        }}
-                                    >
-                                        <GroupIcon sx={{ fontSize: { xs: 14, md: 16 }, color: '#0ea5e9' }} />
-                                    </Box>
-                                    <Box sx={{ minWidth: 0, flex: 1 }}>
-                                        <Typography variant="body2" sx={{ color: '#6b7280', fontSize: { xs: '0.7rem', md: '0.75rem' }, fontWeight: 500, mb: 0.5 }}>
-                                            Class Capacity
-                                        </Typography>
-                                        <Typography variant="body2" sx={{ color: '#111827', fontWeight: 500, fontSize: { xs: '0.8rem', md: '0.9rem' }, mb: 1 }}>
-                                            {(enrollment.current_students ?? 0)}/{(enrollment.capacity ?? 0)} students
-                                        </Typography>
-                                        <Box
-                                            sx={{
-                                                height: { xs: 4, md: 6 },
-                                                backgroundColor: '#e5e7eb',
-                                                borderRadius: 3,
-                                                overflow: 'hidden'
-                                            }}
-                                        >
-                                            <Box
-                                                sx={{
-                                                    height: '100%',
-                                                    backgroundColor: '#3b82f6',
-                                                    width: `${calculateCapacityPercentage(enrollment.current_students, enrollment.capacity)}%`,
-                                                    transition: 'width 0.3s ease'
-                                                }}
-                                            />
-                                        </Box>
-                                    </Box>
-                                </Box>
                             </>
                         )}
                     </Box>
