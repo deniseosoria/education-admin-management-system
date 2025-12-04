@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect, useLayoutEffect } fro
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import classService from "../../services/classService";
 import "./Header.css";
 
 function Header() {
@@ -13,6 +14,9 @@ function Header() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
     const [isMobileView, setIsMobileView] = useState(false);
+    const [classes, setClasses] = useState([]);
+    const [classesLoading, setClassesLoading] = useState(true);
+    const [isClassesDropdownOpen, setIsClassesDropdownOpen] = useState(false);
 
     // --- Responsive breakpoint check (mobile if < 1024px)
     useEffect(() => {
@@ -20,6 +24,22 @@ function Header() {
         checkScreenSize();
         window.addEventListener("resize", checkScreenSize);
         return () => window.removeEventListener("resize", checkScreenSize);
+    }, []);
+
+    // --- Fetch classes for dropdown
+    useEffect(() => {
+        const fetchClasses = async () => {
+            try {
+                setClassesLoading(true);
+                const data = await classService.getAllClasses();
+                setClasses(data);
+            } catch (error) {
+                console.error('Error fetching classes for header dropdown:', error);
+            } finally {
+                setClassesLoading(false);
+            }
+        };
+        fetchClasses();
     }, []);
 
     // --- Body scroll lock while the menu is open
@@ -43,6 +63,87 @@ function Header() {
         }
     }, [logout, navigate]);
 
+    // --- Menu open/close handlers (with closing animation) - moved before ClassesDropdown
+    const toggleMenu = useCallback(() => {
+        if (isMenuOpen) {
+            setIsClosing(true);
+            setTimeout(() => {
+                setIsMenuOpen(false);
+                setIsClosing(false);
+            }, 300);
+        } else {
+            setIsMenuOpen(true);
+        }
+    }, [isMenuOpen]);
+
+    const closeMenu = useCallback(() => {
+        if (isMenuOpen) {
+            setIsClosing(true);
+            setTimeout(() => {
+                setIsMenuOpen(false);
+                setIsClosing(false);
+            }, 300);
+        }
+    }, [isMenuOpen]);
+
+    // --- Classes dropdown component
+    const handleClassClick = useCallback(() => {
+        setIsClassesDropdownOpen(false);
+        if (isMobileView && isMenuOpen) {
+            closeMenu();
+        }
+    }, [isMobileView, isMenuOpen, closeMenu]);
+
+    const ClassesDropdown = useMemo(() => {
+        return (
+            <div
+                className="classes-dropdown-container"
+                onMouseEnter={() => !isMobileView && setIsClassesDropdownOpen(true)}
+                onMouseLeave={() => !isMobileView && setIsClassesDropdownOpen(false)}
+            >
+                <div
+                    className={`nav-button uppercase text-gray-500 hover:text-black transition-colors block w-full text-center py-3 lg:py-0 lg:w-auto cursor-pointer ${!isMobileView && isClassesDropdownOpen ? 'classes-button-open' : ''}`}
+                    style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 400, fontSize: "14px", padding: "12px 16px" }}
+                    onClick={() => {
+                        if (isMobileView) {
+                            setIsClassesDropdownOpen(!isClassesDropdownOpen);
+                        } else {
+                            // On desktop, clicking "Classes" goes to /classes page
+                            navigate('/classes');
+                        }
+                    }}
+                >
+                    Classes
+                    {isMobileView && (
+                        <span className="ml-2" style={{ fontSize: '10px' }}>
+                            {isClassesDropdownOpen ? '▼' : '▶'}
+                        </span>
+                    )}
+                </div>
+                {isClassesDropdownOpen && (
+                    <div className={`classes-dropdown ${isMobileView ? 'mobile' : 'desktop'}`}>
+                        {classesLoading ? (
+                            <div className="classes-dropdown-item">Loading...</div>
+                        ) : classes.length > 0 ? (
+                            classes.map((classItem) => (
+                                <Link
+                                    key={classItem.id}
+                                    to={`/classes/${classItem.id}`}
+                                    className="classes-dropdown-item"
+                                    onClick={handleClassClick}
+                                >
+                                    {classItem.title}
+                                </Link>
+                            ))
+                        ) : (
+                            <div className="classes-dropdown-item">No classes available</div>
+                        )}
+                    </div>
+                )}
+            </div>
+        );
+    }, [classes, classesLoading, isClassesDropdownOpen, isMobileView, navigate, handleClassClick]);
+
     // --- Navigation links (unchanged from your original structure)
     const navigationLinks = useMemo(
         () => (
@@ -54,13 +155,7 @@ function Header() {
                 >
                     About
                 </Link>
-                <Link
-                    to="/classes"
-                    className="nav-button uppercase text-gray-500 hover:text-black transition-colors block w-full text-center py-3 lg:py-0 lg:w-auto"
-                    style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 400, fontSize: "14px", padding: "12px 16px" }}
-                >
-                    Classes
-                </Link>
+                {ClassesDropdown}
                 <Link
                     to="/contact"
                     className="nav-button uppercase text-gray-500 hover:text-black transition-colors block w-full text-center py-3 lg:py-0 lg:w-auto"
@@ -70,7 +165,7 @@ function Header() {
                 </Link>
             </>
         ),
-        []
+        [ClassesDropdown]
     );
 
     // --- Auth links (preserves your admin/profile/logout logic)
@@ -134,33 +229,17 @@ function Header() {
         );
     }, [user, initialized, loading, isAdminRoute, handleLogout]);
 
-    // --- Menu open/close handlers (with closing animation)
-    const toggleMenu = useCallback(() => {
-        if (isMenuOpen) {
-            setIsClosing(true);
-            setTimeout(() => {
-                setIsMenuOpen(false);
-                setIsClosing(false);
-            }, 300);
-        } else {
-            setIsMenuOpen(true);
-        }
-    }, [isMenuOpen]);
-
-    const closeMenu = useCallback(() => {
-        if (isMenuOpen) {
-            setIsClosing(true);
-            setTimeout(() => {
-                setIsMenuOpen(false);
-                setIsClosing(false);
-            }, 300);
-        }
-    }, [isMenuOpen]);
-
     // --- Close the mobile menu on route change
     useEffect(() => {
         if (isMenuOpen) closeMenu();
     }, [location.pathname]);
+
+    // --- Close classes dropdown when mobile menu closes
+    useEffect(() => {
+        if (!isMenuOpen) {
+            setIsClassesDropdownOpen(false);
+        }
+    }, [isMenuOpen]);
 
     return (
         <header className="bg-white shadow-sm sticky top-0 z-50 w-full site-header">
@@ -235,7 +314,25 @@ function Header() {
                             <div className="mobile-menu-sections">
                                 <div className="mobile-menu-section">
                                     <h4 className="mobile-menu-section-title">Main Navigation</h4>
-                                    <div className="mobile-menu-links" onClick={closeMenu}>{navigationLinks}</div>
+                                    <div className="mobile-menu-links">
+                                        <Link
+                                            to="/"
+                                            className="nav-button uppercase text-gray-500 hover:text-black transition-colors block w-full text-center py-3 lg:py-0 lg:w-auto"
+                                            style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 400, fontSize: "14px", padding: "12px 16px" }}
+                                            onClick={closeMenu}
+                                        >
+                                            About
+                                        </Link>
+                                        {ClassesDropdown}
+                                        <Link
+                                            to="/contact"
+                                            className="nav-button uppercase text-gray-500 hover:text-black transition-colors block w-full text-center py-3 lg:py-0 lg:w-auto"
+                                            style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 400, fontSize: "14px", padding: "12px 16px" }}
+                                            onClick={closeMenu}
+                                        >
+                                            Contact
+                                        </Link>
+                                    </div>
                                 </div>
                                 <div className="mobile-menu-section">
                                     <h4 className="mobile-menu-section-title">Account</h4>

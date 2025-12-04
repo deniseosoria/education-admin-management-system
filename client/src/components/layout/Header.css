@@ -307,3 +307,97 @@ header nav>div:last-child {
     color: #fff !important;
     border-radius: 0.5rem;
 }
+
+/* Classes Dropdown */
+.classes-dropdown-container {
+    position: relative;
+    display: inline-block;
+}
+
+.classes-dropdown-container .classes-button-open {
+    border-radius: 0 !important;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.classes-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background-color: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-top: none;
+    border-radius: 0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    min-width: 250px;
+    max-width: 350px;
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 1001;
+    margin-top: 0;
+    animation: fadeIn 0.2s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.classes-dropdown.desktop {
+    display: block;
+}
+
+.classes-dropdown.mobile {
+    position: static;
+    border: none;
+    box-shadow: none;
+    background-color: transparent;
+    margin-top: 0.5rem;
+    margin-left: 1rem;
+    max-height: none;
+}
+
+.classes-dropdown-item {
+    display: block;
+    padding: 0.75rem 1rem;
+    color: #374151;
+    text-decoration: none;
+    font-family: "Montserrat", sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    border-bottom: 1px solid #f3f4f6;
+    text-align: left;
+}
+
+.classes-dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.classes-dropdown-item:hover {
+    background-color: #f8f9fa;
+    color: #111827;
+}
+
+
+/* Mobile dropdown styling */
+.mobile-menu-links .classes-dropdown-container {
+    width: 100%;
+}
+
+.mobile-menu-links .classes-dropdown.mobile {
+    border-left: 2px solid #e5e7eb;
+    margin-left: 1rem;
+    padding-left: 0.5rem;
+}
+
+.mobile-menu-links .classes-dropdown-item {
+    padding: 0.875rem 1.25rem;
+    font-size: 13px;
+}
