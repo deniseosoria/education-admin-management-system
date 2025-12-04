@@ -835,13 +835,14 @@ const getAllEnrollments = async (filters = {}) => {
     paramCount++;
   }
   if (start_date) {
-    // For pending enrollments and 'all' status, don't apply date filtering - they should always be visible
-    // This ensures pending enrollments from future sessions are always visible
-    if (status === 'pending' || status === 'all') {
-      // When viewing pending enrollments or all enrollments, don't filter by start date
+    // For pending, approved, rejected, and 'all' status, don't apply date filtering - they should always be visible
+    // This ensures enrollments are always visible regardless of enrollment date
+    // This is important for admin management - they need to see all enrollments of a given status
+    if (status === 'pending' || status === 'approved' || status === 'rejected' || status === 'all') {
+      // When viewing pending, approved, rejected, or all enrollments, don't filter by start date
+      // All enrollments should be visible regardless of when they were enrolled
     } else {
-      // For specific status filters (approved, rejected), use enrollment date instead of session date
-      // This ensures we can see enrollments based on when they were enrolled, not when the session is
+      // For any other status, use enrollment date for filtering
       query += ` AND DATE(e.enrolled_at) >= $${paramCount}`;
       countQuery += ` AND DATE(e.enrolled_at) >= $${paramCount}`;
       queryParams.push(start_date);
@@ -850,13 +851,14 @@ const getAllEnrollments = async (filters = {}) => {
     }
   }
   if (end_date) {
-    // For pending enrollments and 'all' status, don't apply date filtering - they should always be visible
-    // This ensures pending enrollments from future sessions are always visible
-    if (status === 'pending' || status === 'all') {
-      // When viewing pending enrollments or all enrollments, don't filter by end date
+    // For pending, approved, rejected, and 'all' status, don't apply date filtering - they should always be visible
+    // This ensures enrollments are always visible regardless of enrollment date
+    // This is important for admin management - they need to see all enrollments of a given status
+    if (status === 'pending' || status === 'approved' || status === 'rejected' || status === 'all') {
+      // When viewing pending, approved, rejected, or all enrollments, don't filter by end date
+      // All enrollments should be visible regardless of when they were enrolled
     } else {
-      // For specific status filters (approved, rejected), use enrollment date instead of session date
-      // This ensures we can see enrollments based on when they were enrolled, not when the session is
+      // For any other status, use enrollment date for filtering
       query += ` AND DATE(e.enrolled_at) <= $${paramCount}`;
       countQuery += ` AND DATE(e.enrolled_at) <= $${paramCount}`;
       queryParams.push(end_date);

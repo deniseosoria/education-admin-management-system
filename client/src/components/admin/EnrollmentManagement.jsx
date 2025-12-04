@@ -200,7 +200,17 @@ function EnrollmentManagement() {
             console.log('Fetching enrollments with filters:', formattedFilters);
             console.log('Status filter value:', formattedFilters.status);
             const { enrollments: data, total } = await enrollmentService.getEnrollments(formattedFilters);
-            console.log('Enrollments data received:', data, 'Total:', total);
+            console.log('Enrollments data received:', data.length, 'enrollments, Total:', total);
+            console.log('Student breakdown:', data.reduce((acc, e) => {
+                const name = e.student_name || e.name || 'Unknown';
+                acc[name] = (acc[name] || 0) + 1;
+                return acc;
+            }, {}));
+            console.log('Session breakdown:', data.reduce((acc, e) => {
+                const sessionId = e.session_id || e.sessionId || 'no-session';
+                acc[sessionId] = (acc[sessionId] || 0) + 1;
+                return acc;
+            }, {}));
 
             // First, strictly filter by status if a specific status is selected (defensive check)
             let filteredData = data;
@@ -211,6 +221,11 @@ function EnrollmentManagement() {
                     return status === filterStatus;
                 });
                 console.log('After strict status filtering:', filteredData.length, 'from', data.length);
+                console.log('Filtered student breakdown:', filteredData.reduce((acc, e) => {
+                    const name = e.student_name || e.name || 'Unknown';
+                    acc[name] = (acc[name] || 0) + 1;
+                    return acc;
+                }, {}));
                 console.log('Status breakdown:', {
                     requested: formattedFilters.status,
                     found: filteredData.map(e => e.enrollment_status),
@@ -222,6 +237,11 @@ function EnrollmentManagement() {
             // The deduplication will prefer enrollments matching the filter status when filtering
             const processedData = deduplicateEnrollments(filteredData, formattedFilters.status);
             console.log('Deduplicated enrollments:', processedData.length, 'from', filteredData.length);
+            console.log('Deduplicated student breakdown:', processedData.reduce((acc, e) => {
+                const name = e.student_name || e.name || 'Unknown';
+                acc[name] = (acc[name] || 0) + 1;
+                return acc;
+            }, {}));
 
             setEnrollments(processedData);
             // Use deduplicated count for total to reflect what's actually displayed
