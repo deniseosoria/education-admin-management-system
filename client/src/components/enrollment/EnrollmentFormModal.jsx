@@ -13,23 +13,30 @@ import {
     FormControl,
     FormLabel,
     Alert,
+    Divider,
     Accordion,
     AccordionSummary,
     AccordionDetails,
-    Divider
+    Checkbox
 } from '@mui/material';
 import {
-    ExpandMore as ExpandMoreIcon,
-    Policy as PolicyIcon
+    Policy as PolicyIcon,
+    ExpandMore as ExpandMoreIcon
 } from '@mui/icons-material';
 
 const EnrollmentFormModal = ({ open, onClose, onEnroll, sessionId, loading = false, enrollmentError = '', enrollmentSuccess = '' }) => {
     const [paymentMethod, setPaymentMethod] = useState('');
     const [error, setError] = useState('');
+    const [termsAccepted, setTermsAccepted] = useState(false);
 
     const handleSubmit = () => {
         if (!paymentMethod) {
             setError('Please select a payment option');
+            return;
+        }
+
+        if (!termsAccepted) {
+            setError('You must accept the Policies & Procedures to continue');
             return;
         }
 
@@ -40,6 +47,7 @@ const EnrollmentFormModal = ({ open, onClose, onEnroll, sessionId, loading = fal
     const handleClose = () => {
         setPaymentMethod('');
         setError('');
+        setTermsAccepted(false);
         onClose();
     };
 
@@ -64,8 +72,87 @@ const EnrollmentFormModal = ({ open, onClose, onEnroll, sessionId, loading = fal
                 </Typography>
             </DialogTitle>
             <DialogContent sx={{ pt: 2, maxHeight: '70vh', overflow: 'auto' }}>
-                {/* Policies & Procedures Accordion */}
-                <Box sx={{ mb: 3 }}>
+                {error && (
+                    <Alert severity="error" sx={{ mb: 2, borderRadius: '8px' }}>
+                        {error}
+                    </Alert>
+                )}
+
+                {enrollmentSuccess && (
+                    <Alert severity="success" sx={{ mb: 2, borderRadius: '8px' }}>
+                        {enrollmentSuccess}
+                    </Alert>
+                )}
+
+                {enrollmentError && (
+                    <Alert severity="error" sx={{ mb: 2, borderRadius: '8px' }}>
+                        {enrollmentError}
+                    </Alert>
+                )}
+
+                <FormControl component="fieldset" fullWidth sx={{ mb: 3 }}>
+                    <FormLabel component="legend" sx={{ mb: 2, fontWeight: 600, color: '#374151' }}>
+                        Payment Options
+                    </FormLabel>
+                    <RadioGroup
+                        value={paymentMethod}
+                        onChange={(e) => {
+                            setPaymentMethod(e.target.value);
+                            setError('');
+                        }}
+                        sx={{ gap: 1 }}
+                    >
+                        <FormControlLabel
+                            value="Self"
+                            control={<Radio />}
+                            label={
+                                <Box>
+                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                        Pay Personally
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ color: '#6b7280', fontSize: '0.875rem' }}>
+                                        I will pay for this class myself
+                                    </Typography>
+                                </Box>
+                            }
+                            sx={{
+                                border: paymentMethod === 'Self' ? '2px solid #3b82f6' : '1px solid #e5e7eb',
+                                borderRadius: '8px',
+                                p: 1.5,
+                                m: 0,
+                                '&:hover': {
+                                    backgroundColor: '#f9fafb'
+                                }
+                            }}
+                        />
+                        <FormControlLabel
+                            value="EIP"
+                            control={<Radio />}
+                            label={
+                                <Box>
+                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                        Apply for Scholarship (EIP)
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ color: '#6b7280', fontSize: '0.875rem' }}>
+                                        I want to apply for scholarship assistance
+                                    </Typography>
+                                </Box>
+                            }
+                            sx={{
+                                border: paymentMethod === 'EIP' ? '2px solid #3b82f6' : '1px solid #e5e7eb',
+                                borderRadius: '8px',
+                                p: 1.5,
+                                m: 0,
+                                '&:hover': {
+                                    backgroundColor: '#f9fafb'
+                                }
+                            }}
+                        />
+                    </RadioGroup>
+                </FormControl>
+
+                {/* Policies & Procedures Section */}
+                <Box sx={{ mb: 2 }}>
                     <Accordion defaultExpanded={false} sx={{ boxShadow: 'none', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
                         <AccordionSummary
                             expandIcon={<ExpandMoreIcon />}
@@ -192,84 +279,36 @@ const EnrollmentFormModal = ({ open, onClose, onEnroll, sessionId, loading = fal
                     </Accordion>
                 </Box>
 
-                {error && (
-                    <Alert severity="error" sx={{ mb: 2, borderRadius: '8px' }}>
-                        {error}
-                    </Alert>
-                )}
-
-                {enrollmentSuccess && (
-                    <Alert severity="success" sx={{ mb: 2, borderRadius: '8px' }}>
-                        {enrollmentSuccess}
-                    </Alert>
-                )}
-
-                {enrollmentError && (
-                    <Alert severity="error" sx={{ mb: 2, borderRadius: '8px' }}>
-                        {enrollmentError}
-                    </Alert>
-                )}
-
-                <FormControl component="fieldset" fullWidth sx={{ mb: 2 }}>
-                    <FormLabel component="legend" sx={{ mb: 2, fontWeight: 600, color: '#374151' }}>
-                        Payment Options
-                    </FormLabel>
-                    <RadioGroup
-                        value={paymentMethod}
-                        onChange={(e) => {
-                            setPaymentMethod(e.target.value);
-                            setError('');
+                {/* Terms Acceptance Checkbox */}
+                <Box sx={{ mb: 2 }}>
+                    <FormControlLabel
+                        control={
+                            <Checkbox
+                                checked={termsAccepted}
+                                onChange={(e) => {
+                                    setTermsAccepted(e.target.checked);
+                                    setError('');
+                                }}
+                                sx={{
+                                    color: '#3b82f6',
+                                    '&.Mui-checked': {
+                                        color: '#3b82f6'
+                                    },
+                                    py: 0
+                                }}
+                            />
+                        }
+                        label={
+                            <Typography variant="body2" sx={{ color: '#374151', fontSize: '0.875rem', lineHeight: 1.5 }}>
+                                I have read and accept the Policies & Procedures
+                            </Typography>
+                        }
+                        sx={{
+                            alignItems: 'center',
+                            m: 0
                         }}
-                        sx={{ gap: 1 }}
-                    >
-                        <FormControlLabel
-                            value="Self"
-                            control={<Radio />}
-                            label={
-                                <Box>
-                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                        Pay Personally
-                                    </Typography>
-                                    <Typography variant="body2" sx={{ color: '#6b7280', fontSize: '0.875rem' }}>
-                                        I will pay for this class myself
-                                    </Typography>
-                                </Box>
-                            }
-                            sx={{
-                                border: paymentMethod === 'Self' ? '2px solid #3b82f6' : '1px solid #e5e7eb',
-                                borderRadius: '8px',
-                                p: 1.5,
-                                m: 0,
-                                '&:hover': {
-                                    backgroundColor: '#f9fafb'
-                                }
-                            }}
-                        />
-                        <FormControlLabel
-                            value="EIP"
-                            control={<Radio />}
-                            label={
-                                <Box>
-                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                        Apply for Scholarship (EIP)
-                                    </Typography>
-                                    <Typography variant="body2" sx={{ color: '#6b7280', fontSize: '0.875rem' }}>
-                                        I want to apply for scholarship assistance
-                                    </Typography>
-                                </Box>
-                            }
-                            sx={{
-                                border: paymentMethod === 'EIP' ? '2px solid #3b82f6' : '1px solid #e5e7eb',
-                                borderRadius: '8px',
-                                p: 1.5,
-                                m: 0,
-                                '&:hover': {
-                                    backgroundColor: '#f9fafb'
-                                }
-                            }}
-                        />
-                    </RadioGroup>
-                </FormControl>
+                    />
+                </Box>
             </DialogContent>
             <DialogActions sx={{ p: 3, pt: 1, gap: 1 }}>
                 <Button
@@ -287,7 +326,7 @@ const EnrollmentFormModal = ({ open, onClose, onEnroll, sessionId, loading = fal
                 <Button
                     onClick={handleSubmit}
                     variant="contained"
-                    disabled={loading || !paymentMethod}
+                    disabled={loading || !paymentMethod || !termsAccepted}
                     sx={{
                         borderRadius: '8px',
                         textTransform: 'none',

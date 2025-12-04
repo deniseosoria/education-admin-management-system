@@ -95,6 +95,63 @@ function EnrollmentManagement() {
         }
     };
 
+    // Deduplicate enrollments by user_id and session_id
+    // Keep the enrollment with highest priority status (approved > pending > rejected) or most recent
+    const deduplicateEnrollments = (enrollments) => {
+        if (!enrollments || enrollments.length === 0) {
+            return enrollments;
+        }
+
+        const enrollmentMap = new Map();
+
+        // Status priority: approved (3) > pending (2) > rejected (1) > others (0)
+        const getStatusPriority = (status) => {
+            switch (status?.toLowerCase()) {
+                case 'approved': return 3;
+                case 'pending': return 2;
+                case 'rejected': return 1;
+                default: return 0;
+            }
+        };
+
+        enrollments.forEach((enrollment) => {
+            // Get user_id and session_id - handle both snake_case and camelCase
+            const userId = enrollment.user_id || enrollment.userId;
+            const sessionId = enrollment.session_id || enrollment.sessionId;
+
+            // Skip if we don't have both IDs
+            if (!userId || !sessionId) {
+                console.warn('Enrollment missing user_id or session_id:', enrollment);
+                return;
+            }
+
+            // Create a unique key for user_id and session_id combination
+            const key = `${userId}_${sessionId}`;
+
+            if (!enrollmentMap.has(key)) {
+                enrollmentMap.set(key, enrollment);
+            } else {
+                const existing = enrollmentMap.get(key);
+                const existingPriority = getStatusPriority(existing.enrollment_status);
+                const currentPriority = getStatusPriority(enrollment.enrollment_status);
+
+                // Keep the enrollment with higher priority status
+                if (currentPriority > existingPriority) {
+                    enrollmentMap.set(key, enrollment);
+                } else if (currentPriority === existingPriority) {
+                    // If same priority, keep the most recent one
+                    const existingDate = new Date(existing.enrolled_at || existing.enrollment_date || 0);
+                    const currentDate = new Date(enrollment.enrolled_at || enrollment.enrollment_date || 0);
+                    if (currentDate > existingDate) {
+                        enrollmentMap.set(key, enrollment);
+                    }
+                }
+            }
+        });
+
+        return Array.from(enrollmentMap.values());
+    };
+
     const fetchEnrollments = async () => {
         try {
             setLoading(true);
@@ -120,8 +177,14 @@ function EnrollmentManagement() {
             console.log('Fetching enrollments with filters:', formattedFilters);
             const { enrollments: data, total } = await enrollmentService.getEnrollments(formattedFilters);
             console.log('Enrollments data received:', data, 'Total:', total);
-            setEnrollments(data);
-            setTotal(total);
+
+            // Deduplicate enrollments by user_id and session_id
+            const deduplicatedData = deduplicateEnrollments(data);
+            console.log('Deduplicated enrollments:', deduplicatedData.length, 'from', data.length);
+
+            setEnrollments(deduplicatedData);
+            // Update total to reflect deduplicated count
+            setTotal(deduplicatedData.length);
         } catch (error) {
             console.error('Error fetching enrollments:', error);
             handleError(error, 'Failed to fetch enrollments');
@@ -651,7 +714,34 @@ function EnrollmentManagement() {
                                         borderTop: '1px solid #f3f4f6'
                                     }}>
                                         <Box sx={{ display: 'flex', gap: 1 }}>
-                                            {enrollment.enrollment_status !== 'pending' && (
+                                            {enrollment.enrollment_status === 'pending' ? (
+                                                <>
+                                                    <Tooltip title="Approve">
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => handleStatusUpdate(enrollment.id, 'approved')}
+                                                            sx={{
+                                                                color: '#6b7280',
+                                                                '&:hover': { color: '#10b981' }
+                                                            }}
+                                                        >
+                                                            <CheckIcon sx={{ fontSize: 18 }} />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                    <Tooltip title="Reject">
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => handleStatusUpdate(enrollment.id, 'rejected')}
+                                                            sx={{
+                                                                color: '#6b7280',
+                                                                '&:hover': { color: '#ef4444' }
+                                                            }}
+                                                        >
+                                                            <Block sx={{ fontSize: 18 }} />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                </>
+                                            ) : (
                                                 <Tooltip title="Set Pending">
                                                     <IconButton
                                                         size="small"
@@ -662,34 +752,6 @@ function EnrollmentManagement() {
                                                         }}
                                                     >
                                                         <PendingIcon sx={{ fontSize: 18 }} />
-                                                    </IconButton>
-                                                </Tooltip>
-                                            )}
-                                            {enrollment.enrollment_status !== 'approved' && (
-                                                <Tooltip title="Approve">
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => handleStatusUpdate(enrollment.id, 'approved')}
-                                                        sx={{
-                                                            color: '#6b7280',
-                                                            '&:hover': { color: '#10b981' }
-                                                        }}
-                                                    >
-                                                        <CheckIcon sx={{ fontSize: 18 }} />
-                                                    </IconButton>
-                                                </Tooltip>
-                                            )}
-                                            {enrollment.enrollment_status !== 'rejected' && (
-                                                <Tooltip title="Reject">
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => handleStatusUpdate(enrollment.id, 'rejected')}
-                                                        sx={{
-                                                            color: '#6b7280',
-                                                            '&:hover': { color: '#ef4444' }
-                                                        }}
-                                                    >
-                                                        <Block sx={{ fontSize: 18 }} />
                                                     </IconButton>
                                                 </Tooltip>
                                             )}

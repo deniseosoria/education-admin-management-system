@@ -7,11 +7,13 @@ const enrollUserInClass = async (userId, classId, sessionId, paymentStatus = 'pa
     await client.query('BEGIN');
 
     // Check for existing enrollment within the transaction to prevent duplicates
-    // Check for exact duplicate (same user, class, and session)
+    // Check for exact duplicate (same user, class, and session) - but only if status is pending or approved
+    // Allow re-enrollment if previous enrollment was rejected or cancelled
     // NOTE: Only checks 'enrollments' table, NOT 'historical_enrollments' - allows re-enrollment after archival
     const duplicateCheck = await client.query(
-      `SELECT id FROM enrollments 
+      `SELECT id, enrollment_status FROM enrollments 
        WHERE user_id = $1 AND class_id = $2 AND session_id = $3
+         AND enrollment_status IN ('pending', 'approved')
        LIMIT 1`,
       [userId, classId, sessionId]
     );
