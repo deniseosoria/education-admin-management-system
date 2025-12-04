@@ -123,7 +123,23 @@ const enrollInClass = async (req, res) => {
     }
 
     // Create enrollment
-    const enrollment = await enrollUserInClass(userId, classIdInt, sessionId, "paid", paymentMethod || null);
+    let enrollment;
+    try {
+      enrollment = await enrollUserInClass(userId, classIdInt, sessionId, "paid", paymentMethod || null);
+    } catch (enrollError) {
+      // Handle duplicate enrollment errors specifically
+      if (enrollError.message && (
+        enrollError.message.includes('already enrolled') ||
+        enrollError.message.includes('already enrolled in this session')
+      )) {
+        return res.status(400).json({
+          error: "User already enrolled",
+          message: enrollError.message
+        });
+      }
+      // Re-throw other errors to be handled by outer catch
+      throw enrollError;
+    }
 
     // Send pending enrollment email asynchronously (don't wait for it)
     console.log(`📧 Attempting to send enrollment pending email to: ${userDetails.email}`);

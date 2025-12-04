@@ -35,6 +35,15 @@ import './EnrollmentsSection.css';
 const EnrollmentsSection = ({ enrollments, historicalEnrollments, loading = false, error = null, onRefresh }) => {
     const [tabValue, setTabValue] = useState(0);
 
+    // Filter out enrollments without a start date
+    const filteredEnrollments = (enrollments || []).filter(enrollment => {
+        return enrollment.session_date || enrollment.start_date || enrollment.display_date;
+    });
+
+    const filteredHistoricalEnrollments = (historicalEnrollments || []).filter(enrollment => {
+        return enrollment.session_date || enrollment.start_date || enrollment.display_date;
+    });
+
     const handleTabChange = (event, newValue) => {
         setTabValue(newValue);
     };
@@ -384,8 +393,8 @@ const EnrollmentsSection = ({ enrollments, historicalEnrollments, loading = fals
         );
     };
 
-    const hasActiveEnrollments = enrollments && enrollments.length > 0;
-    const hasHistoricalEnrollments = historicalEnrollments && historicalEnrollments.length > 0;
+    const hasActiveEnrollments = filteredEnrollments && filteredEnrollments.length > 0;
+    const hasHistoricalEnrollments = filteredHistoricalEnrollments && filteredHistoricalEnrollments.length > 0;
 
     // Show loading state
     if (loading) {
@@ -502,10 +511,10 @@ const EnrollmentsSection = ({ enrollments, historicalEnrollments, loading = fals
                             }}
                         >
                             <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
-                                Current Enrollments ({hasActiveEnrollments ? enrollments.length : 0})
+                                Current Enrollments ({hasActiveEnrollments ? filteredEnrollments.length : 0})
                             </Box>
                             <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
-                                Current ({hasActiveEnrollments ? enrollments.length : 0})
+                                Current ({hasActiveEnrollments ? filteredEnrollments.length : 0})
                             </Box>
                         </Typography>
                     </Box>
@@ -536,10 +545,10 @@ const EnrollmentsSection = ({ enrollments, historicalEnrollments, loading = fals
                             }}
                         >
                             <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
-                                Past Enrollments ({hasHistoricalEnrollments ? historicalEnrollments.length : 0})
+                                Past Enrollments ({hasHistoricalEnrollments ? filteredHistoricalEnrollments.length : 0})
                             </Box>
                             <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
-                                Past ({hasHistoricalEnrollments ? historicalEnrollments.length : 0})
+                                Past ({hasHistoricalEnrollments ? filteredHistoricalEnrollments.length : 0})
                             </Box>
                         </Typography>
                     </Box>
@@ -600,7 +609,7 @@ const EnrollmentsSection = ({ enrollments, historicalEnrollments, loading = fals
                         </Box>
                     ) : (
                         <Box>
-                            {(enrollments || []).map((enrollment, index) => renderEnrollmentCard(enrollment, false, index))}
+                            {filteredEnrollments.map((enrollment, index) => renderEnrollmentCard(enrollment, false, index))}
                         </Box>
                     )}
                 </>
@@ -660,7 +669,7 @@ const EnrollmentsSection = ({ enrollments, historicalEnrollments, loading = fals
                         </Box>
                     ) : (
                         <Box>
-                            {(historicalEnrollments || []).map((enrollment, index) => renderEnrollmentCard(enrollment, true, index))}
+                            {filteredHistoricalEnrollments.map((enrollment, index) => renderEnrollmentCard(enrollment, true, index))}
                         </Box>
                     )}
                 </>

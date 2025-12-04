@@ -6,6 +6,75 @@ const enrollUserInClass = async (userId, classId, sessionId, paymentStatus = 'pa
   try {
     await client.query('BEGIN');
 
+    // Check for existing enrollment within the transaction to prevent duplicates
+    // Check for exact duplicate (same user, class, and session)
+    // NOTE: Only checks 'enrollments' table, NOT 'historical_enrollments' - allows re-enrollment after archival
+    const duplicateCheck = await client.query(
+      `SELECT id FROM enrollments 
+       WHERE user_id = $1 AND class_id = $2 AND session_id = $3
+       LIMIT 1`,
+      [userId, classId, sessionId]
+    );
+
+    if (duplicateCheck.rows.length > 0) {
+      await client.query('ROLLBACK');
+      throw new Error('User is already enrolled in this session');
+    }
+
+    // Check for ANY approved enrollment in the same class (users can only have ONE approved enrollment per class)
+    // This ensures users are only in one available session at a time
+    // NOTE: Only checks 'enrollments' table, NOT 'historical_enrollments' - users can re-enroll after their enrollment is archived
+    const approvedEnrollmentCheck = await client.query(
+      `SELECT e.id, e.session_id, cs.session_date, cs.end_date
+       FROM enrollments e
+       LEFT JOIN class_sessions cs ON cs.id = e.session_id AND cs.deleted_at IS NULL
+       WHERE e.user_id = $1 
+         AND e.class_id = $2 
+         AND e.enrollment_status = 'approved'
+         AND (
+           -- Only block if session is available (has valid date and hasn't ended)
+           (cs.id IS NOT NULL 
+            AND cs.session_date IS NOT NULL
+            AND (
+              (cs.end_date IS NULL AND cs.session_date > NOW())
+              OR (cs.end_date IS NOT NULL AND cs.end_date > NOW())
+            ))
+         )
+       LIMIT 1`,
+      [userId, classId]
+    );
+
+    if (approvedEnrollmentCheck.rows.length > 0) {
+      await client.query('ROLLBACK');
+      throw new Error('User already has an approved enrollment in this class. Only one approved enrollment per class is allowed.');
+    }
+
+    // Check for pending enrollment in the same class (users should wait for approval before enrolling in another session)
+    // NOTE: Only checks 'enrollments' table, NOT 'historical_enrollments' - users can re-enroll after their enrollment is archived
+    const pendingEnrollmentCheck = await client.query(
+      `SELECT e.id 
+       FROM enrollments e
+       LEFT JOIN class_sessions cs ON cs.id = e.session_id AND cs.deleted_at IS NULL
+       WHERE e.user_id = $1 
+         AND e.class_id = $2 
+         AND e.enrollment_status = 'pending'
+         AND (
+           cs.id IS NOT NULL 
+           AND cs.session_date IS NOT NULL
+           AND (
+             (cs.end_date IS NULL AND cs.session_date > NOW())
+             OR (cs.end_date IS NOT NULL AND cs.end_date > NOW())
+           )
+         )
+       LIMIT 1`,
+      [userId, classId]
+    );
+
+    if (pendingEnrollmentCheck.rows.length > 0) {
+      await client.query('ROLLBACK');
+      throw new Error('User has a pending enrollment in this class. Please wait for approval before enrolling in another session.');
+    }
+
     // Create the enrollment
     const result = await client.query(
       `INSERT INTO enrollments (user_id, class_id, session_id, payment_status, enrollment_status, payment_method)
@@ -42,9 +111,9 @@ const approveEnrollment = async (enrollmentId, adminId, adminNotes = null) => {
   try {
     await client.query('BEGIN');
 
-    // Get the enrollment with session_id and current status before updating
+    // Get the enrollment with session_id, class_id, user_id and current status before updating
     const enrollmentResult = await client.query(
-      `SELECT session_id, enrollment_status FROM enrollments WHERE id = $1`,
+      `SELECT session_id, class_id, user_id, enrollment_status FROM enrollments WHERE id = $1`,
       [enrollmentId]
     );
 
@@ -54,7 +123,56 @@ const approveEnrollment = async (enrollmentId, adminId, adminNotes = null) => {
     }
 
     const sessionId = enrollmentResult.rows[0].session_id;
+    const classId = enrollmentResult.rows[0].class_id;
+    const userId = enrollmentResult.rows[0].user_id;
     const currentStatus = enrollmentResult.rows[0].enrollment_status;
+
+    // Check if user already has an approved enrollment in this class
+    // If so, reject this enrollment instead
+    const existingApproved = await client.query(
+      `SELECT id FROM enrollments 
+       WHERE user_id = $1 
+         AND class_id = $2 
+         AND enrollment_status = 'approved'
+         AND id != $3
+         LIMIT 1`,
+      [userId, classId, enrollmentId]
+    );
+
+    if (existingApproved.rows.length > 0) {
+      await client.query('ROLLBACK');
+      throw new Error('User already has an approved enrollment in this class. Only one approved enrollment per class is allowed.');
+    }
+
+    // Reject all other pending enrollments in the same class for this user
+    // This ensures users only have one approved enrollment per class
+    const otherPendingEnrollments = await client.query(
+      `SELECT id, session_id FROM enrollments 
+       WHERE user_id = $1 
+         AND class_id = $2 
+         AND enrollment_status = 'pending'
+         AND id != $3`,
+      [userId, classId, enrollmentId]
+    );
+
+    // Reject other pending enrollments and decrement their session counts
+    for (const otherEnrollment of otherPendingEnrollments.rows) {
+      await client.query(
+        `UPDATE enrollments 
+         SET enrollment_status = 'rejected',
+             admin_notes = 'Automatically rejected: Another enrollment in this class was approved. Only one enrollment per class is allowed.',
+             reviewed_at = CURRENT_TIMESTAMP,
+             reviewed_by = $1
+         WHERE id = $2`,
+        [adminId, otherEnrollment.id]
+      );
+
+      // Decrement the session enrollment count for rejected enrollments
+      await client.query(
+        `UPDATE class_sessions SET enrolled_count = GREATEST(enrolled_count - 1, 0) WHERE id = $1`,
+        [otherEnrollment.session_id]
+      );
+    }
 
     // Update the enrollment status
     const result = await client.query(
@@ -524,6 +642,7 @@ const getHistoricalEnrollmentsByUserId = async (userId) => {
 // Check if a user is already enrolled in a specific class
 // Returns true if user has pending or approved enrollment in the same class
 // Users can only enroll if their previous enrollment was completed or denied/rejected
+// NOTE: Only checks 'enrollments' table, NOT 'historical_enrollments' - users can re-enroll after their enrollment is archived
 const isUserAlreadyEnrolled = async (userId, classId) => {
   // Ensure classId is converted to integer for proper comparison
   const classIdInt = parseInt(classId, 10);
@@ -551,25 +670,58 @@ const isUserAlreadyEnrolled = async (userId, classId) => {
     }))
   );
 
-  // Now check only for active enrollments (pending or approved) with future sessions
-  // Only block if there's an approved/pending enrollment for a session that hasn't ended yet
-  // Historical (past) enrollments should NOT block re-enrollment
-  const result = await pool.query(
+  // Check for approved enrollment first (users can only have ONE approved enrollment per class)
+  // Only check for available sessions (future sessions with valid dates)
+  // NOTE: Only queries 'enrollments' table, NOT 'historical_enrollments' - allows re-enrollment after archival
+  const approvedResult = await pool.query(
     `SELECT e.* 
      FROM enrollments e
      LEFT JOIN class_sessions cs ON cs.id = e.session_id AND cs.deleted_at IS NULL
      WHERE e.user_id = $1 
        AND e.class_id = $2 
-       AND e.enrollment_status IN ('approved', 'pending')
+       AND e.enrollment_status = 'approved'
        AND (
-         -- Session exists and hasn't ended yet
-         (cs.id IS NOT NULL AND (
+         -- Session exists, has a valid start date, and hasn't ended yet
+         (cs.id IS NOT NULL 
+          AND cs.session_date IS NOT NULL
+          AND (
            (cs.end_date IS NULL AND cs.session_date > NOW())
            OR (cs.end_date IS NOT NULL AND cs.end_date > NOW())
          ))
-       )`,
+       )
+     LIMIT 1`,
     [userId, classIdInt]
   );
+
+  // If approved enrollment exists, user is already enrolled
+  if (approvedResult.rows.length > 0) {
+    console.log(`isUserAlreadyEnrolled - Approved enrollment found: ${approvedResult.rows.length}`);
+    return true;
+  }
+
+  // Check for pending enrollment (users should wait for approval before enrolling in another session)
+  // NOTE: Only queries 'enrollments' table, NOT 'historical_enrollments' - allows re-enrollment after archival
+  const pendingResult = await pool.query(
+    `SELECT e.* 
+     FROM enrollments e
+     LEFT JOIN class_sessions cs ON cs.id = e.session_id AND cs.deleted_at IS NULL
+     WHERE e.user_id = $1 
+       AND e.class_id = $2 
+       AND e.enrollment_status = 'pending'
+       AND (
+         -- Session exists, has a valid start date, and hasn't ended yet
+         (cs.id IS NOT NULL 
+          AND cs.session_date IS NOT NULL
+          AND (
+           (cs.end_date IS NULL AND cs.session_date > NOW())
+           OR (cs.end_date IS NOT NULL AND cs.end_date > NOW())
+         ))
+       )
+     LIMIT 1`,
+    [userId, classIdInt]
+  );
+
+  const result = pendingResult;
 
   console.log(`isUserAlreadyEnrolled - Active enrollments (pending/approved with future sessions): ${result.rows.length}`);
   if (result.rows.length > 0) {

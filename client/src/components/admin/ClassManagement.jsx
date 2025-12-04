@@ -36,6 +36,9 @@ import {
   Select,
   Stack,
   Tooltip,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from "@mui/material";
 import {
   Edit as EditIcon,
@@ -52,6 +55,8 @@ import {
   CheckCircle,
   History as HistoryIcon,
   Link as LinkIcon,
+  ExpandMore as ExpandMoreIcon,
+  MenuBook as MenuBookIcon,
 } from "@mui/icons-material";
 
 // iOS-specific styled Dialog for better mobile support
@@ -162,6 +167,11 @@ function ClassManagement() {
     price: "",
   });
   const [sessionsClass, setSessionsClass] = useState(null);
+  const [expandedSections, setExpandedSections] = useState({
+    scheduled: true,
+    completed: false,
+    cancelled: false
+  });
   const [statusClass, setStatusClass] = useState(null);
   const [newStatus, setNewStatus] = useState("");
   const [selectedClass, setSelectedClass] = useState(null);
@@ -172,6 +182,7 @@ function ClassManagement() {
   const [error, setError] = useState(null);
   const { showSuccess, showError } = useNotifications();
   const [deletedSessionIds, setDeletedSessionIds] = useState([]);
+  const [expandedSessions, setExpandedSessions] = useState({});
 
   // Fetch classes on component mount
   useEffect(() => {
@@ -216,6 +227,7 @@ function ClassManagement() {
       dates: [{ date: "", end_date: "", start_time: "", end_time: "", location: "", location_type: "in-person", capacity: "", duration: "", eip_url: "" }],
       price: "",
     });
+    setExpandedSessions({ 0: true }); // Expand first session by default
     setShowModal(true);
   };
 
@@ -267,6 +279,12 @@ function ClassManagement() {
         ...classDetails,
         enrolled_count: classDetails.total_enrollments || 0  // Use total_enrollments from the query
       });
+      // Initialize expanded sessions - expand first session by default
+      const initialExpanded = {};
+      if (formattedDates.length > 0) {
+        initialExpanded[0] = true;
+      }
+      setExpandedSessions(initialExpanded);
       setShowModal(true);
     } catch (error) {
       console.error('Error in handleEdit:', error);
@@ -311,9 +329,18 @@ function ClassManagement() {
   };
 
   const handleAddDate = () => {
-    setForm(prev => ({
+    let newIndex;
+    setForm(prev => {
+      newIndex = prev.dates.length;
+      return {
+        ...prev,
+        dates: [...prev.dates, { date: "", end_date: "", start_time: "", end_time: "", location: "", location_type: "in-person", capacity: "", instructor_id: "", duration: "", eip_url: "" }]
+      };
+    });
+    // Expand the newly added session
+    setExpandedSessions(prev => ({
       ...prev,
-      dates: [...prev.dates, { date: "", end_date: "", start_time: "", end_time: "", location: "", capacity: "", instructor_id: "", duration: "" }]
+      [newIndex]: true
     }));
   };
 
@@ -329,6 +356,50 @@ function ClassManagement() {
         dates: prev.dates.filter((_, i) => i !== index)
       };
     });
+    // Clean up expanded sessions state - reindex remaining sessions
+    setExpandedSessions(prev => {
+      const newExpanded = {};
+      Object.keys(prev).forEach(key => {
+        const keyNum = parseInt(key);
+        if (keyNum < index) {
+          // Sessions before the removed one keep their index
+          newExpanded[keyNum] = prev[keyNum];
+        } else if (keyNum > index) {
+          // Sessions after the removed one shift down by 1
+          newExpanded[keyNum - 1] = prev[keyNum];
+        }
+        // The removed session (keyNum === index) is not included
+      });
+      return newExpanded;
+    });
+  };
+
+  const handleDeleteAllSessions = () => {
+    if (!window.confirm("Are you sure you want to delete ALL sessions? This action cannot be undone.")) return;
+    setForm(prev => {
+      // Track all session IDs that will be deleted
+      const sessionIdsToDelete = prev.dates
+        .filter(date => date.id)
+        .map(date => date.id);
+
+      if (sessionIdsToDelete.length > 0) {
+        setDeletedSessionIds(ids => [...ids, ...sessionIdsToDelete]);
+      }
+
+      return {
+        ...prev,
+        dates: []
+      };
+    });
+    // Clear expanded sessions state
+    setExpandedSessions({});
+  };
+
+  const handleSessionAccordionChange = (index) => (event, isExpanded) => {
+    setExpandedSessions(prev => ({
+      ...prev,
+      [index]: isExpanded
+    }));
   };
 
   const handleDateChange = (index, field, value) => {
@@ -531,7 +602,254 @@ function ClassManagement() {
   const handleCloseModal = () => {
     setShowModal(false);
     setError(null); // Clear any errors when closing modal
+    setExpandedSessions({}); // Reset expanded sessions
   };
+
+  // Helper function to render a session card
+  const renderSessionCard = (session, idx) => (
+    <Box
+      key={idx}
+      sx={{
+        background: 'white',
+        borderRadius: '16px',
+        border: '1px solid #e5e7eb',
+        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+        overflow: 'hidden',
+        transition: 'all 0.2s ease-in-out',
+        display: 'flex',
+        flexDirection: { xs: 'column', md: 'row' },
+        minHeight: { xs: 'auto', md: '200px' },
+        '&:hover': {
+          boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+          transform: 'translateY(-1px)',
+          borderColor: '#3b82f6'
+        }
+      }}
+    >
+      {/* Left Section - Header Info */}
+      <Box sx={{
+        p: { xs: 3, md: 4 },
+        flex: { xs: 'none', md: '0 0 300px' },
+        display: 'flex',
+        flexDirection: 'column',
+        borderBottom: { xs: '1px solid #f3f4f6', md: 'none' }
+      }}>
+        {/* Status badge at top */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Chip
+            label={session.status || 'Scheduled'}
+            color={session.status === 'completed' ? 'success' :
+              session.status === 'cancelled' ? 'error' :
+                'primary'}
+            size="small"
+            sx={{
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              textTransform: 'capitalize'
+            }}
+          />
+        </Box>
+
+        {/* Session date */}
+        <Typography
+          variant="h6"
+          sx={{
+            fontWeight: 600,
+            fontSize: '1.1rem',
+            color: '#111827',
+            lineHeight: 1.3,
+            mb: 1
+          }}
+        >
+          Session {idx + 1}
+        </Typography>
+
+        {/* Date */}
+        <Typography variant="body2" sx={{ color: '#6b7280', fontSize: '0.875rem', mb: 3 }}>
+          {formatSessionDate(session.session_date, session.end_date)}
+        </Typography>
+      </Box>
+
+      {/* Right Section - Details */}
+      <Box sx={{
+        p: { xs: 3, md: 4 },
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        borderLeft: { xs: 'none', md: '1px solid #f3f4f6' }
+      }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 2, md: 2.5 }, flex: 1 }}>
+          {/* Schedule */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, md: 2 } }}>
+            <Box
+              sx={{
+                width: { xs: 28, md: 32 },
+                height: { xs: 28, md: 32 },
+                borderRadius: '8px',
+                backgroundColor: '#f0fdf4',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}
+            >
+              <ScheduleIcon sx={{ fontSize: { xs: 14, md: 16 }, color: '#22c55e' }} />
+            </Box>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+              <Typography variant="body2" sx={{ color: '#6b7280', fontSize: { xs: '0.7rem', md: '0.75rem' }, fontWeight: 500, mb: 0.5 }}>
+                Schedule
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#111827', fontWeight: 500, fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
+                {formatTime(session.start_time)} - {formatTime(session.end_time)}
+              </Typography>
+            </Box>
+          </Box>
+
+          {/* Location */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, md: 2 } }}>
+            <Box
+              sx={{
+                width: { xs: 28, md: 32 },
+                height: { xs: 28, md: 32 },
+                borderRadius: '8px',
+                backgroundColor: '#fef3c7',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}
+            >
+              <LocationIcon sx={{ fontSize: { xs: 14, md: 16 }, color: '#f59e0b' }} />
+            </Box>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+              <Typography variant="body2" sx={{ color: '#6b7280', fontSize: { xs: '0.7rem', md: '0.75rem' }, fontWeight: 500, mb: 0.5 }}>
+                Location
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#111827', fontWeight: 500, fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
+                {session.location_type === 'zoom' ? 'Zoom (Online)' : session.location_type === 'in-person' ? 'In-Person' : ''} {session.session_location || session.location_details || 'TBA'}
+              </Typography>
+            </Box>
+          </Box>
+
+          {/* EIP Application */}
+          {session.eip_url && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, md: 2 } }}>
+              <Box
+                sx={{
+                  width: { xs: 28, md: 32 },
+                  height: { xs: 28, md: 32 },
+                  borderRadius: '8px',
+                  backgroundColor: '#fef3c7',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}
+              >
+                <LinkIcon sx={{ fontSize: { xs: 14, md: 16 }, color: '#d97706' }} />
+              </Box>
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography variant="body2" sx={{ color: '#6b7280', fontSize: { xs: '0.7rem', md: '0.75rem' }, fontWeight: 500, mb: 0.5 }}>
+                  EIP Application
+                </Typography>
+                <Typography
+                  component="a"
+                  href={session.eip_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  variant="body2"
+                  sx={{
+                    color: '#d97706',
+                    fontWeight: 500,
+                    fontSize: { xs: '0.8rem', md: '0.9rem' },
+                    textDecoration: 'underline',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      color: '#b45309'
+                    }
+                  }}
+                >
+                  Apply for EIP Scholarship
+                </Typography>
+              </Box>
+            </Box>
+          )}
+
+          {/* Capacity */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, md: 2 } }}>
+            <Box
+              sx={{
+                width: { xs: 28, md: 32 },
+                height: { xs: 28, md: 32 },
+                borderRadius: '8px',
+                backgroundColor: '#f0f9ff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}
+            >
+              <PeopleIcon sx={{ fontSize: { xs: 14, md: 16 }, color: '#0ea5e9' }} />
+            </Box>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+              <Typography variant="body2" sx={{ color: '#6b7280', fontSize: { xs: '0.7rem', md: '0.75rem' }, fontWeight: 500, mb: 0.5 }}>
+                Class Capacity
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#111827', fontWeight: 500, fontSize: { xs: '0.8rem', md: '0.9rem' }, mb: 1 }}>
+                {(session.enrolled_count || 0)}/{(session.capacity || 0)} students
+              </Typography>
+              <Box
+                sx={{
+                  height: { xs: 4, md: 6 },
+                  backgroundColor: '#e5e7eb',
+                  borderRadius: 3,
+                  overflow: 'hidden'
+                }}
+              >
+                <Box
+                  sx={{
+                    height: '100%',
+                    backgroundColor: '#3b82f6',
+                    borderRadius: 3,
+                    width: `${Math.min(((session.enrolled_count || 0) / (session.capacity || 1)) * 100, 100)}%`,
+                    transition: 'width 0.3s ease'
+                  }}
+                />
+              </Box>
+            </Box>
+          </Box>
+
+          {/* Instructor */}
+          {session.instructor_name && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, md: 2 } }}>
+              <Box
+                sx={{
+                  width: { xs: 28, md: 32 },
+                  height: { xs: 28, md: 32 },
+                  borderRadius: '8px',
+                  backgroundColor: '#eff6ff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}
+              >
+                <PersonIcon sx={{ fontSize: { xs: 14, md: 16 }, color: '#3b82f6' }} />
+              </Box>
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography variant="body2" sx={{ color: '#6b7280', fontSize: { xs: '0.7rem', md: '0.75rem' }, fontWeight: 500, mb: 0.5 }}>
+                  Instructor
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#111827', fontWeight: 500, fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
+                  {session.instructor_name}
+                </Typography>
+              </Box>
+            </Box>
+          )}
+        </Box>
+      </Box>
+    </Box>
+  );
 
   return (
     <Box sx={{
@@ -603,7 +921,7 @@ function ClassManagement() {
 
       {/* Modern Class Cards */}
       <Box sx={{
-        maxWidth: { xs: '100%', sm: '1200px' },
+        maxWidth: { xs: '100%', sm: '1000px' },
         mx: 'auto',
         mb: 4,
         px: { xs: 2, sm: 3 }
@@ -640,8 +958,8 @@ function ClassManagement() {
                 transition: 'all 0.2s ease-in-out',
                 flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 10px)', md: '0 0 auto' },
                 minWidth: { xs: '280px', sm: '250px', md: 'auto' },
-                maxWidth: { xs: '100%', sm: 'calc(50% - 10px)', md: '100%' },
-                width: { xs: '100%', sm: 'auto', md: '100%' },
+                maxWidth: { xs: '100%', sm: 'calc(50% - 10px)', md: '400px' },
+                width: { xs: '100%', sm: 'auto', md: '400px' },
                 '&:hover': {
                   boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
                   transform: 'translateY(-1px)',
@@ -707,11 +1025,11 @@ function ClassManagement() {
                         fontSize: { xs: '0.75rem', sm: '0.875rem' }
                       }}
                     >
-                      {cls.total_sessions || 0} sessions
+                      {cls.total_sessions || 0} Available Sessions
                     </Typography>
                   </Box>
                   <Box
-                    onClick={() => handleViewAllEnrollments(cls)}
+                    onClick={() => handleViewStudents(cls)}
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
@@ -728,7 +1046,7 @@ function ClassManagement() {
                       transition: 'color 0.2s ease-in-out'
                     }}
                   >
-                    <PeopleIcon sx={{ fontSize: 16, color: '#6b7280' }} />
+                    <MenuBookIcon sx={{ fontSize: 16, color: '#6b7280' }} />
                     <Typography
                       variant="body2"
                       sx={{
@@ -736,7 +1054,7 @@ function ClassManagement() {
                         fontSize: { xs: '0.75rem', sm: '0.875rem' }
                       }}
                     >
-                      {cls.total_enrollments || 0} enrollments
+                      All Sessions
                     </Typography>
                   </Box>
                 </Box>
@@ -784,18 +1102,6 @@ function ClassManagement() {
             <EditIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>Edit Class</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={() => handleMenuAction('viewStudents')}>
-          <ListItemIcon>
-            <ScheduleIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>View Sessions</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={() => handleMenuAction('enrollments')}>
-          <ListItemIcon>
-            <PeopleIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>View All Enrollments</ListItemText>
         </MenuItem>
         <MenuItem onClick={() => handleMenuAction('delete')} sx={{ color: 'error.main' }}>
           <ListItemIcon>
@@ -891,144 +1197,201 @@ function ClassManagement() {
                 required
                 inputProps={{ min: 0, step: 0.01 }}
               />
-              <Typography variant="subtitle1" sx={{ mt: { xs: 1, sm: 2 } }}>
-                Class Dates and Times
-              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: { xs: 1, sm: 2 }, mb: { xs: 1, sm: 2 } }}>
+                <Typography variant="subtitle1">
+                  Class Dates and Times
+                </Typography>
+                {form.dates.length > 0 && (
+                  <Button
+                    startIcon={<DeleteIcon />}
+                    onClick={handleDeleteAllSessions}
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 500
+                    }}
+                  >
+                    Delete All Sessions
+                  </Button>
+                )}
+              </Box>
               <Typography variant="caption" color="text.secondary" sx={{ mb: { xs: 1, sm: 2 }, display: 'block' }}>
                 For one-day classes (like CPR), set the same date for both start and end dates.
               </Typography>
-              {form.dates.map((date, index) => {
-                return (
-                  <Box key={index} sx={{
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    borderRadius: 1,
-                    p: { xs: 1, sm: 2 },
-                    mb: { xs: 1, sm: 2 }
-                  }}>
-                    <Stack
-                      direction="column"
-                      spacing={1}
-                      alignItems="stretch"
+              {form.dates.length === 0 ? (
+                <Box sx={{
+                  p: 3,
+                  textAlign: 'center',
+                  border: '1px dashed',
+                  borderColor: 'divider',
+                  borderRadius: 1,
+                  mb: 2
+                }}>
+                  <Typography variant="body2" color="text.secondary">
+                    No sessions added. Click "Add Another Date" to add a session.
+                  </Typography>
+                </Box>
+              ) : (
+                form.dates.map((date, index) => {
+                  // Get session summary for accordion header
+                  const sessionSummary = date.date
+                    ? `${formatDate(date.date)}${date.end_date && date.end_date !== date.date ? ` - ${formatDate(date.end_date)}` : ''}${date.start_time ? ` • ${formatTime(date.start_time)}` : ''}${date.location ? ` • ${date.location.substring(0, 30)}${date.location.length > 30 ? '...' : ''}` : ''}`
+                    : `Session ${index + 1}`;
+
+                  return (
+                    <Accordion
+                      key={index}
+                      expanded={expandedSessions[index] || false}
+                      onChange={handleSessionAccordionChange(index)}
+                      sx={{
+                        mb: { xs: 1, sm: 2 },
+                        '&:before': {
+                          display: 'none'
+                        },
+                        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 1
+                      }}
                     >
-                      <TextField
-                        label="Date"
-                        type="date"
-                        value={date.date}
-                        onChange={(e) => handleDateChange(index, 'date', e.target.value)}
-                        InputLabelProps={{ shrink: true }}
-                        required
-                        fullWidth
-                      />
-                      <Tooltip title="For one-day classes, set the same date as the start date" placement="top" arrow>
-                        <TextField
-                          label="End Date"
-                          type="date"
-                          value={date.end_date}
-                          onChange={(e) => handleDateChange(index, 'end_date', e.target.value)}
-                          InputLabelProps={{ shrink: true }}
-                          required
-                          fullWidth
-                        />
-                      </Tooltip>
-                      <TextField
-                        label="Start Time"
-                        type="time"
-                        value={date.start_time}
-                        onChange={(e) => handleDateChange(index, 'start_time', e.target.value)}
-                        InputLabelProps={{ shrink: true }}
-                        inputProps={{ step: 300 }}
-                        required
-                        fullWidth
-                      />
-                      <TextField
-                        label="End Time"
-                        type="time"
-                        value={date.end_time}
-                        onChange={(e) => handleDateChange(index, 'end_time', e.target.value)}
-                        InputLabelProps={{ shrink: true }}
-                        inputProps={{ step: 300 }}
-                        required
-                        fullWidth
-                      />
-                      <FormControl fullWidth required>
-                        <InputLabel>Location Type</InputLabel>
-                        <Select
-                          value={date.location_type || "in-person"}
-                          onChange={(e) => handleDateChange(index, 'location_type', e.target.value)}
-                          label="Location Type"
-                          MenuProps={{
-                            sx: { zIndex: 1500 }
-                          }}
+                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', pr: 2 }}>
+                          <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                            Session {index + 1}: {sessionSummary || 'New Session'}
+                          </Typography>
+                          {form.dates.length > 1 && (
+                            <IconButton
+                              color="error"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveDate(index);
+                              }}
+                              size="small"
+                              sx={{ ml: 1 }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                        </Box>
+                      </AccordionSummary>
+                      <AccordionDetails>
+                        <Stack
+                          direction="column"
+                          spacing={1}
+                          alignItems="stretch"
                         >
-                          <MenuItem value="in-person">In-Person</MenuItem>
-                          <MenuItem value="zoom">Zoom (Online)</MenuItem>
-                        </Select>
-                      </FormControl>
-                      <TextField
-                        label="Location"
-                        value={date.location}
-                        onChange={(e) => handleDateChange(index, 'location', e.target.value)}
-                        required
-                        fullWidth
-                        helperText={date.location_type === 'zoom' ? 'Enter Zoom link or meeting details' : 'Enter physical address or room number'}
-                      />
-                      <TextField
-                        label="Capacity"
-                        type="number"
-                        value={date.capacity}
-                        onChange={(e) => handleDateChange(index, 'capacity', e.target.value)}
-                        required
-                        fullWidth
-                        inputProps={{ min: 1 }}
-                      />
-                      <TextField
-                        label="Duration"
-                        value={date.duration || ""}
-                        onChange={(e) => handleDateChange(index, 'duration', e.target.value)}
-                        placeholder="e.g., 4 weeks, 3 months, 1 day"
-                        fullWidth
-                        helperText="Enter the duration of this session (optional)"
-                      />
-                      <TextField
-                        label="EIP URL"
-                        value={date.eip_url || ""}
-                        onChange={(e) => handleDateChange(index, 'eip_url', e.target.value)}
-                        placeholder="https://www.ecetp.pdp.albany.edu"
-                        fullWidth
-                        helperText="EIP (Educational Incentive Program) URL for this session. Used in enrollment emails when payment method is EIP. (optional)"
-                      />
-                      <FormControl fullWidth required>
-                        <InputLabel>Instructor</InputLabel>
-                        <Select
-                          value={date.instructor_id || ""}
-                          onChange={(e) => handleDateChange(index, 'instructor_id', e.target.value)}
-                          label="Instructor"
-                          MenuProps={{
-                            sx: { zIndex: 1500 }
-                          }}
-                        >
-                          {Array.isArray(instructors) && instructors.map((instructor) => (
-                            <MenuItem key={instructor.id} value={instructor.id}>
-                              {instructor.name}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                      {form.dates.length > 1 && (
-                        <IconButton
-                          color="error"
-                          onClick={() => handleRemoveDate(index)}
-                          size="small"
-                          sx={{ alignSelf: 'flex-start' }}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      )}
-                    </Stack>
-                  </Box>
-                );
-              })}
+                          <TextField
+                            label="Date"
+                            type="date"
+                            value={date.date}
+                            onChange={(e) => handleDateChange(index, 'date', e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                            required
+                            fullWidth
+                          />
+                          <Tooltip title="For one-day classes, set the same date as the start date" placement="top" arrow>
+                            <TextField
+                              label="End Date"
+                              type="date"
+                              value={date.end_date}
+                              onChange={(e) => handleDateChange(index, 'end_date', e.target.value)}
+                              InputLabelProps={{ shrink: true }}
+                              required
+                              fullWidth
+                            />
+                          </Tooltip>
+                          <TextField
+                            label="Start Time"
+                            type="time"
+                            value={date.start_time}
+                            onChange={(e) => handleDateChange(index, 'start_time', e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                            inputProps={{ step: 300 }}
+                            required
+                            fullWidth
+                          />
+                          <TextField
+                            label="End Time"
+                            type="time"
+                            value={date.end_time}
+                            onChange={(e) => handleDateChange(index, 'end_time', e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                            inputProps={{ step: 300 }}
+                            required
+                            fullWidth
+                          />
+                          <FormControl fullWidth required>
+                            <InputLabel>Location Type</InputLabel>
+                            <Select
+                              value={date.location_type || "in-person"}
+                              onChange={(e) => handleDateChange(index, 'location_type', e.target.value)}
+                              label="Location Type"
+                              MenuProps={{
+                                sx: { zIndex: 1500 }
+                              }}
+                            >
+                              <MenuItem value="in-person">In-Person</MenuItem>
+                              <MenuItem value="zoom">Zoom (Online)</MenuItem>
+                            </Select>
+                          </FormControl>
+                          <TextField
+                            label="Location"
+                            value={date.location}
+                            onChange={(e) => handleDateChange(index, 'location', e.target.value)}
+                            required
+                            fullWidth
+                            helperText={date.location_type === 'zoom' ? 'Enter Zoom link or meeting details' : 'Enter physical address or room number'}
+                          />
+                          <TextField
+                            label="Capacity"
+                            type="number"
+                            value={date.capacity}
+                            onChange={(e) => handleDateChange(index, 'capacity', e.target.value)}
+                            required
+                            fullWidth
+                            inputProps={{ min: 1 }}
+                          />
+                          <TextField
+                            label="Duration"
+                            value={date.duration || ""}
+                            onChange={(e) => handleDateChange(index, 'duration', e.target.value)}
+                            placeholder="e.g., 4 weeks, 3 months, 1 day"
+                            fullWidth
+                            helperText="Enter the duration of this session (optional)"
+                          />
+                          <TextField
+                            label="EIP URL"
+                            value={date.eip_url || ""}
+                            onChange={(e) => handleDateChange(index, 'eip_url', e.target.value)}
+                            placeholder="https://www.ecetp.pdp.albany.edu"
+                            fullWidth
+                            helperText="EIP (Educational Incentive Program) URL for this session. Used in enrollment emails when payment method is EIP. (optional)"
+                          />
+                          <FormControl fullWidth required>
+                            <InputLabel>Instructor</InputLabel>
+                            <Select
+                              value={date.instructor_id || ""}
+                              onChange={(e) => handleDateChange(index, 'instructor_id', e.target.value)}
+                              label="Instructor"
+                              MenuProps={{
+                                sx: { zIndex: 1500 }
+                              }}
+                            >
+                              {Array.isArray(instructors) && instructors.map((instructor) => (
+                                <MenuItem key={instructor.id} value={instructor.id}>
+                                  {instructor.name}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        </Stack>
+                      </AccordionDetails>
+                    </Accordion>
+                  );
+                })
+              )}
               <Button
                 startIcon={<AddIcon />}
                 onClick={handleAddDate}
@@ -1151,7 +1514,7 @@ function ClassManagement() {
               </Box>
               <Box>
                 <Typography variant="h6" sx={{ fontWeight: 600, color: '#111827' }}>
-                  Class Sessions
+                  Available Sessions
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {sessionsClass.title}
@@ -1159,269 +1522,40 @@ function ClassManagement() {
               </Box>
             </Box>
           </DialogTitle>
-          <DialogContent sx={{ pt: 3 }}>
+          <DialogContent sx={{ pt: 4 }}>
             {loading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
                 <CircularProgress size={40} />
               </Box>
-            ) : sessionsClass.sessions?.length > 0 ? (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {sessionsClass.sessions.map((session, idx) => (
-                  <Box
-                    key={idx}
-                    sx={{
-                      background: 'white',
-                      borderRadius: '16px',
-                      border: '1px solid #e5e7eb',
-                      boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-                      overflow: 'hidden',
-                      transition: 'all 0.2s ease-in-out',
-                      display: 'flex',
-                      flexDirection: { xs: 'column', md: 'row' },
-                      minHeight: { xs: 'auto', md: '200px' },
-                      '&:hover': {
-                        boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                        transform: 'translateY(-1px)',
-                        borderColor: '#3b82f6'
-                      }
-                    }}
-                  >
-                    {/* Left Section - Header Info */}
-                    <Box sx={{
-                      p: { xs: 3, md: 4 },
-                      flex: { xs: 'none', md: '0 0 300px' },
-                      display: 'flex',
-                      flexDirection: 'column',
-                      borderBottom: { xs: '1px solid #f3f4f6', md: 'none' }
-                    }}>
-                      {/* Status badge at top */}
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                        <Chip
-                          label={session.status || 'Scheduled'}
-                          color={session.status === 'completed' ? 'success' :
-                            session.status === 'cancelled' ? 'error' :
-                              'primary'}
-                          size="small"
-                          sx={{
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            textTransform: 'capitalize'
-                          }}
-                        />
-                      </Box>
+            ) : (() => {
+              // Filter to only show available/scheduled sessions (not completed or cancelled)
+              const allSessions = sessionsClass.sessions || [];
+              const availableSessions = allSessions.filter(s => {
+                // Show sessions that are scheduled or have no status (default to available)
+                // Exclude completed and cancelled sessions
+                return s.status !== 'completed' && s.status !== 'cancelled';
+              });
 
-                      {/* Session date */}
-                      <Typography
-                        variant="h6"
-                        sx={{
-                          fontWeight: 600,
-                          fontSize: '1.1rem',
-                          color: '#111827',
-                          lineHeight: 1.3,
-                          mb: 1
-                        }}
-                      >
-                        Session {idx + 1}
-                      </Typography>
-
-                      {/* Date */}
-                      <Typography variant="body2" sx={{ color: '#6b7280', fontSize: '0.875rem', mb: 3 }}>
-                        {formatSessionDate(session.session_date, session.end_date)}
-                      </Typography>
-                    </Box>
-
-                    {/* Right Section - Details */}
-                    <Box sx={{
-                      p: { xs: 3, md: 4 },
-                      flex: 1,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      borderLeft: { xs: 'none', md: '1px solid #f3f4f6' }
-                    }}>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 2, md: 2.5 }, flex: 1 }}>
-                        {/* Schedule */}
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, md: 2 } }}>
-                          <Box
-                            sx={{
-                              width: { xs: 28, md: 32 },
-                              height: { xs: 28, md: 32 },
-                              borderRadius: '8px',
-                              backgroundColor: '#f0fdf4',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0
-                            }}
-                          >
-                            <ScheduleIcon sx={{ fontSize: { xs: 14, md: 16 }, color: '#22c55e' }} />
-                          </Box>
-                          <Box sx={{ minWidth: 0, flex: 1 }}>
-                            <Typography variant="body2" sx={{ color: '#6b7280', fontSize: { xs: '0.7rem', md: '0.75rem' }, fontWeight: 500, mb: 0.5 }}>
-                              Schedule
-                            </Typography>
-                            <Typography variant="body2" sx={{ color: '#111827', fontWeight: 500, fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
-                              {formatTime(session.start_time)} - {formatTime(session.end_time)}
-                            </Typography>
-                          </Box>
-                        </Box>
-
-                        {/* Location */}
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, md: 2 } }}>
-                          <Box
-                            sx={{
-                              width: { xs: 28, md: 32 },
-                              height: { xs: 28, md: 32 },
-                              borderRadius: '8px',
-                              backgroundColor: '#fef3c7',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0
-                            }}
-                          >
-                            <LocationIcon sx={{ fontSize: { xs: 14, md: 16 }, color: '#f59e0b' }} />
-                          </Box>
-                          <Box sx={{ minWidth: 0, flex: 1 }}>
-                            <Typography variant="body2" sx={{ color: '#6b7280', fontSize: { xs: '0.7rem', md: '0.75rem' }, fontWeight: 500, mb: 0.5 }}>
-                              Location
-                            </Typography>
-                            <Typography variant="body2" sx={{ color: '#111827', fontWeight: 500, fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
-                              {session.location_type === 'zoom' ? 'Zoom (Online)' : session.location_type === 'in-person' ? 'In-Person' : ''} {session.session_location || session.location_details || 'TBA'}
-                            </Typography>
-                          </Box>
-                        </Box>
-
-                        {/* EIP Application */}
-                        {session.eip_url && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, md: 2 } }}>
-                            <Box
-                              sx={{
-                                width: { xs: 28, md: 32 },
-                                height: { xs: 28, md: 32 },
-                                borderRadius: '8px',
-                                backgroundColor: '#fef3c7',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0
-                              }}
-                            >
-                              <LinkIcon sx={{ fontSize: { xs: 14, md: 16 }, color: '#d97706' }} />
-                            </Box>
-                            <Box sx={{ minWidth: 0, flex: 1 }}>
-                              <Typography variant="body2" sx={{ color: '#6b7280', fontSize: { xs: '0.7rem', md: '0.75rem' }, fontWeight: 500, mb: 0.5 }}>
-                                EIP Application
-                              </Typography>
-                              <Typography
-                                component="a"
-                                href={session.eip_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                variant="body2"
-                                sx={{
-                                  color: '#d97706',
-                                  fontWeight: 500,
-                                  fontSize: { xs: '0.8rem', md: '0.9rem' },
-                                  textDecoration: 'underline',
-                                  cursor: 'pointer',
-                                  '&:hover': {
-                                    color: '#b45309'
-                                  }
-                                }}
-                              >
-                                Apply for EIP Scholarship
-                              </Typography>
-                            </Box>
-                          </Box>
-                        )}
-
-                        {/* Capacity */}
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, md: 2 } }}>
-                          <Box
-                            sx={{
-                              width: { xs: 28, md: 32 },
-                              height: { xs: 28, md: 32 },
-                              borderRadius: '8px',
-                              backgroundColor: '#f0f9ff',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0
-                            }}
-                          >
-                            <PeopleIcon sx={{ fontSize: { xs: 14, md: 16 }, color: '#0ea5e9' }} />
-                          </Box>
-                          <Box sx={{ minWidth: 0, flex: 1 }}>
-                            <Typography variant="body2" sx={{ color: '#6b7280', fontSize: { xs: '0.7rem', md: '0.75rem' }, fontWeight: 500, mb: 0.5 }}>
-                              Class Capacity
-                            </Typography>
-                            <Typography variant="body2" sx={{ color: '#111827', fontWeight: 500, fontSize: { xs: '0.8rem', md: '0.9rem' }, mb: 1 }}>
-                              {(session.enrolled_count || 0)}/{(session.capacity || 0)} students
-                            </Typography>
-                            <Box
-                              sx={{
-                                height: { xs: 4, md: 6 },
-                                backgroundColor: '#e5e7eb',
-                                borderRadius: 3,
-                                overflow: 'hidden'
-                              }}
-                            >
-                              <Box
-                                sx={{
-                                  height: '100%',
-                                  backgroundColor: '#3b82f6',
-                                  borderRadius: 3,
-                                  width: `${Math.min(((session.enrolled_count || 0) / (session.capacity || 1)) * 100, 100)}%`,
-                                  transition: 'width 0.3s ease'
-                                }}
-                              />
-                            </Box>
-                          </Box>
-                        </Box>
-
-                        {/* Instructor */}
-                        {session.instructor_name && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, md: 2 } }}>
-                            <Box
-                              sx={{
-                                width: { xs: 28, md: 32 },
-                                height: { xs: 28, md: 32 },
-                                borderRadius: '8px',
-                                backgroundColor: '#eff6ff',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0
-                              }}
-                            >
-                              <PersonIcon sx={{ fontSize: { xs: 14, md: 16 }, color: '#3b82f6' }} />
-                            </Box>
-                            <Box sx={{ minWidth: 0, flex: 1 }}>
-                              <Typography variant="body2" sx={{ color: '#6b7280', fontSize: { xs: '0.7rem', md: '0.75rem' }, fontWeight: 500, mb: 0.5 }}>
-                                Instructor
-                              </Typography>
-                              <Typography variant="body2" sx={{ color: '#111827', fontWeight: 500, fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
-                                {session.instructor_name}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        )}
-                      </Box>
-                    </Box>
+              if (availableSessions.length === 0) {
+                return (
+                  <Box sx={{ textAlign: 'center', py: 6 }}>
+                    <ScheduleIcon sx={{ fontSize: 48, color: '#9ca3af', mb: 2 }} />
+                    <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                      No available sessions
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      This class doesn't have any available sessions
+                    </Typography>
                   </Box>
-                ))}
-              </Box>
-            ) : (
-              <Box sx={{ textAlign: 'center', py: 6 }}>
-                <ScheduleIcon sx={{ fontSize: 48, color: '#9ca3af', mb: 2 }} />
-                <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-                  No sessions found
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  This class doesn't have any sessions yet
-                </Typography>
-              </Box>
-            )}
+                );
+              }
+
+              return (
+                <Box key={`sessions-${sessionsClass.id}`} sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+                  {availableSessions.map((session, idx) => renderSessionCard(session, idx))}
+                </Box>
+              );
+            })()}
           </DialogContent>
           <DialogActions sx={{ p: 3, pt: 1 }}>
             <Button
@@ -1439,355 +1573,359 @@ function ClassManagement() {
       )}
 
       {/* Modern Status Update Dialog */}
-      {statusClass && (
-        <Dialog
-          open={!!statusClass}
-          onClose={() => setStatusClass(null)}
-          maxWidth="sm"
-          fullWidth
-          sx={{
-            zIndex: 1450,
-            '& .MuiDialog-paper': {
-              borderRadius: '16px',
-              maxHeight: '90vh',
-              margin: '20px'
-            }
-          }}
-        >
-          <DialogTitle sx={{
-            pb: 2,
-            borderBottom: '1px solid #e5e7eb'
-          }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Box sx={{
-                width: 40,
-                height: 40,
-                borderRadius: '10px',
-                bgcolor: '#3b82f6',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <UpdateIcon sx={{ color: 'white', fontSize: 20 }} />
+      {
+        statusClass && (
+          <Dialog
+            open={!!statusClass}
+            onClose={() => setStatusClass(null)}
+            maxWidth="sm"
+            fullWidth
+            sx={{
+              zIndex: 1450,
+              '& .MuiDialog-paper': {
+                borderRadius: '16px',
+                maxHeight: '90vh',
+                margin: '20px'
+              }
+            }}
+          >
+            <DialogTitle sx={{
+              pb: 2,
+              borderBottom: '1px solid #e5e7eb'
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '10px',
+                  bgcolor: '#3b82f6',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <UpdateIcon sx={{ color: 'white', fontSize: 20 }} />
+                </Box>
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#111827' }}>
+                    Update Class Status
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {statusClass.title}
+                  </Typography>
+                </Box>
               </Box>
-              <Box>
-                <Typography variant="h6" sx={{ fontWeight: 600, color: '#111827' }}>
-                  Update Class Status
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {statusClass.title}
-                </Typography>
-              </Box>
-            </Box>
-          </DialogTitle>
-          <DialogContent sx={{ pt: 3 }}>
-            <FormControl fullWidth>
-              <InputLabel sx={{
-                '&.Mui-focused': { color: '#3b82f6' }
-              }}>Status</InputLabel>
-              <Select
-                value={newStatus}
-                label="Status"
-                onChange={(e) => setNewStatus(e.target.value)}
-                MenuProps={{
-                  sx: { zIndex: 1500 }
-                }}
+            </DialogTitle>
+            <DialogContent sx={{ pt: 3 }}>
+              <FormControl fullWidth>
+                <InputLabel sx={{
+                  '&.Mui-focused': { color: '#3b82f6' }
+                }}>Status</InputLabel>
+                <Select
+                  value={newStatus}
+                  label="Status"
+                  onChange={(e) => setNewStatus(e.target.value)}
+                  MenuProps={{
+                    sx: { zIndex: 1500 }
+                  }}
+                  sx={{
+                    borderRadius: '12px',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#d1d5db'
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#3b82f6'
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#3b82f6',
+                      borderWidth: '2px'
+                    }
+                  }}
+                >
+                  <MenuItem value="scheduled">Scheduled</MenuItem>
+                  <MenuItem value="active">Active</MenuItem>
+                  <MenuItem value="cancelled">Cancelled</MenuItem>
+                  <MenuItem value="completed">Completed</MenuItem>
+                </Select>
+              </FormControl>
+            </DialogContent>
+            <DialogActions sx={{ p: 3, pt: 1, gap: 1 }}>
+              <Button
+                onClick={() => setStatusClass(null)}
                 sx={{
-                  borderRadius: '12px',
-                  '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#d1d5db'
-                  },
-                  '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#3b82f6'
-                  },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#3b82f6',
-                    borderWidth: '2px'
-                  }
+                  borderRadius: '8px',
+                  textTransform: 'none',
+                  fontWeight: 500
                 }}
               >
-                <MenuItem value="scheduled">Scheduled</MenuItem>
-                <MenuItem value="active">Active</MenuItem>
-                <MenuItem value="cancelled">Cancelled</MenuItem>
-                <MenuItem value="completed">Completed</MenuItem>
-              </Select>
-            </FormControl>
-          </DialogContent>
-          <DialogActions sx={{ p: 3, pt: 1, gap: 1 }}>
-            <Button
-              onClick={() => setStatusClass(null)}
-              sx={{
-                borderRadius: '8px',
-                textTransform: 'none',
-                fontWeight: 500
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleStatusSave}
-              variant="contained"
-              color="primary"
-              disabled={loading}
-              sx={{
-                borderRadius: '8px',
-                textTransform: 'none',
-                fontWeight: 500
-              }}
-            >
-              {loading ? <CircularProgress size={20} /> : 'Update Status'}
-            </Button>
-          </DialogActions>
-        </Dialog>
-      )}
+                Cancel
+              </Button>
+              <Button
+                onClick={handleStatusSave}
+                variant="contained"
+                color="primary"
+                disabled={loading}
+                sx={{
+                  borderRadius: '8px',
+                  textTransform: 'none',
+                  fontWeight: 500
+                }}
+              >
+                {loading ? <CircularProgress size={20} /> : 'Update Status'}
+              </Button>
+            </DialogActions>
+          </Dialog>
+        )
+      }
 
       {/* Modern All Enrollments Dialog */}
-      {allEnrollmentsClass && (
-        <Dialog
-          open={!!allEnrollmentsClass}
-          onClose={() => setAllEnrollmentsClass(null)}
-          maxWidth="lg"
-          fullWidth
-          sx={{
-            zIndex: 1450,
-            '& .MuiDialog-paper': {
-              borderRadius: '16px',
-              maxHeight: '90vh',
-              margin: '20px'
-            }
-          }}
-        >
-          <DialogTitle sx={{
-            pb: 2,
-            borderBottom: '1px solid #e5e7eb'
-          }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Box sx={{
-                width: 40,
-                height: 40,
-                borderRadius: '10px',
-                bgcolor: '#3b82f6',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <PeopleIcon sx={{ color: 'white', fontSize: 20 }} />
-              </Box>
-              <Box>
-                <Typography variant="h6" sx={{ fontWeight: 600, color: '#111827' }}>
-                  Class Enrollments
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {allEnrollmentsClass.title}
-                </Typography>
-              </Box>
-            </Box>
-          </DialogTitle>
-          <DialogContent sx={{ pt: 3 }}>
-            {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-                <CircularProgress size={40} />
-              </Box>
-            ) : (
-              <Box>
-                {/* Active Enrollments */}
-                <Box sx={{ mb: 4 }}>
-                  <Typography variant="h6" sx={{
-                    mb: 2,
-                    color: '#3b82f6',
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1
-                  }}>
-                    <CheckCircle sx={{ fontSize: 20 }} />
-                    Active Enrollments ({allEnrollmentsClass.enrollments?.active?.length || 0})
-                  </Typography>
-                  {allEnrollmentsClass.enrollments?.active?.length > 0 ? (
-                    <Box sx={{
-                      display: 'grid',
-                      gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
-                      gap: 2
-                    }}>
-                      {allEnrollmentsClass.enrollments.active.map((enrollment) => (
-                        <Paper key={enrollment.enrollment_id} sx={{
-                          p: 3,
-                          borderRadius: '12px',
-                          border: '1px solid #e5e7eb',
-                          transition: 'all 0.2s ease-in-out',
-                          '&:hover': {
-                            boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.1)',
-                            borderColor: '#3b82f6'
-                          }
-                        }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                            <Box sx={{
-                              width: 40,
-                              height: 40,
-                              borderRadius: '10px',
-                              bgcolor: '#10b981',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
-                            }}>
-                              <PersonIcon sx={{ color: 'white', fontSize: 20 }} />
-                            </Box>
-                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Typography variant="subtitle1" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {enrollment.name}
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                                {enrollment.email}
-                              </Typography>
-                            </Box>
-                          </Box>
-                          <Box sx={{ mb: 2 }}>
-                            <Chip
-                              label={enrollment.enrollment_status}
-                              color={enrollment.enrollment_status === 'approved' ? 'success' : 'warning'}
-                              size="small"
-                              sx={{ fontSize: '0.75rem' }}
-                            />
-                          </Box>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                              Session: {enrollment.session_date ? new Date(enrollment.session_date).toLocaleDateString() : 'N/A'}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                              Enrolled: {new Date(enrollment.enrolled_at).toLocaleDateString()}
-                            </Typography>
-                          </Box>
-                        </Paper>
-                      ))}
-                    </Box>
-                  ) : (
-                    <Paper sx={{ p: 4, textAlign: 'center', borderRadius: '12px' }}>
-                      <PeopleIcon sx={{ fontSize: 48, color: '#9ca3af', mb: 2 }} />
-                      <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-                        No active enrollments
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Students haven't enrolled in this class yet
-                      </Typography>
-                    </Paper>
-                  )}
+      {
+        allEnrollmentsClass && (
+          <Dialog
+            open={!!allEnrollmentsClass}
+            onClose={() => setAllEnrollmentsClass(null)}
+            maxWidth="lg"
+            fullWidth
+            sx={{
+              zIndex: 1450,
+              '& .MuiDialog-paper': {
+                borderRadius: '16px',
+                maxHeight: '90vh',
+                margin: '20px'
+              }
+            }}
+          >
+            <DialogTitle sx={{
+              pb: 2,
+              borderBottom: '1px solid #e5e7eb'
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '10px',
+                  bgcolor: '#3b82f6',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <PeopleIcon sx={{ color: 'white', fontSize: 20 }} />
                 </Box>
-
-                {/* Historical Enrollments */}
                 <Box>
-                  <Typography variant="h6" sx={{
-                    mb: 2,
-                    color: '#6b7280',
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1
-                  }}>
-                    <HistoryIcon sx={{ fontSize: 20 }} />
-                    Historical Enrollments ({allEnrollmentsClass.enrollments?.historical?.length || 0})
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#111827' }}>
+                    Class Enrollments
                   </Typography>
-                  {allEnrollmentsClass.enrollments?.historical?.length > 0 ? (
-                    <Box sx={{
-                      display: 'grid',
-                      gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
-                      gap: 2
-                    }}>
-                      {allEnrollmentsClass.enrollments.historical.map((enrollment) => (
-                        <Paper key={enrollment.enrollment_id} sx={{
-                          p: 3,
-                          borderRadius: '12px',
-                          border: '1px solid #e5e7eb',
-                          transition: 'all 0.2s ease-in-out',
-                          '&:hover': {
-                            boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.1)',
-                            borderColor: '#6b7280'
-                          }
-                        }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                            <Box sx={{
-                              width: 40,
-                              height: 40,
-                              borderRadius: '10px',
-                              bgcolor: '#6b7280',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
-                            }}>
-                              <PersonIcon sx={{ color: 'white', fontSize: 20 }} />
-                            </Box>
-                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Typography variant="subtitle1" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {enrollment.name}
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                                {enrollment.email}
-                              </Typography>
-                            </Box>
-                          </Box>
-                          <Box sx={{ mb: 2 }}>
-                            <Chip
-                              label={enrollment.enrollment_status}
-                              color={enrollment.enrollment_status === 'approved' ? 'success' : 'warning'}
-                              size="small"
-                              sx={{ fontSize: '0.75rem' }}
-                            />
-                          </Box>
-                          <Box sx={{ mb: 1 }}>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                              Session: {enrollment.session_date ? new Date(enrollment.session_date).toLocaleDateString() : 'N/A'}
-                            </Typography>
-                          </Box>
-                          <Box sx={{ mb: 1 }}>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                              Completed: {enrollment.completed_at ? new Date(enrollment.completed_at).toLocaleDateString() :
-                                enrollment.archived_at ? new Date(enrollment.archived_at).toLocaleDateString() : 'N/A'}
-                            </Typography>
-                          </Box>
-                          {enrollment.completion_reason || enrollment.archived_reason ? (
-                            <Tooltip title={enrollment.completion_reason || enrollment.archived_reason}>
-                              <Typography variant="body2" color="text.secondary" sx={{
-                                fontSize: '0.75rem',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
-                              }}>
-                                Reason: {(enrollment.completion_reason || enrollment.archived_reason).substring(0, 30)}...
-                              </Typography>
-                            </Tooltip>
-                          ) : null}
-                        </Paper>
-                      ))}
-                    </Box>
-                  ) : (
-                    <Paper sx={{ p: 4, textAlign: 'center', borderRadius: '12px' }}>
-                      <HistoryIcon sx={{ fontSize: 48, color: '#9ca3af', mb: 2 }} />
-                      <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-                        No historical enrollments
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        No completed or archived enrollments for this class
-                      </Typography>
-                    </Paper>
-                  )}
+                  <Typography variant="body2" color="text.secondary">
+                    {allEnrollmentsClass.title}
+                  </Typography>
                 </Box>
               </Box>
-            )}
-          </DialogContent>
-          <DialogActions sx={{ p: 3, pt: 1 }}>
-            <Button
-              onClick={() => setAllEnrollmentsClass(null)}
-              sx={{
-                borderRadius: '8px',
-                textTransform: 'none',
-                fontWeight: 500
-              }}
-            >
-              Close
-            </Button>
-          </DialogActions>
-        </Dialog>
-      )}
-    </Box>
+            </DialogTitle>
+            <DialogContent sx={{ pt: 3 }}>
+              {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+                  <CircularProgress size={40} />
+                </Box>
+              ) : (
+                <Box>
+                  {/* Active Enrollments */}
+                  <Box sx={{ mb: 4 }}>
+                    <Typography variant="h6" sx={{
+                      mb: 2,
+                      color: '#3b82f6',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
+                    }}>
+                      <CheckCircle sx={{ fontSize: 20 }} />
+                      Active Enrollments ({allEnrollmentsClass.enrollments?.active?.length || 0})
+                    </Typography>
+                    {allEnrollmentsClass.enrollments?.active?.length > 0 ? (
+                      <Box sx={{
+                        display: 'grid',
+                        gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
+                        gap: 2
+                      }}>
+                        {allEnrollmentsClass.enrollments.active.map((enrollment) => (
+                          <Paper key={enrollment.enrollment_id} sx={{
+                            p: 3,
+                            borderRadius: '12px',
+                            border: '1px solid #e5e7eb',
+                            transition: 'all 0.2s ease-in-out',
+                            '&:hover': {
+                              boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.1)',
+                              borderColor: '#3b82f6'
+                            }
+                          }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                              <Box sx={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: '10px',
+                                bgcolor: '#10b981',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}>
+                                <PersonIcon sx={{ color: 'white', fontSize: 20 }} />
+                              </Box>
+                              <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {enrollment.name}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                                  {enrollment.email}
+                                </Typography>
+                              </Box>
+                            </Box>
+                            <Box sx={{ mb: 2 }}>
+                              <Chip
+                                label={enrollment.enrollment_status}
+                                color={enrollment.enrollment_status === 'approved' ? 'success' : 'warning'}
+                                size="small"
+                                sx={{ fontSize: '0.75rem' }}
+                              />
+                            </Box>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                                Session: {enrollment.session_date ? new Date(enrollment.session_date).toLocaleDateString() : 'N/A'}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                                Enrolled: {new Date(enrollment.enrolled_at).toLocaleDateString()}
+                              </Typography>
+                            </Box>
+                          </Paper>
+                        ))}
+                      </Box>
+                    ) : (
+                      <Paper sx={{ p: 4, textAlign: 'center', borderRadius: '12px' }}>
+                        <PeopleIcon sx={{ fontSize: 48, color: '#9ca3af', mb: 2 }} />
+                        <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                          No active enrollments
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Students haven't enrolled in this class yet
+                        </Typography>
+                      </Paper>
+                    )}
+                  </Box>
+
+                  {/* Historical Enrollments */}
+                  <Box>
+                    <Typography variant="h6" sx={{
+                      mb: 2,
+                      color: '#6b7280',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
+                    }}>
+                      <HistoryIcon sx={{ fontSize: 20 }} />
+                      Historical Enrollments ({allEnrollmentsClass.enrollments?.historical?.length || 0})
+                    </Typography>
+                    {allEnrollmentsClass.enrollments?.historical?.length > 0 ? (
+                      <Box sx={{
+                        display: 'grid',
+                        gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
+                        gap: 2
+                      }}>
+                        {allEnrollmentsClass.enrollments.historical.map((enrollment) => (
+                          <Paper key={enrollment.enrollment_id} sx={{
+                            p: 3,
+                            borderRadius: '12px',
+                            border: '1px solid #e5e7eb',
+                            transition: 'all 0.2s ease-in-out',
+                            '&:hover': {
+                              boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.1)',
+                              borderColor: '#6b7280'
+                            }
+                          }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                              <Box sx={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: '10px',
+                                bgcolor: '#6b7280',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}>
+                                <PersonIcon sx={{ color: 'white', fontSize: 20 }} />
+                              </Box>
+                              <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {enrollment.name}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                                  {enrollment.email}
+                                </Typography>
+                              </Box>
+                            </Box>
+                            <Box sx={{ mb: 2 }}>
+                              <Chip
+                                label={enrollment.enrollment_status}
+                                color={enrollment.enrollment_status === 'approved' ? 'success' : 'warning'}
+                                size="small"
+                                sx={{ fontSize: '0.75rem' }}
+                              />
+                            </Box>
+                            <Box sx={{ mb: 1 }}>
+                              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                                Session: {enrollment.session_date ? new Date(enrollment.session_date).toLocaleDateString() : 'N/A'}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ mb: 1 }}>
+                              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                                Completed: {enrollment.completed_at ? new Date(enrollment.completed_at).toLocaleDateString() :
+                                  enrollment.archived_at ? new Date(enrollment.archived_at).toLocaleDateString() : 'N/A'}
+                              </Typography>
+                            </Box>
+                            {enrollment.completion_reason || enrollment.archived_reason ? (
+                              <Tooltip title={enrollment.completion_reason || enrollment.archived_reason}>
+                                <Typography variant="body2" color="text.secondary" sx={{
+                                  fontSize: '0.75rem',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  Reason: {(enrollment.completion_reason || enrollment.archived_reason).substring(0, 30)}...
+                                </Typography>
+                              </Tooltip>
+                            ) : null}
+                          </Paper>
+                        ))}
+                      </Box>
+                    ) : (
+                      <Paper sx={{ p: 4, textAlign: 'center', borderRadius: '12px' }}>
+                        <HistoryIcon sx={{ fontSize: 48, color: '#9ca3af', mb: 2 }} />
+                        <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                          No historical enrollments
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          No completed or archived enrollments for this class
+                        </Typography>
+                      </Paper>
+                    )}
+                  </Box>
+                </Box>
+              )}
+            </DialogContent>
+            <DialogActions sx={{ p: 3, pt: 1 }}>
+              <Button
+                onClick={() => setAllEnrollmentsClass(null)}
+                sx={{
+                  borderRadius: '8px',
+                  textTransform: 'none',
+                  fontWeight: 500
+                }}
+              >
+                Close
+              </Button>
+            </DialogActions>
+          </Dialog>
+        )
+      }
+    </Box >
   );
 };
 
