@@ -157,7 +157,7 @@ function ClassManagement() {
     title: "",
     instructor_id: "",
     description: "",
-    dates: [{ date: "", end_date: "", start_time: "", end_time: "", location: "", capacity: "", duration: "" }],
+    dates: [{ date: "", end_date: "", start_time: "", end_time: "", location: "", capacity: "", duration: "", eip_url: "" }],
     price: "",
   });
   const [sessionsClass, setSessionsClass] = useState(null);
@@ -212,7 +212,7 @@ function ClassManagement() {
       title: "",
       instructor_id: "",
       description: "",
-      dates: [{ date: "", end_date: "", start_time: "", end_time: "", location: "", location_type: "in-person", capacity: "", duration: "" }],
+      dates: [{ date: "", end_date: "", start_time: "", end_time: "", location: "", location_type: "in-person", capacity: "", duration: "", eip_url: "" }],
       price: "",
     });
     setShowModal(true);
@@ -232,7 +232,7 @@ function ClassManagement() {
       }
 
       // Initialize with empty dates array if no sessions exist
-      let formattedDates = [{ date: "", end_date: "", start_time: "", end_time: "", location: "", location_type: "", capacity: "", instructor_id: "", duration: "" }];
+      let formattedDates = [{ date: "", end_date: "", start_time: "", end_time: "", location: "", location_type: "", capacity: "", instructor_id: "", duration: "", eip_url: "" }];
 
       // Only try to format dates if sessions exist and are in the expected format
       if (Array.isArray(classDetails.sessions) && classDetails.sessions.length > 0) {
@@ -248,7 +248,8 @@ function ClassManagement() {
             location_type: session.location_type || "in-person",
             capacity: session.capacity || "",
             instructor_id: session.instructor_id || "",
-            duration: session.duration || ""
+            duration: session.duration || "",
+            eip_url: session.eip_url || ""
           };
         });
       }
@@ -987,6 +988,14 @@ function ClassManagement() {
                         placeholder="e.g., 4 weeks, 3 months, 1 day"
                         fullWidth
                         helperText="Enter the duration of this session (optional)"
+                      />
+                      <TextField
+                        label="EIP URL"
+                        value={date.eip_url || ""}
+                        onChange={(e) => handleDateChange(index, 'eip_url', e.target.value)}
+                        placeholder="https://www.ecetp.pdp.albany.edu"
+                        fullWidth
+                        helperText="EIP (Educational Incentive Program) URL for this session. Used in enrollment emails when payment method is EIP. (optional)"
                       />
                       <FormControl fullWidth required>
                         <InputLabel>Instructor</InputLabel>

@@ -348,15 +348,6 @@ const emailService = {
             </a>
           </div>
           
-          <div style="margin: 30px 0;">
-            <p style="color: #000000; line-height: 1.6; margin-bottom: 10px;">
-              Can't click the link? Copy and paste this URL into your browser:
-            </p>
-            <p style="color: #666666; word-break: break-all; font-size: 14px; margin: 0;">
-              ${resetLink}
-            </p>
-          </div>
-          
           <div style="border-top: 1px solid #cccccc; padding-top: 20px; margin-top: 40px;">
             <p style="color: #666666; font-size: 14px; margin-bottom: 10px;">
               <strong>Need Help?</strong> If you're having trouble, contact our support team.
@@ -597,7 +588,7 @@ const emailService = {
         <div style="margin: 30px 0;">
           <h2 style="color: #000000; font-size: 18px; font-weight: 600; margin-bottom: 15px;">What Happens Next?</h2>
           <ul style="color: #000000; line-height: 1.8; padding-left: 20px; margin: 0;">
-            ${paymentMethod === 'EIP' ? '<li>Please apply for scholarship through EIP (Educational Incentive Program) to complete your enrollment <a href="https://www.ecetp.pdp.albany.edu" style="color: #ff0000; text-decoration: underline;">(Click here)</a></li>' : ''}
+            ${paymentMethod === 'EIP' ? `<li>Please apply for scholarship through EIP (Educational Incentive Program) to complete your enrollment <a href="${sessionDetails.eip_url || 'https://www.ecetp.pdp.albany.edu'}" style="color: #ff0000; text-decoration: underline;">(Click here)</a></li>` : ''}
             <li>Our team will review your enrollment request</li>
             <li>You'll receive an email notification once your enrollment is approved or rejected</li>
             <li>If approved, you'll get confirmation details and next steps</li>

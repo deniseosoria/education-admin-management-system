@@ -146,7 +146,8 @@ const enrollInClass = async (req, res) => {
       {
         session_date: session.rows[0].session_date,
         start_time: session.rows[0].start_time,
-        end_time: session.rows[0].end_time
+        end_time: session.rows[0].end_time,
+        eip_url: session.rows[0].eip_url
       },
       paymentMethod
     ).then(() => {
@@ -468,18 +469,20 @@ const getWaitlistStatus = async (req, res) => {
 // @route   GET /api/enrollments/preview-email
 // @access  Admin
 const previewEnrollmentEmail = async (req, res) => {
-  const { userEmail, userName, className, classDetails, sessionDetails } = req.query;
+  const { userEmail, userName, className, classDetails, sessionDetails, paymentMethod } = req.query;
 
   // Use default values if not provided
   const defaultUserName = userName || 'John Doe';
   const defaultClassName = className || 'Sample Class';
+  const defaultPaymentMethod = paymentMethod || null;
   const defaultClassDetails = {
     location_details: classDetails?.location_details || '123 Main St, New York, NY 10001'
   };
   const defaultSessionDetails = {
     session_date: sessionDetails?.session_date || new Date().toISOString(),
     start_time: sessionDetails?.start_time || '10:00:00',
-    end_time: sessionDetails?.end_time || '12:00:00'
+    end_time: sessionDetails?.end_time || '12:00:00',
+    eip_url: sessionDetails?.eip_url || null
   };
 
   try {
@@ -520,6 +523,7 @@ const previewEnrollmentEmail = async (req, res) => {
         <div style="margin: 30px 0;">
           <h2 style="color: #000000; font-size: 18px; font-weight: 600; margin-bottom: 15px;">What Happens Next?</h2>
           <ul style="color: #000000; line-height: 1.8; padding-left: 20px; margin: 0;">
+            ${defaultPaymentMethod === 'EIP' ? `<li>Please apply for scholarship through EIP (Educational Incentive Program) to complete your enrollment <a href="${defaultSessionDetails.eip_url || 'https://www.ecetp.pdp.albany.edu'}" style="color: #ff0000; text-decoration: underline;">(Click here)</a></li>` : ''}
             <li>Our team will review your enrollment request</li>
             <li>You'll receive an email notification once your enrollment is approved or rejected</li>
             <li>If approved, you'll get confirmation details and next steps</li>

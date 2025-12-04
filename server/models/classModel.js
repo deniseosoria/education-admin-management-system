@@ -699,8 +699,8 @@ const createClassWithSessions = async (classData) => {
         await client.query(
           `INSERT INTO class_sessions (
             class_id, session_date, end_date, start_time, end_time, 
-            capacity, instructor_id, status, location_type, location_details
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+            capacity, instructor_id, status, location_type, location_details, eip_url
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
           [
             newClass.id,
             dateData.date,
@@ -711,7 +711,8 @@ const createClassWithSessions = async (classData) => {
             dateData.instructor_id,
             'scheduled',
             dateData.location_type || 'in-person',
-            dateData.location
+            dateData.location,
+            dateData.eip_url || null
           ]
         );
       }
@@ -877,8 +878,8 @@ const updateClassWithSessions = async (classId, classData) => {
             const updateResult = await client.query(
               `UPDATE class_sessions 
                SET session_date = $1, end_date = $2, start_time = $3, end_time = $4, 
-                   capacity = $5, instructor_id = $6, location_type = $7, location_details = $8, duration = $9, updated_at = CURRENT_TIMESTAMP
-               WHERE id = $10 AND class_id = $11 AND deleted_at IS NULL
+                   capacity = $5, instructor_id = $6, location_type = $7, location_details = $8, duration = $9, eip_url = $10, updated_at = CURRENT_TIMESTAMP
+               WHERE id = $11 AND class_id = $12 AND deleted_at IS NULL
                RETURNING id`,
               [
                 dateData.date,
@@ -890,6 +891,7 @@ const updateClassWithSessions = async (classId, classData) => {
                 locationType,
                 dateData.location || null,
                 (dateData.duration && typeof dateData.duration === 'string' && dateData.duration.trim() !== '') ? dateData.duration.trim() : null,
+                dateData.eip_url || null,
                 parseInt(dateData.id, 10),
                 classId
               ]
@@ -907,8 +909,8 @@ const updateClassWithSessions = async (classId, classData) => {
             const insertResult = await client.query(
               `INSERT INTO class_sessions (
                 class_id, session_date, end_date, start_time, end_time, 
-                capacity, instructor_id, status, location_type, location_details, duration
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                capacity, instructor_id, status, location_type, location_details, duration, eip_url
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
               RETURNING id`,
               [
                 classId,
@@ -921,7 +923,8 @@ const updateClassWithSessions = async (classId, classData) => {
                 'scheduled',
                 locationType,
                 dateData.location || null,
-                (dateData.duration && typeof dateData.duration === 'string' && dateData.duration.trim() !== '') ? dateData.duration.trim() : null
+                (dateData.duration && typeof dateData.duration === 'string' && dateData.duration.trim() !== '') ? dateData.duration.trim() : null,
+                dateData.eip_url || null
               ]
             );
 

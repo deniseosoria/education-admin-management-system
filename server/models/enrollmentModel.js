@@ -308,6 +308,7 @@ const getUserEnrollments = async (userId) => {
         class_sessions.end_date,
         class_sessions.capacity,
         class_sessions.enrolled_count as current_students,
+        class_sessions.eip_url,
         classes.location_details,
         CASE 
           WHEN (class_sessions.end_date IS NOT NULL AND class_sessions.end_date < NOW())
