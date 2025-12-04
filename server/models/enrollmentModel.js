@@ -1,17 +1,17 @@
 const pool = require('../config/db');
 
 // Enroll a user in a class (now creates a pending enrollment)
-const enrollUserInClass = async (userId, classId, sessionId, paymentStatus = 'paid') => {
+const enrollUserInClass = async (userId, classId, sessionId, paymentStatus = 'paid', paymentMethod = null) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
     // Create the enrollment
     const result = await client.query(
-      `INSERT INTO enrollments (user_id, class_id, session_id, payment_status, enrollment_status)
-       VALUES ($1, $2, $3, $4, 'pending')
+      `INSERT INTO enrollments (user_id, class_id, session_id, payment_status, enrollment_status, payment_method)
+       VALUES ($1, $2, $3, $4, 'pending', $5)
        RETURNING *`,
-      [userId, classId, sessionId, paymentStatus]
+      [userId, classId, sessionId, paymentStatus, paymentMethod]
     );
 
     // Update the session enrollment count
@@ -294,6 +294,7 @@ const cancelEnrollment = async (userId, classId) => {
 const getUserEnrollments = async (userId) => {
   const client = await pool.connect();
   try {
+    console.log('getUserEnrollments called for user:', userId);
     // Get active enrollments
     const activeResult = await client.query(
       `SELECT 
@@ -315,6 +316,7 @@ const getUserEnrollments = async (userId) => {
           ELSE 'active'
         END AS enrollment_type,
         enrollments.payment_status, 
+        enrollments.payment_method,
         enrollments.enrollment_status,
         enrollments.enrolled_at,
         enrollments.admin_notes,
@@ -335,7 +337,7 @@ const getUserEnrollments = async (userId) => {
        LEFT JOIN users ON users.id = enrollments.reviewed_by
        LEFT JOIN users instructor ON instructor.id = class_sessions.instructor_id
        WHERE enrollments.user_id = $1
-       ORDER BY class_sessions.session_date ASC, class_sessions.start_time ASC`,
+       ORDER BY COALESCE(class_sessions.session_date, '1900-01-01'::date) ASC, COALESCE(class_sessions.start_time, '00:00:00'::time) ASC`,
       [userId]
     );
 
@@ -355,6 +357,7 @@ const getUserEnrollments = async (userId) => {
         c.location_details,
         'historical' as enrollment_type,
         he.payment_status, 
+        he.payment_method,
         he.enrollment_status,
         he.enrolled_at,
         he.admin_notes,
@@ -376,6 +379,7 @@ const getUserEnrollments = async (userId) => {
            he.session_id,
            he.historical_session_id,
            he.payment_status, 
+           he.payment_method,
            he.enrollment_status,
            he.enrolled_at,
            he.admin_notes,
@@ -413,6 +417,15 @@ const getUserEnrollments = async (userId) => {
     });
 
     return allEnrollments;
+  } catch (error) {
+    console.error('Error in getUserEnrollments:', error);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint
+    });
+    throw error;
   } finally {
     client.release();
   }
@@ -432,6 +445,7 @@ const getHistoricalEnrollmentsByUserId = async (userId) => {
       hs.end_date,
       'historical' as enrollment_type,
       he.payment_status, 
+      he.payment_method,
       he.enrollment_status,
       he.enrolled_at,
       he.admin_notes,

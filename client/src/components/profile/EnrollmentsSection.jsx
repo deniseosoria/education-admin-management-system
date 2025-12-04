@@ -27,7 +27,8 @@ import {
     Group as GroupIcon,
     History as HistoryIcon,
     School as SchoolIcon,
-    Refresh as RefreshIcon
+    Refresh as RefreshIcon,
+    Payment as PaymentIcon
 } from '@mui/icons-material';
 import './EnrollmentsSection.css';
 
@@ -100,9 +101,16 @@ const EnrollmentsSection = ({ enrollments, historicalEnrollments, loading = fals
         return Math.min((current / total) * 100, 100);
     };
 
-    const renderEnrollmentCard = (enrollment, isHistorical = false) => (
+    const renderEnrollmentCard = (enrollment, isHistorical = false, index = 0) => {
+        // Generate unique key using multiple identifiers
+        const uniqueKey = enrollment.enrollment_id 
+            || enrollment.historical_enrollment_id 
+            || enrollment.id
+            || `enrollment-${enrollment.class_id || 'unknown'}-${enrollment.session_id || 'nosession'}-${enrollment.enrolled_at || index}-${isHistorical ? 'historical' : 'active'}`;
+        
+        return (
         <Box
-            key={enrollment.enrollment_id || enrollment.historical_enrollment_id || `enrollment-${enrollment.class_name || enrollment.class_title}-${isHistorical ? 'historical' : 'active'}`}
+            key={uniqueKey}
             sx={{
                 background: 'white',
                 borderRadius: '16px',
@@ -304,6 +312,33 @@ const EnrollmentsSection = ({ enrollments, historicalEnrollments, loading = fals
                         </Box>
                     </Box>
 
+                    {enrollment.payment_method && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, md: 2 } }}>
+                            <Box
+                                sx={{
+                                    width: { xs: 28, md: 32 },
+                                    height: { xs: 28, md: 32 },
+                                    borderRadius: '8px',
+                                    backgroundColor: '#f0fdf4',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0
+                                }}
+                            >
+                                <PaymentIcon sx={{ fontSize: { xs: 14, md: 16 }, color: '#22c55e' }} />
+                            </Box>
+                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                                <Typography variant="body2" sx={{ color: '#6b7280', fontSize: { xs: '0.7rem', md: '0.75rem' }, fontWeight: 500, mb: 0.5 }}>
+                                    Payment
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: '#111827', fontWeight: 500, fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
+                                    Payment: {enrollment.payment_method}
+                                </Typography>
+                            </Box>
+                        </Box>
+                    )}
+
                     {!isHistorical && (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, md: 2 } }}>
                             <Box
@@ -367,7 +402,8 @@ const EnrollmentsSection = ({ enrollments, historicalEnrollments, loading = fals
                 )}
             </Box>
         </Box>
-    );
+        );
+    };
 
     const hasActiveEnrollments = enrollments && enrollments.length > 0;
     const hasHistoricalEnrollments = historicalEnrollments && historicalEnrollments.length > 0;
@@ -585,7 +621,7 @@ const EnrollmentsSection = ({ enrollments, historicalEnrollments, loading = fals
                         </Box>
                     ) : (
                         <Box>
-                            {(enrollments || []).map((enrollment, index) => renderEnrollmentCard(enrollment, false))}
+                            {(enrollments || []).map((enrollment, index) => renderEnrollmentCard(enrollment, false, index))}
                         </Box>
                     )}
                 </>
@@ -645,7 +681,7 @@ const EnrollmentsSection = ({ enrollments, historicalEnrollments, loading = fals
                         </Box>
                     ) : (
                         <Box>
-                            {(historicalEnrollments || []).map((enrollment, index) => renderEnrollmentCard(enrollment, true))}
+                            {(historicalEnrollments || []).map((enrollment, index) => renderEnrollmentCard(enrollment, true, index))}
                         </Box>
                     )}
                 </>

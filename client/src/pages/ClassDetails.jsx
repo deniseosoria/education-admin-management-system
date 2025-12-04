@@ -6,6 +6,7 @@ import classService from '../services/classService';
 import enrollmentService from '../services/enrollmentService';
 import { useNotifications } from '../utils/notificationUtils';
 import { format, parseISO, addDays, addWeeks, addMonths } from 'date-fns';
+import EnrollmentFormModal from '../components/enrollment/EnrollmentFormModal';
 
 // Helper function to format date
 const formatDate = (date) => {
@@ -84,6 +85,8 @@ function ClassDetails() {
     const [waitlistLoading, setWaitlistLoading] = useState(false);
     const [userEnrollments, setUserEnrollments] = useState([]);
     const [userWaitlist, setUserWaitlist] = useState({});
+    const [enrollmentModalOpen, setEnrollmentModalOpen] = useState(false);
+    const [selectedSessionId, setSelectedSessionId] = useState(null);
     const isAdminOrInstructor = user && (user.role === 'admin' || user.role === 'instructor');
 
     // Memoize the class data fetching effect
@@ -147,7 +150,7 @@ function ClassDetails() {
         fetchClassDetails();
     }, [id, user, initialized]);
 
-    const handleEnroll = async (sessionId) => {
+    const handleEnroll = (sessionId) => {
         if (!user) {
             navigate('/login', { state: { from: `/classes/${id}` } });
             return;
@@ -156,17 +159,25 @@ function ClassDetails() {
             setRoleEnrollError('Admins and Instructors cannot enroll in classes.');
             return;
         }
+        // Open enrollment modal
+        setSelectedSessionId(sessionId);
+        setEnrollmentModalOpen(true);
+    };
+
+    const handleEnrollSubmit = async (sessionId, paymentMethod) => {
         setEnrollLoading(true);
         // Clear any previous messages for this session
         setSessionMessages(prev => ({ ...prev, [sessionId]: { success: '', error: '' } }));
         try {
             console.log('Starting enrollment process...'); // Add debugging
-            await enrollmentService.enrollInClass(id, { sessionId });
+            await enrollmentService.enrollInClass(id, { sessionId, paymentMethod });
             console.log('Enrollment successful, updating state...'); // Add debugging
             setIsEnrolled(true);
             console.log('Setting success message...'); // Add debugging
             setSessionMessages(prev => ({ ...prev, [sessionId]: { success: 'Successfully enrolled in class', error: '' } }));
             console.log('Success message set'); // Add debugging
+            setEnrollmentModalOpen(false);
+            setSelectedSessionId(null);
         } catch (err) {
             setSessionMessages(prev => ({ ...prev, [sessionId]: { success: '', error: err.message || 'Enrollment operation failed' } }));
             // Don't call showError() to prevent notification blocking navigation
@@ -174,6 +185,11 @@ function ClassDetails() {
         } finally {
             setEnrollLoading(false);
         }
+    };
+
+    const handleCloseEnrollmentModal = () => {
+        setEnrollmentModalOpen(false);
+        setSelectedSessionId(null);
     };
 
     const handleWaitlistAction = async (sessionId) => {
@@ -515,6 +531,15 @@ function ClassDetails() {
                     </button>
                 </div>
             )}
+
+            {/* Enrollment Form Modal */}
+            <EnrollmentFormModal
+                open={enrollmentModalOpen}
+                onClose={handleCloseEnrollmentModal}
+                onEnroll={handleEnrollSubmit}
+                sessionId={selectedSessionId}
+                loading={enrollLoading}
+            />
 
             <Footer />
         </div>

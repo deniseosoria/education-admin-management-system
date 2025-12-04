@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+// Note: Cloudinary upload is deprecated - all certificate uploads should use Supabase
+// Keeping this import for backward compatibility only
 const { upload } = require('../config/cloudinary');
 const {
     generateCertificate,
@@ -26,14 +28,15 @@ router.delete('/:id', requireAuth, requireAdmin, deleteCertificate);
 router.get('/completed-sessions/:classId', requireAuth, requireAdmin, getCompletedSessions);
 
 // Student certificate routes
-router.post('/upload/:studentId', 
-    requireAuth, 
-    requireAdmin, 
+// DEPRECATED: This route uses Cloudinary multer upload. Use /upload-metadata with Supabase instead.
+router.post('/upload/:studentId',
+    requireAuth,
+    requireAdmin,
     upload.single('certificate'), // 'certificate' is the field name in the form
     uploadStudentCertificate
 );
 
-// New route for Supabase uploads
+// Primary route for certificate uploads (uses Supabase storage)
 router.post('/upload-metadata', requireAuth, uploadCertificateMetadata);
 
 router.get('/view/:studentId', requireAuth, viewStudentCertificate);

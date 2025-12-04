@@ -12,7 +12,8 @@ const {
   setEnrollmentToPending,
   getWaitlistStatus,
   testEnrollmentEmail,
-  sendEnrollmentEmailForExisting
+  sendEnrollmentEmailForExisting,
+  previewEnrollmentEmail
 } = require('../controllers/enrollmentController');
 
 const { requireAuth, requireAdmin } = require('../middleware/auth');
@@ -21,6 +22,13 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 router.get('/test', (req, res) => {
   console.log('Test route hit!');
   res.json({ message: 'Enrollment router is working' });
+});
+
+// Preview route (no auth required - safe since it only renders HTML, doesn't send emails)
+// MUST be placed at the top to avoid route conflicts with parameterized routes
+router.get('/preview-email-dev', (req, res, next) => {
+  console.log('✅ Preview email dev route hit - no auth required');
+  previewEnrollmentEmail(req, res, next);
 });
 
 // Waitlist routes (must come FIRST to avoid conflicts with other routes)
@@ -60,7 +68,7 @@ router.post('/waitlist/:classId', requireAuth, async (req, res) => {
       classId,
       userId
     });
-    
+
     if (err.message === 'Waitlist is not enabled for this class') {
       return res.status(400).json({ error: err.message });
     }
@@ -112,12 +120,13 @@ router.get('/my', requireAuth, getMyEnrollments);
 // Admin routes
 router.get('/', requireAuth, requireAdmin, getAllEnrollmentsAdmin);
 router.get('/pending', requireAuth, requireAdmin, getPendingEnrollmentsList);
+router.get('/preview-email', requireAuth, requireAdmin, previewEnrollmentEmail);
+router.post('/test-email', requireAuth, requireAdmin, testEnrollmentEmail);
 router.get('/:id', requireAuth, requireAdmin, getEnrollmentDetails);
 router.post('/:id/approve', requireAuth, requireAdmin, approveEnrollmentRequest);
 router.post('/:id/reject', requireAuth, requireAdmin, rejectEnrollmentRequest);
 router.post('/:id/pending', requireAuth, requireAdmin, setEnrollmentToPending);
 router.post('/:id/send-email', requireAuth, requireAdmin, sendEnrollmentEmailForExisting);
-router.post('/test-email', requireAuth, requireAdmin, testEnrollmentEmail);
 
 console.log('Enrollment routes registered:', router.stack.map(r => r.route?.path).filter(Boolean));
 

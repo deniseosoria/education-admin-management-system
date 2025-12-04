@@ -317,8 +317,8 @@ const updateWaitlistStatus = async (waitlistId, status) => {
           console.log(`Creating ${status} enrollment for user ${waitlistEntry.user_id} in session ${targetSessionId}`);
           try {
             const enrollmentResult = await client.query(
-              `INSERT INTO enrollments (user_id, class_id, session_id, enrollment_status, payment_status, enrolled_at, admin_notes)
-               VALUES ($1, $2, $3, $4, 'pending', CURRENT_TIMESTAMP, $5)
+              `INSERT INTO enrollments (user_id, class_id, session_id, enrollment_status, payment_status, payment_method, enrolled_at, admin_notes)
+               VALUES ($1, $2, $3, $4, 'pending', NULL, CURRENT_TIMESTAMP, $5)
                RETURNING id`,
               [waitlistEntry.user_id, waitlistEntry.class_id, targetSessionId, status, `Converted from waitlist - ${status}`]
             );
@@ -556,9 +556,9 @@ const deleteClass = async (id) => {
         await client.query(
           `INSERT INTO historical_enrollments (
             original_enrollment_id, user_id, class_id, session_id, historical_session_id,
-            payment_status, enrollment_status, admin_notes, reviewed_at, reviewed_by, enrolled_at, archived_reason
+            payment_status, payment_method, enrollment_status, admin_notes, reviewed_at, reviewed_by, enrolled_at, archived_reason
           )
-          SELECT id, user_id, class_id, session_id, $1, payment_status, enrollment_status,
+          SELECT id, user_id, class_id, session_id, $1, payment_status, payment_method, enrollment_status,
                  admin_notes, reviewed_at, reviewed_by, enrolled_at, 'Class deleted by admin'
           FROM enrollments WHERE session_id = $2`,
           [historicalSessionId, session.id]
@@ -818,9 +818,9 @@ const updateClassWithSessions = async (classId, classData) => {
             await client.query(
               `INSERT INTO historical_enrollments (
                 original_enrollment_id, user_id, class_id, session_id, historical_session_id,
-                payment_status, enrollment_status, admin_notes, reviewed_at, reviewed_by, enrolled_at, archived_reason
+                payment_status, payment_method, enrollment_status, admin_notes, reviewed_at, reviewed_by, enrolled_at, archived_reason
               )
-              SELECT id, user_id, class_id, session_id, $1, payment_status, enrollment_status,
+              SELECT id, user_id, class_id, session_id, $1, payment_status, payment_method, enrollment_status,
                      admin_notes, reviewed_at, reviewed_by, enrolled_at, 'Session removed by admin'
               FROM enrollments WHERE session_id = $2`,
               [historicalSessionId, sessionId]
@@ -1151,9 +1151,9 @@ const archiveEndedSessionsAndEnrollments = async () => {
       await client.query(
         `INSERT INTO historical_enrollments (
           original_enrollment_id, user_id, class_id, session_id, historical_session_id,
-          payment_status, enrollment_status, admin_notes, reviewed_at, reviewed_by, enrolled_at, archived_reason
+          payment_status, payment_method, enrollment_status, admin_notes, reviewed_at, reviewed_by, enrolled_at, archived_reason
         )
-        SELECT id, user_id, class_id, session_id, $1, payment_status, enrollment_status,
+        SELECT id, user_id, class_id, session_id, $1, payment_status, payment_method, enrollment_status,
                admin_notes, reviewed_at, reviewed_by, enrolled_at, 'Session ended (auto-archived)'
         FROM enrollments WHERE session_id = $2`,
         [historicalSessionId, session.id]
@@ -1239,9 +1239,9 @@ const archiveSessionAndEnrollments = async (sessionId) => {
     await client.query(
       `INSERT INTO historical_enrollments (
         original_enrollment_id, user_id, class_id, session_id, historical_session_id,
-        payment_status, enrollment_status, admin_notes, reviewed_at, reviewed_by, enrolled_at, archived_reason
+        payment_status, payment_method, enrollment_status, admin_notes, reviewed_at, reviewed_by, enrolled_at, archived_reason
       )
-      SELECT id, user_id, class_id, session_id, $1, payment_status, enrollment_status,
+      SELECT id, user_id, class_id, session_id, $1, payment_status, payment_method, enrollment_status,
              admin_notes, reviewed_at, reviewed_by, enrolled_at, 'Session completed by admin'
       FROM enrollments WHERE session_id = $2`,
       [historicalSessionId, session.id]

@@ -23,6 +23,7 @@ const errorHandler = require('./middleware/errorHandler');
 const devLogger = require('./middleware/devLogger');
 const sessionRoutes = require('./routes/sessionRoutes');
 const contactRoutes = require('./routes/contactRoutes');
+const emailRoutes = require('./routes/emailRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -56,6 +57,7 @@ app.use('/api/admin/settings', settingsRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/emails', emailRoutes);
 app.use(devLogger);
 app.use(errorHandler); // place this last!
 
@@ -136,6 +138,7 @@ app.get('/keepalive', (req, res) => {
 
 // Import scheduled jobs
 const { scheduleReminderEmails } = require('./jobs/reminderEmailJob');
+const { scheduleCertificateExpirationEmails } = require('./jobs/certificateExpirationJob');
 
 // Only start the server if this file is run directly
 if (require.main === module) {
@@ -146,6 +149,7 @@ if (require.main === module) {
 
     // Start scheduled jobs
     scheduleReminderEmails();
+    scheduleCertificateExpirationEmails();
   });
 
   // Handle uncaught exceptions to prevent crashes

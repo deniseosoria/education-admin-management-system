@@ -20,7 +20,8 @@ import {
     Pagination,
     Chip,
     Avatar,
-    Tooltip
+    Tooltip,
+    Autocomplete
 } from '@mui/material';
 import {
     Search as SearchIcon,
@@ -720,40 +721,135 @@ const CertificateManagementPage = () => {
                         </Box>
                     </Box>
                 </DialogTitle>
-                <DialogContent sx={{ pt: 3 }}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                        <FormControl fullWidth>
-                            <InputLabel sx={{
-                                '&.Mui-focused': { color: '#3b82f6' }
-                            }}>Select Student</InputLabel>
-                            <Select
-                                value={selectedStudent}
-                                label="Select Student"
-                                onChange={(e) => setSelectedStudent(e.target.value)}
-                                MenuProps={{
-                                    sx: { zIndex: 1500 }
+                <DialogContent sx={{ pt: 4, pb: 2 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
+                        <Box sx={{ position: 'relative' }}>
+                            <Autocomplete
+                                value={students.find(s => s.id === selectedStudent) || null}
+                                onChange={(event, newValue) => {
+                                    setSelectedStudent(newValue ? newValue.id : '');
                                 }}
-                                sx={{
-                                    borderRadius: '12px',
-                                    '& .MuiOutlinedInput-notchedOutline': {
-                                        borderColor: '#d1d5db'
+                                options={Array.isArray(students) ? students : []}
+                                filterOptions={(options, { inputValue }) => {
+                                    if (!inputValue) return options;
+                                    return options.filter(option => {
+                                        const searchTerm = inputValue.toLowerCase();
+                                        const name = option.displayName?.toLowerCase() || '';
+                                        const email = option.email?.toLowerCase() || '';
+                                        const firstName = option.first_name?.toLowerCase() || '';
+                                        const lastName = option.last_name?.toLowerCase() || '';
+
+                                        return name.includes(searchTerm) ||
+                                            email.includes(searchTerm) ||
+                                            firstName.includes(searchTerm) ||
+                                            lastName.includes(searchTerm);
+                                    });
+                                }}
+                                getOptionLabel={(option) => {
+                                    if (!option) return '';
+                                    return option.displayName || `${option.first_name || ''} ${option.last_name || ''}`.trim() || option.email || 'Unnamed Student';
+                                }}
+                                isOptionEqualToValue={(option, value) => {
+                                    return option?.id === value?.id;
+                                }}
+                                PopperProps={{
+                                    sx: {
+                                        zIndex: 1500,
+                                        '& .MuiPaper-root': {
+                                            zIndex: 1500,
+                                            position: 'relative'
+                                        }
                                     },
-                                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                                        borderColor: '#3b82f6'
-                                    },
-                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                        borderColor: '#3b82f6',
-                                        borderWidth: '2px'
+                                    placement: 'bottom-start',
+                                    modifiers: [
+                                        {
+                                            name: 'preventOverflow',
+                                            enabled: true,
+                                            options: {
+                                                altAxis: true,
+                                                tether: false,
+                                                rootBoundary: 'viewport'
+                                            }
+                                        }
+                                    ]
+                                }}
+                                ListboxProps={{
+                                    sx: {
+                                        zIndex: 1500,
+                                        maxHeight: '200px'
                                     }
                                 }}
-                            >
-                                {Array.isArray(students) && students.map((student) => (
-                                    <MenuItem key={student.id} value={student.id}>
-                                        {student.first_name} {student.last_name}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        label="Search and Select Student"
+                                        placeholder="Type to search..."
+                                        helperText="Type to search for a student"
+                                        InputProps={{
+                                            ...params.InputProps,
+                                            endAdornment: (
+                                                <>
+                                                    {loading && <CircularProgress color="inherit" size={20} />}
+                                                    {params.InputProps.endAdornment}
+                                                </>
+                                            ),
+                                        }}
+                                        sx={{
+                                            '& .MuiOutlinedInput-root': {
+                                                borderRadius: '12px',
+                                                '&:hover .MuiOutlinedInput-notchedOutline': {
+                                                    borderColor: '#3b82f6'
+                                                },
+                                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                                    borderColor: '#3b82f6',
+                                                    borderWidth: '2px'
+                                                }
+                                            }
+                                        }}
+                                    />
+                                )}
+                                renderOption={(props, option) => {
+                                    const { key, ...otherProps } = props;
+                                    return (
+                                        <li key={option.id || key} {...otherProps}>
+                                            <Box>
+                                                <Typography variant="body1">
+                                                    {option.displayName || `${option.first_name || ''} ${option.last_name || ''}`.trim() || option.email || 'Unnamed Student'}
+                                                </Typography>
+                                                {option.email && (
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        {option.email}
+                                                    </Typography>
+                                                )}
+                                            </Box>
+                                        </li>
+                                    );
+                                }}
+                                noOptionsText={loading ? "Loading..." : "No students found"}
+                                loadingText="Loading students..."
+                                clearText="Clear"
+                                openText="Open"
+                                closeText="Close"
+                                loading={loading}
+                                fullWidth
+                                disablePortal={false}
+                                disableScrollLock={false}
+                                slotProps={{
+                                    popper: {
+                                        sx: {
+                                            zIndex: 1500,
+                                            '& .MuiPaper-root': {
+                                                zIndex: 1500,
+                                                position: 'relative',
+                                                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+                                                border: '1px solid #e0e0e0',
+                                                borderRadius: '4px'
+                                            }
+                                        }
+                                    }
+                                }}
+                            />
+                        </Box>
                         <FormControl fullWidth>
                             <InputLabel sx={{
                                 '&.Mui-focused': { color: '#3b82f6' }

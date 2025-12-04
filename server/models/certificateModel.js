@@ -2,7 +2,7 @@ const pool = require('../config/db');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
-const { cloudinary } = require('../config/cloudinary');
+const { supabase, STORAGE_BUCKETS } = require('../config/supabase');
 
 // Helper function to generate verification code
 const generateVerificationCode = () => {
@@ -64,10 +64,29 @@ const createCertificate = async ({ user_id, class_id, session_id, certificate_na
 // Delete certificate
 const deleteCertificate = async (id) => {
     const certificate = await getCertificateById(id);
-    if (certificate && certificate.cloudinary_id) {
-        // Delete from Cloudinary if exists
-        await cloudinary.uploader.destroy(certificate.cloudinary_id);
+
+    if (certificate) {
+        // Delete from Supabase storage if exists
+        if (certificate.supabase_path) {
+            try {
+                const { error } = await supabase.storage
+                    .from(STORAGE_BUCKETS.CERTIFICATES)
+                    .remove([certificate.supabase_path]);
+
+                if (error) {
+                    console.error('Error deleting from Supabase:', error);
+                    // Continue with deletion even if Supabase deletion fails
+                } else {
+                    console.log('Successfully deleted from Supabase:', certificate.supabase_path);
+                }
+            } catch (supabaseError) {
+                console.error('Error deleting from Supabase:', supabaseError);
+                // Continue with deletion even if Supabase deletion fails
+            }
+        }
     }
+
+    // Delete from database
     await pool.query('DELETE FROM certificates WHERE id = $1', [id]);
 };
 
@@ -102,22 +121,41 @@ const generateCertificate = async (certificateId) => {
     // Wait for PDF to finish writing
     await new Promise(resolve => doc.on('end', resolve));
 
-    // Upload to Cloudinary
-    const uploadResult = await cloudinary.uploader.upload(tempPath, {
-        resource_type: 'raw', // for PDFs
-        folder: 'certificates'
-    });
+    // Read the PDF file
+    const fileBuffer = fs.readFileSync(tempPath);
+    const fileName = `certificate-${certificateId}-${Date.now()}.pdf`;
+    const filePath = `certificates/${cert.user_id || 'system'}/${fileName}`;
 
-    // Update DB with Cloudinary URL
+    // Upload to Supabase storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+        .from(STORAGE_BUCKETS.CERTIFICATES)
+        .upload(filePath, fileBuffer, {
+            contentType: 'application/pdf',
+            upsert: false
+        });
+
+    if (uploadError) {
+        fs.unlinkSync(tempPath);
+        throw new Error(`Failed to upload certificate to Supabase: ${uploadError.message}`);
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+        .from(STORAGE_BUCKETS.CERTIFICATES)
+        .getPublicUrl(filePath);
+
+    const publicUrl = urlData.publicUrl;
+
+    // Update DB with Supabase URL and path
     await pool.query(
-        'UPDATE certificates SET certificate_url = $1, cloudinary_id = $2 WHERE id = $3',
-        [uploadResult.secure_url, uploadResult.public_id, certificateId]
+        'UPDATE certificates SET certificate_url = $1, supabase_path = $2 WHERE id = $3',
+        [publicUrl, filePath, certificateId]
     );
 
     // Delete local temp file
     fs.unlinkSync(tempPath);
 
-    return uploadResult.secure_url;
+    return publicUrl;
 };
 
 // Update certificate URL
@@ -167,7 +205,7 @@ const generateClassCertificates = async (classId) => {
 };
 
 // Upload certificate
-const uploadCertificate = async ({ user_id, class_id, session_id, certificate_name, file_path, file_type, file_size, expiration_date, uploaded_by, cloudinary_id, supabase_path }) => {
+const uploadCertificate = async ({ user_id, class_id, session_id, certificate_name, file_path, file_type, file_size, expiration_date, uploaded_by, supabase_path }) => {
     try {
         console.log('Starting certificate upload to database...', {
             user_id,
@@ -178,11 +216,10 @@ const uploadCertificate = async ({ user_id, class_id, session_id, certificate_na
             file_type,
             file_size,
             expiration_date,
-            cloudinary_id,
             supabase_path
         });
 
-        // Use the secure_url directly from Cloudinary or Supabase
+        // Use the Supabase URL directly
         const certificateUrl = file_path;
 
         console.log('Using certificate URL:', certificateUrl);
@@ -190,8 +227,8 @@ const uploadCertificate = async ({ user_id, class_id, session_id, certificate_na
         const result = await pool.query(
             `INSERT INTO certificates (
                 user_id, class_id, session_id, certificate_name, certificate_url, 
-                expiration_date, cloudinary_id, supabase_path, file_type, file_size, uploaded_by, status
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'approved') 
+                expiration_date, supabase_path, file_type, file_size, uploaded_by, status
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'approved') 
             RETURNING *`,
             [
                 user_id,
@@ -200,7 +237,6 @@ const uploadCertificate = async ({ user_id, class_id, session_id, certificate_na
                 certificate_name,
                 certificateUrl,
                 expiration_date,
-                cloudinary_id,
                 supabase_path,
                 file_type,
                 file_size,
@@ -242,7 +278,7 @@ const getAllCertificates = async () => {
             ORDER BY c.created_at DESC
         `);
 
-        // Always use the stored Cloudinary URL
+        // Always use the stored Supabase URL
         const transformedRows = result.rows.map(cert => {
             if (cert.certificate_url) {
                 return {
@@ -274,7 +310,7 @@ const getDownloadUrl = async (certificateId) => {
     if (!certificate || !certificate.certificate_url) {
         throw new Error('Certificate not found or no file attached');
     }
-    // Always use the stored Cloudinary URL
+    // Always use the stored Supabase URL
     return certificate.certificate_url;
 };
 
@@ -298,6 +334,32 @@ const getCompletedSessions = async (classId) => {
     return result.rows;
 };
 
+// Get certificates expiring in the next 2 months
+// Note: All certificates uploaded through certificate management are automatically approved,
+// so we don't need to filter by status
+const getCertificatesExpiringSoon = async () => {
+    const result = await pool.query(`
+        SELECT 
+            c.*,
+            u.id as user_id,
+            u.email as user_email,
+            u.first_name,
+            u.last_name,
+            CONCAT(u.first_name, ' ', u.last_name) as student_name,
+            cls.title as class_name,
+            cs.session_date, cs.start_time, cs.end_time
+        FROM certificates c
+        LEFT JOIN users u ON c.user_id = u.id
+        LEFT JOIN classes cls ON c.class_id = cls.id
+        LEFT JOIN class_sessions cs ON c.session_id = cs.id
+        WHERE c.expiration_date IS NOT NULL
+        AND c.expiration_date >= CURRENT_DATE
+        AND c.expiration_date <= CURRENT_DATE + INTERVAL '2 months'
+        ORDER BY c.expiration_date ASC
+    `);
+    return result.rows;
+};
+
 module.exports = {
     getCertificateById,
     getCertificatesByUserId,
@@ -311,5 +373,6 @@ module.exports = {
     getAllCertificates,
     getDownloadUrl,
     getCompletedSessions,
+    getCertificatesExpiringSoon,
     generateVerificationCode
 }; 

@@ -1,5 +1,4 @@
 const Certificate = require('../models/certificateModel');
-const { cloudinary } = require('../config/cloudinary');
 const path = require('path');
 const fs = require('fs');
 
@@ -23,7 +22,7 @@ const generateCertificate = async (req, res) => {
         });
 
         await Certificate.generateCertificate(certificate.id);
-        
+
         res.json({
             message: 'Certificate generated successfully',
             certificate: {
@@ -44,7 +43,7 @@ const generateClassCertificates = async (req, res) => {
     try {
         const { classId } = req.params;
         const certificates = await Certificate.generateClassCertificates(classId);
-        
+
         res.json({
             message: 'Certificates generated successfully',
             certificates: certificates.map(cert => ({
@@ -83,7 +82,7 @@ const verifyCertificate = async (req, res) => {
     try {
         const { code } = req.params;
         const certificate = await Certificate.verifyCertificate(code);
-        
+
         if (!certificate) {
             return res.status(404).json({ error: 'Invalid certificate code' });
         }
@@ -109,7 +108,7 @@ const getUserCertificates = async (req, res) => {
     try {
         const { userId } = req.params;
         const certificates = await Certificate.getCertificatesByUserId(userId);
-        
+
         res.json(certificates.map(cert => ({
             ...cert,
             download_url: `/api/admin/certificates/${cert.id}/download`
@@ -127,33 +126,20 @@ const deleteCertificate = async (req, res) => {
     try {
         const { id } = req.params;
         console.log('Attempting to delete certificate with ID:', id);
-        
+
         const certificate = await Certificate.getCertificateById(id);
         console.log('Found certificate:', certificate ? 'yes' : 'no');
-        
+
         if (!certificate) {
             console.log('Certificate not found in database');
             return res.status(404).json({ error: 'Certificate not found' });
         }
 
-        // Delete from Cloudinary if it exists
-        if (certificate.cloudinary_id) {
-            console.log('Attempting to delete from Cloudinary, cloudinary_id:', certificate.cloudinary_id);
-            try {
-                await cloudinary.uploader.destroy(certificate.cloudinary_id);
-                console.log('Successfully deleted from Cloudinary');
-            } catch (cloudinaryError) {
-                console.error('Error deleting from Cloudinary:', cloudinaryError);
-                // Continue with database deletion even if Cloudinary deletion fails
-            }
-        } else {
-            console.log('No cloudinary_id found, skipping Cloudinary deletion');
-        }
-
-        console.log('Attempting to delete from database');
+        // The deleteCertificate function in the model handles Supabase storage deletion
+        console.log('Attempting to delete certificate from Supabase storage and database');
         await Certificate.deleteCertificate(id);
         console.log('Successfully deleted from database');
-        
+
         res.json({ message: 'Certificate deleted successfully' });
     } catch (error) {
         console.error('Delete certificate error:', error);
@@ -177,39 +163,28 @@ const uploadStudentCertificate = async (req, res) => {
             return res.status(400).json({ message: 'No file uploaded' });
         }
 
-        // Log the complete file object to see what Cloudinary returns
-        console.log('Complete Cloudinary upload result:', {
+        // Note: This route uses multer with Cloudinary storage, but certificates should be uploaded via Supabase
+        // This route is kept for backward compatibility but should use Supabase upload flow instead
+        console.log('File upload received:', {
             originalname: file.originalname,
             mimetype: file.mimetype,
             size: file.size,
-            path: file.path,
-            filename: file.filename,
-            public_id: file.public_id,
-            secure_url: file.secure_url,
-            url: file.url,
-            resource_type: file.resource_type,
-            format: file.format,
-            version: file.version,
-            // Log the entire file object to see all available properties
-            fullFileObject: JSON.stringify(file, null, 2)
+            path: file.path
         });
 
-        // Extract the public_id from the Cloudinary URL
-        const urlParts = file.path.split('/');
-        const publicId = urlParts[urlParts.length - 1].split('.')[0];
-        
-        console.log('Extracted public_id:', publicId);
-
         console.log('Upload request studentId:', studentId, 'classId:', classId);
+
+        // For now, we'll use the file path as-is, but ideally this should be uploaded to Supabase first
+        // The file.path should be a Supabase URL if using the Supabase upload flow
         const certificate = await Certificate.uploadCertificate({
             user_id: studentId,
             class_id: classId,
             certificate_name: file.originalname,
-            file_path: file.path,
+            file_path: file.path || file.secure_url || file.url,
             file_type: file.mimetype,
             file_size: file.size,
             uploaded_by: req.user.id,
-            cloudinary_id: publicId
+            supabase_path: file.path // Use file path as supabase_path
         });
 
         console.log('Created certificate:', certificate);
@@ -266,7 +241,7 @@ const uploadCertificateMetadata = async (req, res) => {
             file_size,
             expiration_date,
             uploaded_by: req.user.id,
-            cloudinary_id: supabase_path // Store Supabase path in cloudinary_id field for now
+            supabase_path: supabase_path // Store Supabase path
         });
 
         res.json({
@@ -294,7 +269,7 @@ const viewStudentCertificate = async (req, res) => {
         const isOwnCertificate = userId === studentId;
 
         if (!isAdmin && !isOwnCertificate) {
-            return res.status(403).json({ 
+            return res.status(403).json({
                 error: 'Not authorized',
                 details: 'You do not have permission to view this certificate'
             });
@@ -302,7 +277,7 @@ const viewStudentCertificate = async (req, res) => {
 
         // Fetch the certificate from database
         const certificate = await Certificate.findOne({
-            where: { 
+            where: {
                 user_id: studentId,
                 status: 'active'
             },
@@ -310,7 +285,7 @@ const viewStudentCertificate = async (req, res) => {
         });
 
         if (!certificate) {
-            return res.status(404).json({ 
+            return res.status(404).json({
                 error: 'Certificate not found',
                 details: 'No active certificate found for this student'
             });
@@ -331,7 +306,7 @@ const viewStudentCertificate = async (req, res) => {
         });
     } catch (error) {
         console.error('Error viewing certificate:', error);
-        
+
         if (error.name === 'SequelizeDatabaseError') {
             return res.status(500).json({
                 error: 'Database error',
@@ -339,7 +314,7 @@ const viewStudentCertificate = async (req, res) => {
             });
         }
 
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Error retrieving certificate',
             details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
         });
@@ -356,8 +331,8 @@ const getAllCertificates = async (req, res) => {
     } catch (error) {
         console.error('Error in getAllCertificates:', error);
         console.error('Error stack:', error.stack);
-        res.status(500).json({ 
-            error: 'Failed to fetch certificates', 
+        res.status(500).json({
+            error: 'Failed to fetch certificates',
             details: error.message,
             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });

@@ -26,7 +26,7 @@ const pool = require("../config/db");
 const enrollInClass = async (req, res) => {
   const userId = req.user.id;
   const classId = req.params.classId;
-  const { sessionId } = req.body;
+  const { sessionId, paymentMethod } = req.body;
 
   // Fetch user details from database since JWT only contains id and role
   let userDetails;
@@ -51,6 +51,11 @@ const enrollInClass = async (req, res) => {
 
   if (!sessionId) {
     return res.status(400).json({ error: "Session ID is required" });
+  }
+
+  // Validate paymentMethod if provided
+  if (paymentMethod && paymentMethod !== 'Self' && paymentMethod !== 'EIP') {
+    return res.status(400).json({ error: "Payment method must be either 'Self' or 'EIP'" });
   }
 
   try {
@@ -117,7 +122,7 @@ const enrollInClass = async (req, res) => {
     }
 
     // Create enrollment
-    const enrollment = await enrollUserInClass(userId, classId, sessionId, "paid");
+    const enrollment = await enrollUserInClass(userId, classId, sessionId, "paid", paymentMethod || null);
 
     // Send pending enrollment email asynchronously (don't wait for it)
     console.log(`📧 Attempting to send enrollment pending email to: ${userDetails.email}`);
@@ -142,7 +147,8 @@ const enrollInClass = async (req, res) => {
         session_date: session.rows[0].session_date,
         start_time: session.rows[0].start_time,
         end_time: session.rows[0].end_time
-      }
+      },
+      paymentMethod
     ).then(() => {
       console.log(`Enrollment pending email sent to: ${userDetails.email}`);
     }).catch((emailError) => {
@@ -230,11 +236,14 @@ const getMyEnrollments = async (req, res) => {
   const userId = req.user.id;
 
   try {
+    console.log('getMyEnrollments called for user:', userId);
     const enrollments = await getUserEnrollments(userId);
+    console.log('getMyEnrollments returning:', enrollments.length, 'enrollments');
     res.json(enrollments);
   } catch (err) {
     console.error("Get enrollments error:", err);
-    res.status(500).json({ error: "Failed to fetch enrollments" });
+    console.error("Error stack:", err.stack);
+    res.status(500).json({ error: "Failed to fetch enrollments", details: err.message });
   }
 };
 
@@ -455,6 +464,186 @@ const getWaitlistStatus = async (req, res) => {
   }
 };
 
+// @desc    Preview enrollment pending email in browser (admin only)
+// @route   GET /api/enrollments/preview-email
+// @access  Admin
+const previewEnrollmentEmail = async (req, res) => {
+  const { userEmail, userName, className, classDetails, sessionDetails } = req.query;
+
+  // Use default values if not provided
+  const defaultUserName = userName || 'John Doe';
+  const defaultClassName = className || 'Sample Class';
+  const defaultClassDetails = {
+    location_details: classDetails?.location_details || '123 Main St, New York, NY 10001'
+  };
+  const defaultSessionDetails = {
+    session_date: sessionDetails?.session_date || new Date().toISOString(),
+    start_time: sessionDetails?.start_time || '10:00:00',
+    end_time: sessionDetails?.end_time || '12:00:00'
+  };
+
+  try {
+    // Generate the email HTML using the actual email service function
+    const emailService = require('../utils/emailService');
+
+    // We'll generate the HTML manually here to match the email service
+    const formatTime = (timeString) => {
+      if (!timeString) return '';
+      const [hour, minute] = timeString.split(':');
+      const date = new Date();
+      date.setHours(Number(hour), Number(minute));
+      return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    };
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+        <h1 style="color: #000000; margin: 0 0 10px 0; font-size: 24px; font-weight: 600;">Enrollment Submitted</h1>
+        <div style="border-bottom: 1px solid #000000; margin-bottom: 30px;"></div>
+        
+        <p style="color: #000000; line-height: 1.6; margin-bottom: 20px;">
+          Hello ${defaultUserName},
+        </p>
+        
+        <p style="color: #000000; line-height: 1.6; margin-bottom: 20px;">
+          Thank you for enrolling in <strong>${defaultClassName}</strong>. Your enrollment has been successfully submitted and is now pending approval from our team.
+        </p>
+        
+        <div style="margin: 30px 0;">
+          <h2 style="color: #000000; font-size: 18px; font-weight: 600; margin-bottom: 15px;">Enrollment Details</h2>
+          <p style="color: #000000; line-height: 1.8; margin: 5px 0;"><strong>Class:</strong> ${defaultClassName}</p>
+          <p style="color: #000000; line-height: 1.8; margin: 5px 0;"><strong>Date:</strong> ${new Date(defaultSessionDetails.session_date).toLocaleDateString()}</p>
+          <p style="color: #000000; line-height: 1.8; margin: 5px 0;"><strong>Time:</strong> ${formatTime(defaultSessionDetails.start_time)} - ${formatTime(defaultSessionDetails.end_time)}</p>
+          <p style="color: #000000; line-height: 1.8; margin: 5px 0;"><strong>Location:</strong> ${defaultClassDetails.location_details}</p>
+          <p style="color: #000000; line-height: 1.8; margin: 5px 0;"><strong>Status:</strong> Pending Approval</p>
+        </div>
+        
+        <div style="margin: 30px 0;">
+          <h2 style="color: #000000; font-size: 18px; font-weight: 600; margin-bottom: 15px;">What Happens Next?</h2>
+          <ul style="color: #000000; line-height: 1.8; padding-left: 20px; margin: 0;">
+            <li>Our team will review your enrollment request</li>
+            <li>You'll receive an email notification once your enrollment is approved or rejected</li>
+            <li>If approved, you'll get confirmation details and next steps</li>
+            <li>You can check your enrollment status anytime in your profile</li>
+            <li>We typically process enrollments within 1-2 business days</li>
+          </ul>
+        </div>
+        
+        <div style="margin: 30px 0;">
+          <h2 style="color: #000000; font-size: 18px; font-weight: 600; margin-bottom: 15px;">Important Notes</h2>
+          <ul style="color: #000000; line-height: 1.8; padding-left: 20px; margin: 0;">
+            <li>Please do not make travel arrangements until your enrollment is approved</li>
+            <li>If you need to make changes, contact us as soon as possible</li>
+            <li>Your spot is reserved while your enrollment is being reviewed</li>
+            <li>You'll be notified immediately once a decision is made</li>
+          </ul>
+        </div>
+        
+        <div style="margin: 40px 0;">
+          <h2 style="color: #000000; font-size: 18px; font-weight: 600; margin-bottom: 20px; border-bottom: 1px solid #000000; padding-bottom: 10px;">
+            Policies & Procedures
+          </h2>
+          
+          <div style="margin-bottom: 25px;">
+            <h3 style="color: #000000; font-size: 16px; font-weight: 600; margin-bottom: 8px;">Registration Fee</h3>
+            <p style="color: #000000; line-height: 1.7; font-size: 14px; margin: 0;">
+              Class must be paid in full before the class start date. Cash, checks, money orders, and EIP award letters are accepted. If using EIP award letter, we must receive the award letter prior to the class start date. Payment plans are available upon request.
+            </p>
+          </div>
+          
+          <div style="margin-bottom: 25px; padding-top: 20px; border-top: 1px solid #cccccc;">
+            <h3 style="color: #000000; font-size: 16px; font-weight: 600; margin-bottom: 8px;">Financial Aid</h3>
+            <p style="color: #000000; line-height: 1.7; font-size: 14px; margin-bottom: 8px;">
+              Scholarship funding to participate in this training may be available through the Educational Incentive Program (EIP). For more information or to apply for a scholarship, please visit <a href="https://www.ecetp.pdp.albany.edu" style="color: #000000; text-decoration: underline;">www.ecetp.pdp.albany.edu</a>.
+            </p>
+            <p style="color: #000000; line-height: 1.7; font-size: 14px; margin: 0;">
+              You may also contact EIP by email at <a href="mailto:eip@albany.edu" style="color: #000000; text-decoration: underline;">eip@albany.edu</a>, or by phone at either (800) 295-9616 or (518) 442-6575. Call us for more information.
+            </p>
+          </div>
+          
+          <div style="margin-bottom: 25px; padding-top: 20px; border-top: 1px solid #cccccc;">
+            <h3 style="color: #000000; font-size: 16px; font-weight: 600; margin-bottom: 8px;">Refunds</h3>
+            <p style="color: #000000; line-height: 1.7; font-size: 14px; margin: 0;">
+              Participants waiting for an EIP award letter must pay for the class and payment will be reimbursed once EIP award letter is received.
+            </p>
+          </div>
+          
+          <div style="margin-bottom: 25px; padding-top: 20px; border-top: 1px solid #cccccc;">
+            <h3 style="color: #000000; font-size: 16px; font-weight: 600; margin-bottom: 8px;">Cancellation and Credit</h3>
+            <p style="color: #000000; line-height: 1.7; font-size: 14px; margin: 0;">
+              Cancellations must be made at least 3 days prior to the training session. A credit or refund will be issued for advanced cancellations or if cancellation was made by YJ Child Care Plus, Inc. No credits will be granted to EIP award recipients. In case of any cancellations unused awards must be returned to EIP and you must reapply online for the next available class.
+            </p>
+          </div>
+          
+          <div style="margin-bottom: 25px; padding-top: 20px; border-top: 1px solid #cccccc;">
+            <h3 style="color: #000000; font-size: 16px; font-weight: 600; margin-bottom: 8px;">Certificates</h3>
+            <p style="color: #000000; line-height: 1.7; font-size: 14px; margin: 0;">
+              A certificate will be provided to each attendee after the completion of training and receipt of full payment. Certificates will include the name of the workshop, class date and expiration date, number of training hours completed and the trainer's name and Aspire ID number.
+            </p>
+          </div>
+          
+          <div style="margin-bottom: 25px; padding-top: 20px; border-top: 1px solid #cccccc;">
+            <h3 style="color: #000000; font-size: 16px; font-weight: 600; margin-bottom: 8px;">Participant's Responsibilities</h3>
+            <p style="color: #000000; line-height: 1.7; font-size: 14px; margin: 0;">
+              Participants are responsible for attending all training sessions and to complete all class assignments in order to receive a certificate of completion; responsible for purchasing all required class materials; and responsible for making up any missing sessions.
+            </p>
+          </div>
+          
+          <div style="margin-bottom: 25px; padding-top: 20px; border-top: 1px solid #cccccc;">
+            <h3 style="color: #000000; font-size: 16px; font-weight: 600; margin-bottom: 8px;">Children</h3>
+            <p style="color: #000000; line-height: 1.7; font-size: 14px; margin: 0;">
+              Child care is not available and children will not be allowed in the training sessions.
+            </p>
+          </div>
+          
+          <div style="margin-bottom: 0; padding-top: 20px; border-top: 1px solid #cccccc;">
+            <h3 style="color: #000000; font-size: 16px; font-weight: 600; margin-bottom: 8px;">Policy on Non-Discrimination</h3>
+            <p style="color: #000000; line-height: 1.7; font-size: 14px; margin: 0;">
+              YJ Child Care Plus, Inc does not discriminate on the basis of age, sex, sexual orientation, religion, race, color, nationality, ethnic origin, disability, or veteran or marital status in its participants' access to training, and administration of training policies.
+            </p>
+          </div>
+        </div>
+        
+        <div style="margin: 30px 0;">
+          <a href="https://yjchildcareplus.com/profile?section=enrollments" 
+             style="color: #000000; text-decoration: underline; font-weight: 600;">
+            View My Enrollments
+          </a>
+        </div>
+        
+        <div style="border-top: 1px solid #cccccc; padding-top: 20px; margin-top: 40px;">
+          <p style="color: #666666; font-size: 14px; margin-bottom: 10px;">
+            <strong>Questions?</strong> Contact our support team if you need assistance.
+          </p>
+          <p style="color: #666666; font-size: 14px; margin: 0;">
+            Contact us at <a href="mailto:yvelisse225@gmail.com" style="color: #000000; text-decoration: underline;">yvelisse225@gmail.com</a>
+          </p>
+        </div>
+        
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #cccccc;">
+          <p style="color: #666666; font-size: 12px; margin: 0;">
+            Best regards,<br>
+            <strong>The YJ Child Care Plus Team</strong>
+          </p>
+        </div>
+      </div>
+    `;
+
+    // Return HTML directly to browser
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+  } catch (error) {
+    console.error("Preview email error:", error);
+    res.status(500).send(`
+      <html>
+        <body>
+          <h1>Error generating email preview</h1>
+          <p>${error.message}</p>
+        </body>
+      </html>
+    `);
+  }
+};
+
 // @desc    Test enrollment email (admin only)
 // @route   POST /api/enrollments/test-email
 // @access  Admin
@@ -597,4 +786,5 @@ module.exports = {
   getWaitlistStatus,
   testEnrollmentEmail,
   sendEnrollmentEmailForExisting,
+  previewEnrollmentEmail,
 };

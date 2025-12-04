@@ -627,6 +627,20 @@ function EnrollmentManagement() {
                                                 Enrolled: {new Date(enrollment.enrollment_date).toLocaleDateString()}
                                             </Typography>
                                         </Box>
+                                        {enrollment.payment_method && (
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                                                <SchoolIcon sx={{ fontSize: 16, color: '#6b7280' }} />
+                                                <Typography
+                                                    variant="body2"
+                                                    sx={{
+                                                        color: '#374151',
+                                                        fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                                                    }}
+                                                >
+                                                    Payment: {enrollment.payment_method}
+                                                </Typography>
+                                            </Box>
+                                        )}
                                     </Box>
 
                                     {/* Enrollment Actions */}
