@@ -203,14 +203,17 @@ function AdminDashboard({ defaultSection = 'analytics' }) {
 
                     {/* Sidebar Navigation */}
                     <div className={`
-                        fixed lg:relative inset-y-0 left-0 z-50 w-64 bg-gray-50 shadow-lg lg:shadow-none border-r border-gray-200 lg:border-r-0
+                        fixed lg:sticky left-0 w-64 bg-gray-50 shadow-lg lg:shadow-none border-r border-gray-200 lg:border-r-0
                         transform transition-transform duration-300 ease-in-out lg:transform-none
                         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
                         lg:flex-shrink-0
                         lg:h-auto
-                        h-screen
+                        lg:self-start
+                        inset-y-0 lg:inset-y-auto
+                        h-screen lg:h-auto
                         admin-dashboard-sidebar
-                    `}>
+                    `}
+                    >
                         <div className="flex flex-col h-full max-h-screen">
                             {/* Mobile Sidebar Header */}
                             <div className="lg:hidden flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0 bg-gray-50">

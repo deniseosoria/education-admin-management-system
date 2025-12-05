@@ -1,5 +1,32 @@
 /* AdminDashboard Mobile Sidebar Scrolling Styles */
 
+/* Ensure sidebar z-index is below header (header is z-index: 1200) */
+.admin-dashboard-sidebar {
+    z-index: 40 !important;
+}
+
+/* Prevent sidebar from overlapping header on desktop */
+@media (min-width: 1024px) {
+    .admin-dashboard-sidebar {
+        position: sticky !important;
+        top: 7rem !important;
+        /* Account for header height (lg:h-28 = 7rem = 112px) */
+        align-self: flex-start !important;
+        max-height: calc(100vh - 7rem) !important;
+        /* Viewport height minus header */
+        overflow-y: auto !important;
+        z-index: 40 !important;
+        /* Lower than header's z-index: 1200 */
+    }
+
+    /* Ensure header always appears above sidebar */
+    .site-header {
+        z-index: 1200 !important;
+        position: sticky !important;
+        top: 0 !important;
+    }
+}
+
 /* Custom scrollbar for mobile sidebar navigation */
 .admin-dashboard-sidebar nav::-webkit-scrollbar {
     width: 6px;
