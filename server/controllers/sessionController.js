@@ -8,7 +8,19 @@ async function getClassSessionsWithStudents(req, res) {
 
   try {
     const query = `
-      WITH active_sessions AS (
+      WITH active_enrollments_deduped AS (
+        SELECT DISTINCT ON (e.session_id, e.user_id)
+          e.session_id,
+          e.user_id,
+          e.enrollment_status,
+          e.payment_status,
+          e.enrolled_at
+        FROM enrollments e
+        JOIN class_sessions cs ON cs.id = e.session_id
+        WHERE cs.class_id = $1 AND cs.deleted_at IS NULL
+        ORDER BY e.session_id, e.user_id, e.enrolled_at DESC
+      ),
+      active_sessions AS (
         SELECT 
           cs.id as session_id,
           cs.session_date,
@@ -27,10 +39,23 @@ async function getClassSessionsWithStudents(req, res) {
             )
           ) FILTER (WHERE u.id IS NOT NULL) as students
         FROM class_sessions cs
-        LEFT JOIN enrollments e ON e.session_id = cs.id
+        LEFT JOIN active_enrollments_deduped e ON e.session_id = cs.id
         LEFT JOIN users u ON u.id = e.user_id
         WHERE cs.class_id = $1 AND cs.deleted_at IS NULL
         GROUP BY cs.id, cs.session_date, cs.start_time, cs.end_time, cs.status
+      ),
+      historical_enrollments_deduped AS (
+        SELECT DISTINCT ON (he.historical_session_id, he.user_id)
+          he.historical_session_id,
+          he.user_id,
+          he.enrollment_status,
+          he.payment_status,
+          he.archived_at,
+          he.archived_reason
+        FROM historical_enrollments he
+        JOIN historical_sessions hs ON hs.id = he.historical_session_id
+        WHERE hs.class_id = $1
+        ORDER BY he.historical_session_id, he.user_id, he.archived_at DESC NULLS LAST, he.enrolled_at DESC
       ),
       historical_sessions AS (
         SELECT 
@@ -53,7 +78,7 @@ async function getClassSessionsWithStudents(req, res) {
             )
           ) FILTER (WHERE u.id IS NOT NULL) as students
         FROM historical_sessions hs
-        LEFT JOIN historical_enrollments he ON he.historical_session_id = hs.id
+        LEFT JOIN historical_enrollments_deduped he ON he.historical_session_id = hs.id
         LEFT JOIN users u ON u.id = he.user_id
         WHERE hs.class_id = $1
         GROUP BY hs.original_session_id, hs.session_date, hs.start_time, hs.end_time, hs.status
@@ -162,7 +187,7 @@ async function updateSessionStatus(req, res) {
     // Start a transaction
     await pool.query('BEGIN');
 
-    // Update the session status
+    // Update the session status (allow updates even for soft-deleted sessions)
     const updateQuery = `
       UPDATE class_sessions
       SET status = $1, updated_at = CURRENT_TIMESTAMP
@@ -176,6 +201,14 @@ async function updateSessionStatus(req, res) {
       await pool.query('ROLLBACK');
       return res.status(404).json({ error: 'Session not found' });
     }
+
+    // Also update the historical_sessions record if it exists (for removed sessions)
+    await pool.query(
+      `UPDATE historical_sessions
+       SET status = $1
+       WHERE original_session_id = $2`,
+      [status, sessionId]
+    );
 
     let historicalData = null;
 
@@ -356,7 +389,7 @@ async function deleteSession(req, res) {
           session.capacity,
           session.enrolled_count,
           session.instructor_id,
-          session.status,
+          'completed',
           'Session deleted by admin'
         ]
       );
@@ -378,6 +411,12 @@ async function deleteSession(req, res) {
       // Remove enrollments from active table
       await client.query('DELETE FROM enrollments WHERE session_id = $1', [sessionId]);
     }
+
+    // Update session status to 'completed' before soft deleting
+    await client.query(
+      'UPDATE class_sessions SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      ['completed', sessionId]
+    );
 
     // Soft delete the session (mark as deleted instead of actually deleting)
     await client.query(
@@ -462,6 +501,26 @@ async function moveEnrollmentsToHistorical(sessionId, options = {}) {
 
     const session = sessionResult.rows[0];
 
+    // Get all enrollments for this session first
+    const enrollmentsResult = await pool.query(
+      `SELECT e.*, u.first_name, u.last_name 
+       FROM enrollments e 
+       JOIN users u ON e.user_id = u.id 
+       WHERE e.session_id = $1`,
+      [sessionId]
+    );
+
+    // Only create historical session if there are enrollments
+    if (enrollmentsResult.rows.length === 0) {
+      console.log(`Session ${sessionId} has no enrollments, skipping historical session creation`);
+      return {
+        historicalSessionId: null,
+        enrollmentsMoved: 0,
+        totalEnrollments: 0,
+        originalEnrollmentsRemoved: false
+      };
+    }
+
     // Check if historical session already exists (to avoid duplicates)
     const existingHistoricalSession = await pool.query(
       `SELECT id FROM historical_sessions WHERE original_session_id = $1`,
@@ -496,15 +555,6 @@ async function moveEnrollmentsToHistorical(sessionId, options = {}) {
       );
       historicalSessionId = historicalSessionResult.rows[0].id;
     }
-
-    // Get all enrollments for this session
-    const enrollmentsResult = await pool.query(
-      `SELECT e.*, u.first_name, u.last_name 
-       FROM enrollments e 
-       JOIN users u ON e.user_id = u.id 
-       WHERE e.session_id = $1`,
-      [sessionId]
-    );
 
     let enrollmentsMoved = 0;
 

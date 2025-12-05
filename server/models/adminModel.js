@@ -30,19 +30,65 @@ const adminModel = {
         u.last_name,
         u.email as user_email,
         CONCAT(u.first_name, ' ', u.last_name) as user_name,
-        cs.session_date as next_session_date,
-        cs.start_time,
-        cs.end_time
+        (SELECT session_date FROM class_sessions 
+         WHERE class_id = c.id
+           AND status = 'scheduled'
+           AND (
+             -- Include non-deleted sessions that haven't ended yet
+             (deleted_at IS NULL 
+              AND (
+                (end_date IS NOT NULL AND ((end_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+                OR (end_date IS NULL AND ((session_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+              ))
+             OR
+             -- Include soft-deleted sessions that haven't ended yet
+             (deleted_at IS NOT NULL 
+              AND (
+                (end_date IS NOT NULL AND ((end_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+                OR (end_date IS NULL AND ((session_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+              ))
+           )
+         ORDER BY session_date ASC, start_time ASC
+         LIMIT 1) as next_session_date,
+        (SELECT start_time FROM class_sessions 
+         WHERE class_id = c.id
+           AND status = 'scheduled'
+           AND (
+             (deleted_at IS NULL 
+              AND (
+                (end_date IS NOT NULL AND ((end_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+                OR (end_date IS NULL AND ((session_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+              ))
+             OR
+             (deleted_at IS NOT NULL 
+              AND (
+                (end_date IS NOT NULL AND ((end_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+                OR (end_date IS NULL AND ((session_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+              ))
+           )
+         ORDER BY session_date ASC, start_time ASC
+         LIMIT 1) as start_time,
+        (SELECT end_time FROM class_sessions 
+         WHERE class_id = c.id
+           AND status = 'scheduled'
+           AND (
+             (deleted_at IS NULL 
+              AND (
+                (end_date IS NOT NULL AND ((end_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+                OR (end_date IS NULL AND ((session_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+              ))
+             OR
+             (deleted_at IS NOT NULL 
+              AND (
+                (end_date IS NOT NULL AND ((end_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+                OR (end_date IS NULL AND ((session_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+              ))
+           )
+         ORDER BY session_date ASC, start_time ASC
+         LIMIT 1) as end_time
       FROM class_waitlist w
       JOIN classes c ON w.class_id = c.id
       JOIN users u ON w.user_id = u.id
-      LEFT JOIN class_sessions cs ON cs.class_id = c.id 
-        AND cs.status = 'scheduled' 
-        AND cs.deleted_at IS NULL
-        AND (
-          (cs.end_date IS NOT NULL AND cs.end_date > CURRENT_DATE) OR
-          (cs.end_date IS NULL AND cs.session_date > CURRENT_DATE)
-        )
       WHERE c.deleted_at IS NULL
       AND w.status IN ('pending', 'waiting')
       ORDER BY w.created_at DESC

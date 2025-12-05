@@ -67,12 +67,18 @@ const enrollUserInClass = async (userId, classId, sessionId, paymentStatus = 'pa
          AND e.class_id = $2 
          AND e.enrollment_status = 'approved'
          AND (
-           -- Only block if session is available (has valid date and hasn't ended)
+           -- Only block if session is available (hasn't started or ended yet)
            (cs.id IS NOT NULL 
             AND cs.session_date IS NOT NULL
             AND (
-              (cs.end_date IS NULL AND cs.session_date > NOW())
-              OR (cs.end_date IS NOT NULL AND cs.end_date > NOW())
+              -- Single-day session: check if (session_date + end_time) > NOW() and (session_date + start_time) > NOW()
+              (cs.end_date IS NULL 
+               AND (cs.session_date + cs.end_time) > NOW()
+               AND (cs.session_date + cs.start_time) > NOW())
+              -- Multi-day session: check if (end_date + end_time) > NOW() and (session_date + start_time) > NOW()
+              OR (cs.end_date IS NOT NULL 
+                  AND (cs.end_date + cs.end_time) > NOW()
+                  AND (cs.session_date + cs.start_time) > NOW())
             ))
          )
        LIMIT 1`,
@@ -94,11 +100,18 @@ const enrollUserInClass = async (userId, classId, sessionId, paymentStatus = 'pa
          AND e.class_id = $2 
          AND e.enrollment_status = 'pending'
          AND (
+           -- Only block if session is available (hasn't started or ended yet)
            cs.id IS NOT NULL 
            AND cs.session_date IS NOT NULL
            AND (
-             (cs.end_date IS NULL AND cs.session_date > NOW())
-             OR (cs.end_date IS NOT NULL AND cs.end_date > NOW())
+             -- Single-day session: check if (session_date + end_time) > NOW() and (session_date + start_time) > NOW()
+             (cs.end_date IS NULL 
+              AND (cs.session_date + cs.end_time) > NOW()
+              AND (cs.session_date + cs.start_time) > NOW())
+             -- Multi-day session: check if (end_date + end_time) > NOW() and (session_date + start_time) > NOW()
+             OR (cs.end_date IS NOT NULL 
+                 AND (cs.end_date + cs.end_time) > NOW()
+                 AND (cs.session_date + cs.start_time) > NOW())
            )
          )
        LIMIT 1`,
@@ -465,8 +478,42 @@ const getUserEnrollments = async (userId) => {
         class_sessions.eip_url,
         classes.location_details,
         CASE 
-          WHEN (class_sessions.end_date IS NOT NULL AND class_sessions.end_date < NOW())
-            OR (class_sessions.end_date IS NULL AND class_sessions.session_date < NOW())
+          -- If session is NULL (not found or soft-deleted), check if it exists in historical_sessions
+          WHEN class_sessions.id IS NULL THEN
+            CASE 
+              WHEN EXISTS (
+                SELECT 1 FROM historical_sessions hs 
+                WHERE hs.original_session_id = enrollments.session_id
+                AND (
+                  -- Treat session time as America/New_York timezone and compare with current time in same timezone
+                  (hs.end_date IS NOT NULL AND ((hs.end_date + hs.end_time)::timestamp AT TIME ZONE 'America/New_York') < (NOW() AT TIME ZONE 'America/New_York'))
+                  OR (hs.end_date IS NULL AND ((hs.session_date + hs.end_time)::timestamp AT TIME ZONE 'America/New_York') < (NOW() AT TIME ZONE 'America/New_York'))
+                )
+              ) THEN 'historical'
+              ELSE 'active'
+            END
+          -- If session is soft-deleted, check historical_sessions to determine if it's historical
+          WHEN class_sessions.deleted_at IS NOT NULL THEN
+            CASE 
+              WHEN EXISTS (
+                SELECT 1 FROM historical_sessions hs 
+                WHERE hs.original_session_id = class_sessions.id
+                AND (
+                  (hs.end_date IS NOT NULL AND ((hs.end_date + hs.end_time)::timestamp AT TIME ZONE 'America/New_York') < (NOW() AT TIME ZONE 'America/New_York'))
+                  OR (hs.end_date IS NULL AND ((hs.session_date + hs.end_time)::timestamp AT TIME ZONE 'America/New_York') < (NOW() AT TIME ZONE 'America/New_York'))
+                )
+              ) THEN 'historical'
+              -- If soft-deleted but not in historical, check the session itself
+              -- Treat session time as America/New_York timezone for comparison
+              WHEN (class_sessions.end_date IS NOT NULL AND ((class_sessions.end_date + class_sessions.end_time)::timestamp AT TIME ZONE 'America/New_York') < (NOW() AT TIME ZONE 'America/New_York'))
+                OR (class_sessions.end_date IS NULL AND ((class_sessions.session_date + class_sessions.end_time)::timestamp AT TIME ZONE 'America/New_York') < (NOW() AT TIME ZONE 'America/New_York'))
+              THEN 'historical'
+              ELSE 'active'
+            END
+          -- Check if session has ended using datetime (end_date + end_time or session_date + end_time)
+          -- Treat session times as America/New_York timezone and compare with current time in same timezone
+          WHEN (class_sessions.end_date IS NOT NULL AND ((class_sessions.end_date + class_sessions.end_time)::timestamp AT TIME ZONE 'America/New_York') < (NOW() AT TIME ZONE 'America/New_York'))
+            OR (class_sessions.end_date IS NULL AND ((class_sessions.session_date + class_sessions.end_time)::timestamp AT TIME ZONE 'America/New_York') < (NOW() AT TIME ZONE 'America/New_York'))
           THEN 'historical'
           ELSE 'active'
         END AS enrollment_type,
@@ -488,7 +535,7 @@ const getUserEnrollments = async (userId) => {
         NULL as archived_reason
        FROM enrollments
        JOIN classes ON classes.id = enrollments.class_id
-       LEFT JOIN class_sessions ON class_sessions.id = enrollments.session_id AND class_sessions.deleted_at IS NULL
+       LEFT JOIN class_sessions ON class_sessions.id = enrollments.session_id
        LEFT JOIN users ON users.id = enrollments.reviewed_by
        LEFT JOIN users instructor ON instructor.id = class_sessions.instructor_id
        WHERE enrollments.user_id = $1
@@ -706,7 +753,7 @@ const isUserAlreadyEnrolled = async (userId, classId) => {
   );
 
   // Check for approved enrollment first (users can only have ONE approved enrollment per class)
-  // Only check for available sessions (future sessions with valid dates)
+  // Only check for available sessions (sessions that haven't started or ended yet)
   // NOTE: Only queries 'enrollments' table, NOT 'historical_enrollments' - allows re-enrollment after archival
   const approvedResult = await pool.query(
     `SELECT e.* 
@@ -716,13 +763,19 @@ const isUserAlreadyEnrolled = async (userId, classId) => {
        AND e.class_id = $2 
        AND e.enrollment_status = 'approved'
        AND (
-         -- Session exists, has a valid start date, and hasn't ended yet
+         -- Session exists, has a valid start date, and hasn't started or ended yet
          (cs.id IS NOT NULL 
           AND cs.session_date IS NOT NULL
           AND (
-           (cs.end_date IS NULL AND cs.session_date > NOW())
-           OR (cs.end_date IS NOT NULL AND cs.end_date > NOW())
-         ))
+           -- Single-day session: check if (session_date + end_time) > NOW() and (session_date + start_time) > NOW()
+           (cs.end_date IS NULL 
+            AND (cs.session_date + cs.end_time) > NOW()
+            AND (cs.session_date + cs.start_time) > NOW())
+           -- Multi-day session: check if (end_date + end_time) > NOW() and (session_date + start_time) > NOW()
+           OR (cs.end_date IS NOT NULL 
+               AND (cs.end_date + cs.end_time) > NOW()
+               AND (cs.session_date + cs.start_time) > NOW())
+          ))
        )
      LIMIT 1`,
     [userId, classIdInt]
@@ -744,13 +797,19 @@ const isUserAlreadyEnrolled = async (userId, classId) => {
        AND e.class_id = $2 
        AND e.enrollment_status = 'pending'
        AND (
-         -- Session exists, has a valid start date, and hasn't ended yet
+         -- Session exists, has a valid start date, and hasn't started or ended yet
          (cs.id IS NOT NULL 
           AND cs.session_date IS NOT NULL
           AND (
-           (cs.end_date IS NULL AND cs.session_date > NOW())
-           OR (cs.end_date IS NOT NULL AND cs.end_date > NOW())
-         ))
+           -- Single-day session: check if (session_date + end_time) > NOW() and (session_date + start_time) > NOW()
+           (cs.end_date IS NULL 
+            AND (cs.session_date + cs.end_time) > NOW()
+            AND (cs.session_date + cs.start_time) > NOW())
+           -- Multi-day session: check if (end_date + end_time) > NOW() and (session_date + start_time) > NOW()
+           OR (cs.end_date IS NOT NULL 
+               AND (cs.end_date + cs.end_time) > NOW()
+               AND (cs.session_date + cs.start_time) > NOW())
+          ))
        )
      LIMIT 1`,
     [userId, classIdInt]
@@ -805,8 +864,19 @@ const getAllEnrollments = async (filters = {}) => {
     WHERE u.role NOT IN ('admin', 'instructor')
     AND cs.id IS NOT NULL
     AND cs.status = 'scheduled'
+    AND (
+      -- Include non-deleted sessions
+      (cs.deleted_at IS NULL)
+      OR
+      -- Include soft-deleted sessions that haven't ended yet
+      (cs.deleted_at IS NOT NULL 
+       AND (
+         (cs.end_date IS NOT NULL AND ((cs.end_date + cs.end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+         OR (cs.end_date IS NULL AND ((cs.session_date + cs.end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+       ))
+    )
   `;
-  let countQuery = `SELECT COUNT(*) FROM enrollments e JOIN users u ON u.id = e.user_id JOIN classes c ON c.id = e.class_id LEFT JOIN class_sessions cs ON cs.id = e.session_id WHERE u.role NOT IN ('admin', 'instructor') AND cs.id IS NOT NULL AND cs.status = 'scheduled'`;
+  let countQuery = `SELECT COUNT(*) FROM enrollments e JOIN users u ON u.id = e.user_id JOIN classes c ON c.id = e.class_id LEFT JOIN class_sessions cs ON cs.id = e.session_id WHERE u.role NOT IN ('admin', 'instructor') AND cs.id IS NOT NULL AND cs.status = 'scheduled' AND ((cs.deleted_at IS NULL) OR (cs.deleted_at IS NOT NULL AND ((cs.end_date IS NOT NULL AND ((cs.end_date + cs.end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York')) OR (cs.end_date IS NULL AND ((cs.session_date + cs.end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York')))))`;
 
   const queryParams = [];
   const countParams = [];

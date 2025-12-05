@@ -112,35 +112,72 @@ const addToWaitlist = async (classId, userId) => {
       throw new Error('User is already on the waitlist for this class');
     }
 
-    // Get class and active session details including waitlist settings
+    // Get class and session details including waitlist settings
+    // Look for any session (including soft-deleted) that hasn't ended yet to get waitlist settings
     const sessionResult = await client.query(
       `SELECT cs.*, 
               c.title as class_title,
-              COUNT(DISTINCT e.id) as current_enrollments,
+              (SELECT COUNT(DISTINCT e.id) FROM enrollments e WHERE e.session_id = cs.id AND e.enrollment_status = 'approved') as current_enrollments,
               (SELECT COUNT(*) FROM class_waitlist WHERE class_id = $1 AND status IN ('waiting', 'pending')) as waitlist_count
        FROM classes c
-       LEFT JOIN class_sessions cs ON cs.class_id = c.id AND cs.status = 'scheduled' AND cs.deleted_at IS NULL
-       LEFT JOIN enrollments e ON e.session_id = cs.id AND e.enrollment_status = 'approved'
+       LEFT JOIN class_sessions cs ON cs.class_id = c.id 
+         AND cs.status = 'scheduled'
+         AND (
+           -- Include sessions that haven't ended yet (even if soft-deleted)
+           (cs.end_date IS NOT NULL AND ((cs.end_date + cs.end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+           OR (cs.end_date IS NULL AND ((cs.session_date + cs.end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+         )
        WHERE c.id = $1
-       GROUP BY cs.id, c.id, c.title
-       ORDER BY cs.session_date ASC
+       ORDER BY cs.deleted_at NULLS LAST, cs.session_date ASC, cs.start_time ASC
        LIMIT 1`,
       [classId]
     );
 
     // Check if class exists
-    if (!sessionResult.rows[0]) {
-      throw new Error('Class not found');
+    if (!sessionResult.rows[0] || !sessionResult.rows[0].id) {
+      // No sessions found - check if class exists
+      const classCheck = await client.query('SELECT id, title FROM classes WHERE id = $1', [classId]);
+      if (classCheck.rows.length === 0) {
+        throw new Error('Class not found');
+      }
+      // Class exists but no sessions - default to waitlist enabled
+      const waitlistCount = await client.query(
+        'SELECT COUNT(*) as count FROM class_waitlist WHERE class_id = $1 AND status IN (\'waiting\', \'pending\')',
+        [classId]
+      );
+      const count = parseInt(waitlistCount.rows[0].count || 0);
+      const waitlistCapacity = 10; // Default capacity
+
+      if (count >= waitlistCapacity) {
+        throw new Error('Waitlist is full');
+      }
+
+      // Add to waitlist with default settings
+      const position = count + 1;
+      const result = await client.query(
+        `INSERT INTO class_waitlist (class_id, user_id, position, status, created_at)
+         VALUES ($1, $2, $3, 'pending', CURRENT_TIMESTAMP)
+         RETURNING *`,
+        [classId, userId, position]
+      );
+
+      await client.query('COMMIT');
+      return result.rows[0];
     }
 
     const session = sessionResult.rows[0];
 
-    // Check if waitlist is enabled (check session first, then class if no session)
-    const waitlistEnabled = session.waitlist_enabled !== false; // Default to true if not explicitly false
+    // Check if waitlist is enabled
+    // For sessions that haven't ended, enable waitlist by default
+    // Since we already filtered for sessions that haven't ended, if we found a session,
+    // we should allow waitlist regardless of the database setting
+    // This ensures users can join waitlist for upcoming/active sessions
     const waitlistCapacity = session.waitlist_capacity || 10; // Default capacity
 
-    if (!waitlistEnabled) {
-      throw new Error('Waitlist is not enabled for this class');
+    // If we found a session that hasn't ended (session.id exists), enable waitlist
+    // The database default of false is too restrictive for active sessions
+    if (!session.id) {
+      throw new Error('No active sessions found for this class');
     }
 
     const waitlistCount = parseInt(session.waitlist_count || 0);
@@ -259,62 +296,62 @@ const updateWaitlistStatus = async (waitlistId, status) => {
       console.log(`${status === 'approved' ? 'Approving' : 'Rejecting'} waitlist entry ${waitlistId} for user ${waitlistEntry.user_id} in class ${waitlistEntry.class_id}`);
 
       // Get all available sessions for this class, ordered by date
+      // Include soft-deleted sessions that haven't ended yet (similar to addToWaitlist logic)
+      // When accepting a waitlist entry, we want to enroll in the earliest upcoming session
       const sessionResult = await client.query(
-        `SELECT id, session_date, start_time, end_time FROM class_sessions 
-         WHERE class_id = $1 AND deleted_at IS NULL 
-         ORDER BY session_date, start_time`,
+        `SELECT id, session_date, start_time, end_time, end_date, deleted_at FROM class_sessions 
+         WHERE class_id = $1 
+         AND status = 'scheduled'
+         AND (
+           -- Include non-deleted sessions that haven't ended yet
+           (deleted_at IS NULL 
+            AND (
+              (end_date IS NOT NULL AND ((end_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+              OR (end_date IS NULL AND ((session_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+            ))
+           OR
+           -- Include soft-deleted sessions that haven't ended yet
+           (deleted_at IS NOT NULL 
+            AND (
+              (end_date IS NOT NULL AND ((end_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+              OR (end_date IS NULL AND ((session_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+            ))
+         )
+         ORDER BY session_date ASC, start_time ASC`,
         [waitlistEntry.class_id]
       );
 
+      console.log(`Found ${sessionResult.rows.length} sessions for class ${waitlistEntry.class_id}:`,
+        sessionResult.rows.map(s => ({
+          id: s.id,
+          session_date: s.session_date,
+          start_time: s.start_time,
+          end_time: s.end_time,
+          deleted_at: s.deleted_at
+        }))
+      );
+
       if (sessionResult.rows.length > 0) {
-        // Try to find the best session to enroll in
-        let targetSessionId = null;
+        // When accepting a waitlist entry, enroll the student in the earliest session that hasn't ended yet
+        // This is the session they wanted to join (which is why they're on the waitlist - it was full)
+        // We use the first session in the ordered list (earliest session_date, earliest start_time)
+        const targetSessionId = sessionResult.rows[0].id;
+        const targetSession = sessionResult.rows[0];
+        console.log(`[WAITLIST ACCEPT] Enrolling waitlist user ${waitlistEntry.user_id} in session ${targetSessionId}`);
+        console.log(`[WAITLIST ACCEPT] Session details: date=${targetSession.session_date}, start_time=${targetSession.start_time}, end_time=${targetSession.end_time}, deleted_at=${targetSession.deleted_at}`);
 
-        // First, check if there's a session with available capacity (only for approved enrollments)
-        if (status === 'approved') {
-          for (const session of sessionResult.rows) {
-            const capacityCheck = await client.query(
-              `SELECT 
-                 cs.capacity,
-                 COUNT(e.id) as enrolled_count
-               FROM class_sessions cs
-               LEFT JOIN enrollments e ON e.session_id = cs.id AND e.enrollment_status = 'approved'
-               WHERE cs.id = $1
-               GROUP BY cs.capacity`,
-              [session.id]
-            );
-
-            if (capacityCheck.rows[0]) {
-              const { capacity, enrolled_count } = capacityCheck.rows[0];
-              const availableSpots = capacity - enrolled_count;
-
-              if (availableSpots > 0) {
-                targetSessionId = session.id;
-                console.log(`Found session ${session.id} with ${availableSpots} available spots`);
-                break;
-              }
-            }
-          }
-        }
-
-        // If no session with capacity found, use the first session
-        if (!targetSessionId) {
-          targetSessionId = sessionResult.rows[0].id;
-          console.log(`No sessions with capacity found, using first session ${targetSessionId}`);
-        }
-
-        // Check if student is already enrolled in any session for this class
+        // Check if student is already enrolled in the target session
         const existingEnrollment = await client.query(
-          `SELECT id, session_id FROM enrollments 
-           WHERE user_id = $1 AND class_id = $2 AND enrollment_status IN ('approved', 'rejected')`,
-          [waitlistEntry.user_id, waitlistEntry.class_id]
+          `SELECT id, session_id, enrollment_status FROM enrollments 
+           WHERE user_id = $1 AND class_id = $2 AND session_id = $3`,
+          [waitlistEntry.user_id, waitlistEntry.class_id, targetSessionId]
         );
 
-        console.log(`Existing enrollments for user ${waitlistEntry.user_id}:`, existingEnrollment.rows);
+        console.log(`[WAITLIST ACCEPT] Existing enrollment check for session ${targetSessionId}:`, existingEnrollment.rows);
 
         if (existingEnrollment.rows.length === 0) {
-          // Student not enrolled in any session, create enrollment
-          console.log(`Creating ${status} enrollment for user ${waitlistEntry.user_id} in session ${targetSessionId}`);
+          // Student not enrolled in this specific session, create enrollment
+          console.log(`[WAITLIST ACCEPT] Creating ${status} enrollment for user ${waitlistEntry.user_id} in session ${targetSessionId}`);
           try {
             const enrollmentResult = await client.query(
               `INSERT INTO enrollments (user_id, class_id, session_id, enrollment_status, payment_status, payment_method, enrolled_at, admin_notes)
@@ -322,7 +359,7 @@ const updateWaitlistStatus = async (waitlistId, status) => {
                RETURNING id`,
               [waitlistEntry.user_id, waitlistEntry.class_id, targetSessionId, status, `Converted from waitlist - ${status}`]
             );
-            console.log(`Created ${status} enrollment with ID: ${enrollmentResult.rows[0].id}`);
+            console.log(`[WAITLIST ACCEPT] Created ${status} enrollment with ID: ${enrollmentResult.rows[0].id} for session ${targetSessionId}`);
 
             // Only increment session enrollment count for approved enrollments
             if (status === 'approved') {
@@ -332,23 +369,25 @@ const updateWaitlistStatus = async (waitlistId, status) => {
               );
             }
           } catch (enrollmentError) {
-            console.error(`Error creating ${status} enrollment:`, enrollmentError);
+            console.error(`[WAITLIST ACCEPT] Error creating ${status} enrollment:`, enrollmentError);
             throw enrollmentError;
           }
         } else {
-          console.log(`User ${waitlistEntry.user_id} already has ${existingEnrollment.rows[0].enrollment_status} enrollment in session ${existingEnrollment.rows[0].session_id}`);
+          // Student already enrolled in this session, update status if needed
+          const existing = existingEnrollment.rows[0];
+          console.log(`[WAITLIST ACCEPT] User ${waitlistEntry.user_id} already has ${existing.enrollment_status} enrollment in session ${targetSessionId}`);
 
           // Update existing enrollment status if it's different
-          if (existingEnrollment.rows[0].enrollment_status !== status) {
+          if (existing.enrollment_status !== status) {
             await client.query(
               `UPDATE enrollments 
                SET enrollment_status = $1, 
                    updated_at = CURRENT_TIMESTAMP,
                    admin_notes = $2
                WHERE id = $3`,
-              [status, `Status updated from waitlist - ${status}`, existingEnrollment.rows[0].id]
+              [status, `Status updated from waitlist - ${status}`, existing.id]
             );
-            console.log(`Updated existing enrollment ${existingEnrollment.rows[0].id} to ${status}`);
+            console.log(`[WAITLIST ACCEPT] Updated existing enrollment ${existing.id} to ${status}`);
           }
         }
       } else {
@@ -375,9 +414,59 @@ const getClassWaitlist = async (classId) => {
             u.email as user_email,
             u.phone_number as user_phone,
             DATE_PART('day', CURRENT_TIMESTAMP - w.created_at) as days_on_waitlist,
-            (SELECT MIN(session_date) FROM class_sessions WHERE class_id = w.class_id AND deleted_at IS NULL) as next_session_date,
-            (SELECT MIN(start_time) FROM class_sessions WHERE class_id = w.class_id AND deleted_at IS NULL) as next_session_start_time,
-            (SELECT MIN(end_time) FROM class_sessions WHERE class_id = w.class_id AND deleted_at IS NULL) as next_session_end_time
+            (SELECT session_date FROM class_sessions 
+             WHERE class_id = w.class_id 
+             AND (
+               -- Include non-deleted sessions that haven't ended yet
+               (deleted_at IS NULL 
+                AND (
+                  (end_date IS NOT NULL AND ((end_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+                  OR (end_date IS NULL AND ((session_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+                ))
+               OR
+               -- Include soft-deleted sessions that haven't ended yet
+               (deleted_at IS NOT NULL 
+                AND (
+                  (end_date IS NOT NULL AND ((end_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+                  OR (end_date IS NULL AND ((session_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+                ))
+             )
+             ORDER BY session_date ASC, start_time ASC
+             LIMIT 1) as next_session_date,
+            (SELECT start_time FROM class_sessions 
+             WHERE class_id = w.class_id 
+             AND (
+               (deleted_at IS NULL 
+                AND (
+                  (end_date IS NOT NULL AND ((end_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+                  OR (end_date IS NULL AND ((session_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+                ))
+               OR
+               (deleted_at IS NOT NULL 
+                AND (
+                  (end_date IS NOT NULL AND ((end_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+                  OR (end_date IS NULL AND ((session_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+                ))
+             )
+             ORDER BY session_date ASC, start_time ASC
+             LIMIT 1) as next_session_start_time,
+            (SELECT end_time FROM class_sessions 
+             WHERE class_id = w.class_id 
+             AND (
+               (deleted_at IS NULL 
+                AND (
+                  (end_date IS NOT NULL AND ((end_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+                  OR (end_date IS NULL AND ((session_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+                ))
+               OR
+               (deleted_at IS NOT NULL 
+                AND (
+                  (end_date IS NOT NULL AND ((end_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+                  OR (end_date IS NULL AND ((session_date + end_time)::timestamp AT TIME ZONE 'America/New_York') > (NOW() AT TIME ZONE 'America/New_York'))
+                ))
+             )
+             ORDER BY session_date ASC, start_time ASC
+             LIMIT 1) as next_session_end_time
      FROM class_waitlist w
      JOIN users u ON u.id = w.user_id
      JOIN classes c ON c.id = w.class_id
@@ -512,22 +601,23 @@ const deleteClass = async (id) => {
   try {
     await client.query('BEGIN');
 
-    // Check if class has enrollments
-    const enrollmentsResult = await client.query(
-      'SELECT COUNT(*) as count FROM enrollments WHERE class_id = $1',
+    // Archive sessions and enrollments before soft deleting
+    // Only archive sessions that have enrollments
+    const sessionsResult = await client.query(
+      'SELECT * FROM class_sessions WHERE class_id = $1 AND deleted_at IS NULL',
       [id]
     );
 
-    const hasEnrollments = parseInt(enrollmentsResult.rows[0].count) > 0;
-
-    if (hasEnrollments) {
-      // Archive all sessions and enrollments before soft deleting
-      const sessionsResult = await client.query(
-        'SELECT * FROM class_sessions WHERE class_id = $1 AND deleted_at IS NULL',
-        [id]
+    for (const session of sessionsResult.rows) {
+      // Check if session has enrollments
+      const enrollmentsResult = await client.query(
+        'SELECT COUNT(*) as count FROM enrollments WHERE session_id = $1',
+        [session.id]
       );
 
-      for (const session of sessionsResult.rows) {
+      const hasEnrollments = parseInt(enrollmentsResult.rows[0].count) > 0;
+
+      if (hasEnrollments) {
         // Archive the session
         const historicalSessionResult = await client.query(
           `INSERT INTO historical_sessions (
@@ -564,15 +654,21 @@ const deleteClass = async (id) => {
           [historicalSessionId, session.id]
         );
       }
-
-      // Remove enrollments from active table
-      await client.query('DELETE FROM enrollments WHERE class_id = $1', [id]);
     }
+
+    // Remove enrollments from active table
+    await client.query('DELETE FROM enrollments WHERE class_id = $1', [id]);
 
     // Soft delete all sessions for this class
     await client.query(
       'UPDATE class_sessions SET deleted_at = CURRENT_TIMESTAMP WHERE class_id = $1',
       [id]
+    );
+
+    // Update class status to 'completed' before soft deleting
+    await client.query(
+      'UPDATE classes SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      ['completed', id]
     );
 
     // Soft delete the class
@@ -808,7 +904,7 @@ const updateClassWithSessions = async (classId, classData) => {
                 session.capacity,
                 session.enrolled_count,
                 session.instructor_id,
-                session.status,
+                'completed',
                 'Session removed by admin'
               ]
             );
@@ -831,6 +927,12 @@ const updateClassWithSessions = async (classId, classData) => {
             await client.query('DELETE FROM enrollments WHERE session_id = $1', [sessionId]);
           }
         }
+
+        // Update session status to 'completed' before soft deleting
+        await client.query(
+          'UPDATE class_sessions SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+          ['completed', sessionId]
+        );
 
         // Soft delete the session (mark as deleted instead of actually deleting)
         await client.query(
@@ -1015,8 +1117,9 @@ const getAllEnrollmentsForClass = async (classId) => {
       LEFT JOIN class_sessions cs ON cs.id = e.session_id AND cs.deleted_at IS NULL
       WHERE e.class_id = $1
         AND (
-          (cs.end_date IS NOT NULL AND cs.end_date > NOW())
-          OR (cs.end_date IS NULL AND cs.session_date > NOW())
+          -- Check if session hasn't ended using datetime (end_date + end_time or session_date + end_time)
+          (cs.end_date IS NOT NULL AND (cs.end_date + cs.end_time) > NOW())
+          OR (cs.end_date IS NULL AND (cs.session_date + cs.end_time) > NOW())
         )
       ORDER BY e.enrolled_at DESC`,
       [classId]
@@ -1047,8 +1150,9 @@ const getAllEnrollmentsForClass = async (classId) => {
       LEFT JOIN class_sessions cs ON cs.id = e.session_id AND cs.deleted_at IS NULL
       WHERE e.class_id = $1
         AND (
-          (cs.end_date IS NOT NULL AND cs.end_date <= NOW())
-          OR (cs.end_date IS NULL AND cs.session_date <= NOW())
+          -- Check if session has ended using datetime (end_date + end_time or session_date + end_time)
+          (cs.end_date IS NOT NULL AND (cs.end_date + cs.end_time) <= NOW())
+          OR (cs.end_date IS NULL AND (cs.session_date + cs.end_time) <= NOW())
         )
       ORDER BY e.enrolled_at DESC`,
       [classId]
@@ -1128,42 +1232,52 @@ const archiveEndedSessionsAndEnrollments = async () => {
       [now]
     );
     for (const session of sessionsResult.rows) {
-      // Archive the session
-      const historicalSessionResult = await client.query(
-        `INSERT INTO historical_sessions (
-          original_session_id, class_id, session_date, end_date, start_time, end_time,
-          capacity, enrolled_count, instructor_id, status, archived_reason
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        RETURNING id`,
-        [
-          session.id,
-          session.class_id,
-          session.session_date,
-          session.end_date,
-          session.start_time,
-          session.end_time,
-          session.capacity,
-          session.enrolled_count,
-          session.instructor_id,
-          session.status,
-          'Session ended (auto-archived)'
-        ]
+      // Check if session has enrollments
+      const enrollmentsResult = await client.query(
+        'SELECT COUNT(*) as count FROM enrollments WHERE session_id = $1',
+        [session.id]
       );
-      const historicalSessionId = historicalSessionResult.rows[0].id;
-      // Archive enrollments for this session
-      await client.query(
-        `INSERT INTO historical_enrollments (
-          original_enrollment_id, user_id, class_id, session_id, historical_session_id,
-          payment_status, payment_method, enrollment_status, admin_notes, reviewed_at, reviewed_by, enrolled_at, archived_reason
-        )
-        SELECT id, user_id, class_id, session_id, $1, payment_status, payment_method, enrollment_status,
-               admin_notes, reviewed_at, reviewed_by, enrolled_at, 'Session ended (auto-archived)'
-        FROM enrollments WHERE session_id = $2`,
-        [historicalSessionId, session.id]
-      );
-      // Remove enrollments from active table
-      await client.query('DELETE FROM enrollments WHERE session_id = $1', [session.id]);
-      // Soft delete the session
+
+      const hasEnrollments = parseInt(enrollmentsResult.rows[0].count) > 0;
+
+      if (hasEnrollments) {
+        // Archive the session
+        const historicalSessionResult = await client.query(
+          `INSERT INTO historical_sessions (
+            original_session_id, class_id, session_date, end_date, start_time, end_time,
+            capacity, enrolled_count, instructor_id, status, archived_reason
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          RETURNING id`,
+          [
+            session.id,
+            session.class_id,
+            session.session_date,
+            session.end_date,
+            session.start_time,
+            session.end_time,
+            session.capacity,
+            session.enrolled_count,
+            session.instructor_id,
+            session.status,
+            'Session ended (auto-archived)'
+          ]
+        );
+        const historicalSessionId = historicalSessionResult.rows[0].id;
+        // Archive enrollments for this session
+        await client.query(
+          `INSERT INTO historical_enrollments (
+            original_enrollment_id, user_id, class_id, session_id, historical_session_id,
+            payment_status, payment_method, enrollment_status, admin_notes, reviewed_at, reviewed_by, enrolled_at, archived_reason
+          )
+          SELECT id, user_id, class_id, session_id, $1, payment_status, payment_method, enrollment_status,
+                 admin_notes, reviewed_at, reviewed_by, enrolled_at, 'Session ended (auto-archived)'
+          FROM enrollments WHERE session_id = $2`,
+          [historicalSessionId, session.id]
+        );
+        // Remove enrollments from active table
+        await client.query('DELETE FROM enrollments WHERE session_id = $1', [session.id]);
+      }
+      // Soft delete the session (regardless of whether it had enrollments)
       await client.query(
         'UPDATE class_sessions SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1',
         [session.id]
@@ -1216,41 +1330,52 @@ const archiveSessionAndEnrollments = async (sessionId) => {
       return { archived: false, reason: 'Session not found or already deleted' };
     }
     const session = sessionResult.rows[0];
-    // Archive the session
-    const historicalSessionResult = await client.query(
-      `INSERT INTO historical_sessions (
-        original_session_id, class_id, session_date, end_date, start_time, end_time,
-        capacity, enrolled_count, instructor_id, status, archived_reason
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      RETURNING id`,
-      [
-        session.id,
-        session.class_id,
-        session.session_date,
-        session.end_date,
-        session.start_time,
-        session.end_time,
-        session.capacity,
-        session.enrolled_count,
-        session.instructor_id,
-        session.status,
-        'Session completed by admin'
-      ]
+
+    // Check if session has enrollments
+    const enrollmentsResult = await client.query(
+      'SELECT COUNT(*) as count FROM enrollments WHERE session_id = $1',
+      [sessionId]
     );
-    const historicalSessionId = historicalSessionResult.rows[0].id;
-    // Archive enrollments for this session
-    await client.query(
-      `INSERT INTO historical_enrollments (
-        original_enrollment_id, user_id, class_id, session_id, historical_session_id,
-        payment_status, payment_method, enrollment_status, admin_notes, reviewed_at, reviewed_by, enrolled_at, archived_reason
-      )
-      SELECT id, user_id, class_id, session_id, $1, payment_status, payment_method, enrollment_status,
-             admin_notes, reviewed_at, reviewed_by, enrolled_at, 'Session completed by admin'
-      FROM enrollments WHERE session_id = $2`,
-      [historicalSessionId, session.id]
-    );
-    // Remove enrollments from active table
-    await client.query('DELETE FROM enrollments WHERE session_id = $1', [session.id]);
+
+    const hasEnrollments = parseInt(enrollmentsResult.rows[0].count) > 0;
+
+    if (hasEnrollments) {
+      // Archive the session
+      const historicalSessionResult = await client.query(
+        `INSERT INTO historical_sessions (
+          original_session_id, class_id, session_date, end_date, start_time, end_time,
+          capacity, enrolled_count, instructor_id, status, archived_reason
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        RETURNING id`,
+        [
+          session.id,
+          session.class_id,
+          session.session_date,
+          session.end_date,
+          session.start_time,
+          session.end_time,
+          session.capacity,
+          session.enrolled_count,
+          session.instructor_id,
+          session.status,
+          'Session completed by admin'
+        ]
+      );
+      const historicalSessionId = historicalSessionResult.rows[0].id;
+      // Archive enrollments for this session
+      await client.query(
+        `INSERT INTO historical_enrollments (
+          original_enrollment_id, user_id, class_id, session_id, historical_session_id,
+          payment_status, payment_method, enrollment_status, admin_notes, reviewed_at, reviewed_by, enrolled_at, archived_reason
+        )
+        SELECT id, user_id, class_id, session_id, $1, payment_status, payment_method, enrollment_status,
+               admin_notes, reviewed_at, reviewed_by, enrolled_at, 'Session completed by admin'
+        FROM enrollments WHERE session_id = $2`,
+        [historicalSessionId, session.id]
+      );
+      // Remove enrollments from active table
+      await client.query('DELETE FROM enrollments WHERE session_id = $1', [session.id]);
+    }
     // Soft delete the session
     await client.query(
       'UPDATE class_sessions SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1',

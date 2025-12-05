@@ -113,8 +113,39 @@ const enrollInClass = async (req, res) => {
       return res.status(400).json({ error: "Invalid session for this class" });
     }
 
+    // Check if session has started or ended by comparing the actual start datetime
+    // For multi-day sessions, check if end_date + end_time has passed
+    // For single-day sessions, check if session_date + end_time has passed
     const now = new Date();
-    if (new Date(session.rows[0].session_date) <= now) {
+    const sessionData = session.rows[0];
+
+    // Calculate the session end datetime
+    let sessionEndDateTime;
+    if (sessionData.end_date) {
+      // Multi-day session: use end_date + end_time
+      const endDate = new Date(sessionData.end_date);
+      const [hours, minutes, seconds] = sessionData.end_time.split(':').map(Number);
+      endDate.setHours(hours, minutes, seconds || 0, 0);
+      sessionEndDateTime = endDate;
+    } else {
+      // Single-day session: use session_date + end_time
+      const sessionDate = new Date(sessionData.session_date);
+      const [hours, minutes, seconds] = sessionData.end_time.split(':').map(Number);
+      sessionDate.setHours(hours, minutes, seconds || 0, 0);
+      sessionEndDateTime = sessionDate;
+    }
+
+    // Check if session has ended
+    if (sessionEndDateTime <= now) {
+      return res.status(400).json({ error: "Session has already started or ended" });
+    }
+
+    // Also check if session has started (session_date + start_time)
+    const sessionStartDateTime = new Date(sessionData.session_date);
+    const [startHours, startMinutes, startSeconds] = sessionData.start_time.split(':').map(Number);
+    sessionStartDateTime.setHours(startHours, startMinutes, startSeconds || 0, 0);
+
+    if (sessionStartDateTime <= now) {
       return res.status(400).json({ error: "Session has already started or ended" });
     }
 
