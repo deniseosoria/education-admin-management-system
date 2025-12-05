@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     Box,
     Typography,
@@ -58,9 +58,15 @@ import {
     History as HistoryIcon,
     Close as CloseIcon,
     Email as EmailIcon,
+    Add as AddIcon,
+    AttachFile as AttachFileIcon,
+    PictureAsPdf as PdfIcon,
+    Image as ImageIcon,
 } from "@mui/icons-material";
 import adminService from "../../services/adminService";
 import { useNotifications } from '../../utils/notificationUtils';
+import { useAuth } from '../../contexts/AuthContext';
+import supabaseStorageService from '../../services/supabaseStorageService';
 
 function formatTime(timeStr) {
     if (!timeStr) return '';
@@ -72,6 +78,7 @@ function formatTime(timeStr) {
 
 const UserManagement = () => {
     const { showSuccess, showError } = useNotifications();
+    const { user: currentUser } = useAuth();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -88,6 +95,12 @@ const UserManagement = () => {
     const [userEnrollments, setUserEnrollments] = useState({ active: [], historical: [] });
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [notificationDialogOpen, setNotificationDialogOpen] = useState(false);
+    const [notificationTitle, setNotificationTitle] = useState("");
+    const [notificationMessage, setNotificationMessage] = useState("");
+    const [notificationLinks, setNotificationLinks] = useState([{ label: '', url: '' }]);
+    const [attachedFiles, setAttachedFiles] = useState([]);
+    const [uploadingFiles, setUploadingFiles] = useState(false);
+    const notificationFileInputRef = useRef(null);
     const [pagination, setPagination] = useState({
         page: 1,
         limit: 10,
@@ -180,12 +193,70 @@ const UserManagement = () => {
             showError('Invalid user selected');
             return;
         }
-        setSelectedUser({
-            ...user,
-            notificationMessage: ''
-        });
+        setSelectedUser(user);
+        setNotificationTitle("");
+        setNotificationMessage("");
+        setNotificationLinks([{ label: '', url: '' }]);
+        setAttachedFiles([]);
+        if (notificationFileInputRef.current) {
+            notificationFileInputRef.current.value = '';
+        }
         setNotificationDialogOpen(true);
         handleMenuClose();
+    };
+
+    // File upload handlers
+    const handleFileSelect = (event) => {
+        const files = Array.from(event.target.files || []);
+        if (files.length === 0) return;
+
+        const validFiles = [];
+        const errors = [];
+
+        files.forEach(file => {
+            // Validate file type
+            const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+            if (!allowedTypes.includes(file.type)) {
+                errors.push(`${file.name}: Invalid file type. Only PDF and images (JPEG, PNG) are allowed.`);
+                return;
+            }
+
+            // Validate file size (5MB)
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            if (file.size > maxSize) {
+                errors.push(`${file.name}: File size too large. Maximum size is 5MB.`);
+                return;
+            }
+
+            validFiles.push({ file, fileName: file.name, fileSize: file.size, fileType: file.type });
+        });
+
+        if (errors.length > 0) {
+            errors.forEach(error => {
+                showError(error);
+            });
+        }
+
+        if (validFiles.length > 0) {
+            setAttachedFiles(prev => [...prev, ...validFiles]);
+        }
+
+        // Reset input
+        if (notificationFileInputRef.current) {
+            notificationFileInputRef.current.value = '';
+        }
+    };
+
+    const handleRemoveFile = (index) => {
+        setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const formatFileSize = (bytes) => {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
     };
 
     const fetchUserActivity = async (userId, page = 1) => {
@@ -315,34 +386,73 @@ const UserManagement = () => {
                 return;
             }
 
-            if (!selectedUser.notificationMessage?.trim()) {
-                showError('Please enter a notification message');
+            if (!notificationTitle.trim() || !notificationMessage.trim()) {
+                showError('Please provide both a title and message');
                 return;
             }
 
+            setUploadingFiles(true);
+
+            // Upload files if any
+            let uploadedFiles = [];
+            if (attachedFiles.length > 0 && currentUser?.id) {
+                try {
+                    const uploadPromises = attachedFiles.map(file =>
+                        supabaseStorageService.uploadNotificationAttachment(file.file, currentUser.id)
+                    );
+                    uploadedFiles = await Promise.all(uploadPromises);
+                } catch (uploadError) {
+                    console.error('Error uploading files:', uploadError);
+                    showError('Failed to upload files. Please try again.');
+                    setUploadingFiles(false);
+                    return;
+                }
+            }
+
+            // Validate and filter links
+            const validLinks = notificationLinks
+                .filter(link => link.label.trim() && link.url.trim())
+                .map(link => ({
+                    label: link.label.trim(),
+                    url: link.url.trim()
+                }));
+
             // Create notification data
             const notificationData = {
-                title: "Admin Notification",
-                message: selectedUser.notificationMessage,
+                title: notificationTitle.trim(),
+                message: notificationMessage.trim(),
                 recipient: selectedUser.id,
-                recipientType: "user"
+                recipientType: "user",
+                metadata: {
+                    ...(validLinks.length > 0 && { links: validLinks }),
+                    ...(uploadedFiles.length > 0 && {
+                        attachments: uploadedFiles.map(f => ({
+                            fileName: f.fileName,
+                            fileUrl: f.publicUrl,
+                            fileSize: f.fileSize,
+                            fileType: f.fileType
+                        }))
+                    })
+                }
             };
 
             // Send notification using the notification service
-            await fetch('/api/notifications/admin/send', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify(notificationData)
-            });
+            await adminService.sendNotification(notificationData);
 
             showSuccess('Notification sent successfully');
             setNotificationDialogOpen(false);
-            setSelectedUser(prev => ({ ...prev, notificationMessage: '' }));
+            // Reset form
+            setNotificationTitle("");
+            setNotificationMessage("");
+            setNotificationLinks([{ label: '', url: '' }]);
+            setAttachedFiles([]);
+            if (notificationFileInputRef.current) {
+                notificationFileInputRef.current.value = '';
+            }
         } catch (error) {
             handleError(error, 'Failed to send notification');
+        } finally {
+            setUploadingFiles(false);
         }
     };
 
@@ -934,20 +1044,16 @@ const UserManagement = () => {
                     </Paper>
                 ) : (
                     <Box sx={{
-                        display: 'grid',
-                        gridTemplateColumns: {
-                            xs: '1fr',
-                            sm: 'repeat(2, 1fr)',
-                            lg: 'repeat(3, 1fr)'
-                        },
+                        display: 'flex',
+                        flexDirection: 'column',
                         gap: { xs: 2, sm: 3 },
                         width: '100%'
                     }}>
                         {users.map((user) => (
                             <Box key={user.id} sx={{ width: '100%', minWidth: 0 }}>
                                 <Paper sx={{
-                                    p: { xs: 2, sm: 3 },
-                                    borderRadius: '16px',
+                                    p: { xs: 1.5, sm: 2 },
+                                    borderRadius: '12px',
                                     boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
                                     border: '1px solid #e5e7eb',
                                     transition: 'all 0.2s ease-in-out',
@@ -959,23 +1065,28 @@ const UserManagement = () => {
                                         borderColor: '#3b82f6'
                                     }
                                 }}>
-                                    {/* User Header */}
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
-                                            <Avatar sx={{
-                                                bgcolor: user.role === 'admin' ? '#ef4444' :
-                                                    user.role === 'instructor' ? '#3b82f6' : '#6b7280',
-                                                width: 48,
-                                                height: 48
-                                            }}>
-                                                {user.first_name?.[0]}{user.last_name?.[0]}
-                                            </Avatar>
-                                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                                    <Box sx={{
+                                        display: 'flex',
+                                        flexDirection: { xs: 'column', sm: 'row' },
+                                        alignItems: { xs: 'flex-start', sm: 'center' },
+                                        gap: { xs: 1.5, sm: 2 },
+                                        width: '100%'
+                                    }}>
+                                        {/* Top Row: Name/Email */}
+                                        <Box sx={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: { xs: 1.5, sm: 2 },
+                                            width: { xs: '100%', sm: 'auto' },
+                                            flex: { xs: '1 1 auto', sm: '0 1 auto' },
+                                            minWidth: 0
+                                        }}>
+                                            <Box sx={{ minWidth: 0, flex: '1 1 auto', maxWidth: { xs: 'none', sm: '200px' } }}>
                                                 <Typography
-                                                    variant="h6"
+                                                    variant="body2"
                                                     sx={{
                                                         fontWeight: 600,
-                                                        fontSize: { xs: '1rem', sm: '1.125rem' },
+                                                        fontSize: { xs: '0.875rem', sm: '0.9375rem' },
                                                         overflow: 'hidden',
                                                         textOverflow: 'ellipsis',
                                                         whiteSpace: 'nowrap'
@@ -984,75 +1095,88 @@ const UserManagement = () => {
                                                     {user.first_name} {user.last_name}
                                                 </Typography>
                                                 <Typography
-                                                    variant="body2"
+                                                    variant="caption"
                                                     color="text.secondary"
                                                     sx={{
-                                                        fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                                                        fontSize: { xs: '0.7rem', sm: '0.75rem' },
                                                         overflow: 'hidden',
                                                         textOverflow: 'ellipsis',
-                                                        whiteSpace: 'nowrap'
+                                                        whiteSpace: 'nowrap',
+                                                        display: 'block'
                                                     }}
                                                 >
                                                     {user.email}
                                                 </Typography>
                                             </Box>
                                         </Box>
-                                        <Tooltip title="More Actions">
-                                            <IconButton
-                                                size="small"
-                                                onClick={(e) => handleMenuOpen(e, user)}
-                                                sx={{
-                                                    color: '#6b7280',
-                                                    '&:hover': { color: '#3b82f6' }
-                                                }}
-                                            >
-                                                <MoreIcon />
-                                            </IconButton>
-                                        </Tooltip>
-                                    </Box>
 
-                                    {/* User Details */}
-                                    <Box sx={{ mb: 3 }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                            {getRoleIcon(user.role)}
-                                            <Typography
-                                                variant="body2"
-                                                sx={{
-                                                    textTransform: "capitalize",
-                                                    fontWeight: 500,
-                                                    color: '#374151'
-                                                }}
-                                            >
-                                                {user.role}
-                                            </Typography>
-                                        </Box>
-                                        <Box sx={{ mb: 1 }}>
-                                            {getStatusChip(user.status)}
-                                        </Box>
-                                    </Box>
+                                        {/* Bottom Row (Mobile) / Inline (Desktop): Details */}
+                                        <Box sx={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: { xs: 1, sm: 2 },
+                                            width: { xs: '100%', sm: 'auto' },
+                                            flexWrap: 'wrap',
+                                            flex: { xs: '0 0 auto', sm: '1 1 auto' },
+                                            justifyContent: { xs: 'flex-start', sm: 'flex-end' }
+                                        }}>
+                                            {/* Role */}
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+                                                {getRoleIcon(user.role)}
+                                                <Typography
+                                                    variant="caption"
+                                                    sx={{
+                                                        textTransform: "capitalize",
+                                                        fontWeight: 500,
+                                                        color: '#374151',
+                                                        fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                                                        whiteSpace: 'nowrap'
+                                                    }}
+                                                >
+                                                    {user.role}
+                                                </Typography>
+                                            </Box>
 
-                                    {/* User Stats */}
-                                    <Box sx={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        pt: 2,
-                                        borderTop: '1px solid #f3f4f6'
-                                    }}>
-                                        <Box>
-                                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                                Created
-                                            </Typography>
-                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                                {new Date(user.created_at).toLocaleDateString()}
-                                            </Typography>
-                                        </Box>
-                                        <Box>
-                                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                                Updated
-                                            </Typography>
-                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                                {new Date(user.updated_at).toLocaleDateString()}
-                                            </Typography>
+                                            {/* Status */}
+                                            <Box sx={{ flexShrink: 0 }}>
+                                                {getStatusChip(user.status)}
+                                            </Box>
+
+                                            {/* Created Date */}
+                                            <Box sx={{ flexShrink: 0, display: { xs: 'none', md: 'block' } }}>
+                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.7rem' }}>
+                                                    Created
+                                                </Typography>
+                                                <Typography variant="caption" sx={{ fontWeight: 500, fontSize: '0.75rem' }}>
+                                                    {new Date(user.created_at).toLocaleDateString()}
+                                                </Typography>
+                                            </Box>
+
+                                            {/* Updated Date */}
+                                            <Box sx={{ flexShrink: 0, display: { xs: 'none', lg: 'block' } }}>
+                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.7rem' }}>
+                                                    Updated
+                                                </Typography>
+                                                <Typography variant="caption" sx={{ fontWeight: 500, fontSize: '0.75rem' }}>
+                                                    {new Date(user.updated_at).toLocaleDateString()}
+                                                </Typography>
+                                            </Box>
+
+                                            {/* Action Button */}
+                                            <Tooltip title="More Actions">
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={(e) => handleMenuOpen(e, user)}
+                                                    sx={{
+                                                        color: '#6b7280',
+                                                        flexShrink: 0,
+                                                        ml: { xs: 'auto', sm: 0 },
+                                                        '&:hover': { color: '#3b82f6' }
+                                                    }}
+                                                >
+                                                    <MoreIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
                                         </Box>
                                     </Box>
                                 </Paper>
@@ -1971,27 +2095,161 @@ const UserManagement = () => {
                             No user selected. Please select a user first.
                         </Alert>
                     ) : (
-                        <TextField
-                            fullWidth
-                            multiline
-                            rows={4}
-                            label="Message"
-                            placeholder="Enter notification message..."
-                            value={selectedUser?.notificationMessage || ''}
-                            sx={{ mt: 2 }}
-                            onChange={(e) => {
-                                setSelectedUser(prev => ({
-                                    ...prev,
-                                    notificationMessage: e.target.value
-                                }));
-                            }}
-                        />
+                        <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <TextField
+                                fullWidth
+                                label="Notification Title"
+                                value={notificationTitle}
+                                onChange={(e) => setNotificationTitle(e.target.value)}
+                                required
+                            />
+
+                            <TextField
+                                fullWidth
+                                multiline
+                                rows={6}
+                                label="Message"
+                                value={notificationMessage}
+                                onChange={(e) => setNotificationMessage(e.target.value)}
+                                placeholder="Enter your notification message..."
+                                required
+                            />
+
+                            {/* Links Section */}
+                            <Box>
+                                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                                    Related Links (Optional)
+                                </Typography>
+                                {notificationLinks.map((link, index) => (
+                                    <Box key={index} sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            label="Link Label"
+                                            value={link.label}
+                                            onChange={(e) => {
+                                                const newLinks = [...notificationLinks];
+                                                newLinks[index] = { ...newLinks[index], label: e.target.value };
+                                                setNotificationLinks(newLinks);
+                                            }}
+                                            placeholder="e.g., View Class Details"
+                                        />
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            label="URL"
+                                            value={link.url}
+                                            onChange={(e) => {
+                                                const newLinks = [...notificationLinks];
+                                                newLinks[index] = { ...newLinks[index], url: e.target.value };
+                                                setNotificationLinks(newLinks);
+                                            }}
+                                            placeholder="https://example.com"
+                                        />
+                                        {notificationLinks.length > 1 && (
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => {
+                                                    setNotificationLinks(notificationLinks.filter((_, i) => i !== index));
+                                                }}
+                                                sx={{ color: '#ef4444' }}
+                                            >
+                                                <DeleteIcon fontSize="small" />
+                                            </IconButton>
+                                        )}
+                                    </Box>
+                                ))}
+                                <Button
+                                    size="small"
+                                    startIcon={<AddIcon />}
+                                    onClick={() => {
+                                        setNotificationLinks([...notificationLinks, { label: '', url: '' }]);
+                                    }}
+                                    sx={{ mt: 1 }}
+                                >
+                                    Add Another Link
+                                </Button>
+                            </Box>
+
+                            {/* File Attachments Section */}
+                            <Box>
+                                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                                    Attachments (Optional)
+                                </Typography>
+                                <input
+                                    type="file"
+                                    ref={notificationFileInputRef}
+                                    onChange={handleFileSelect}
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                    multiple
+                                    style={{ display: 'none' }}
+                                />
+                                <Button
+                                    variant="outlined"
+                                    size="small"
+                                    startIcon={<AttachFileIcon />}
+                                    onClick={() => notificationFileInputRef.current?.click()}
+                                    sx={{ mb: 1 }}
+                                >
+                                    Attach Files
+                                </Button>
+                                {attachedFiles.length > 0 && (
+                                    <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                        {attachedFiles.map((fileItem, index) => (
+                                            <Box
+                                                key={index}
+                                                sx={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: 1,
+                                                    p: 1,
+                                                    border: '1px solid',
+                                                    borderColor: 'divider',
+                                                    borderRadius: 1,
+                                                    bgcolor: 'background.paper'
+                                                }}
+                                            >
+                                                {fileItem.fileType === 'application/pdf' ? (
+                                                    <PdfIcon color="error" fontSize="small" />
+                                                ) : (
+                                                    <ImageIcon color="primary" fontSize="small" />
+                                                )}
+                                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                    <Typography variant="body2" noWrap>
+                                                        {fileItem.fileName}
+                                                    </Typography>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        {formatFileSize(fileItem.fileSize)}
+                                                    </Typography>
+                                                </Box>
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => handleRemoveFile(index)}
+                                                    sx={{ color: '#ef4444' }}
+                                                >
+                                                    <DeleteIcon fontSize="small" />
+                                                </IconButton>
+                                            </Box>
+                                        ))}
+                                    </Box>
+                                )}
+                                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                                    Supported formats: PDF, JPEG, PNG (max 5MB per file)
+                                </Typography>
+                            </Box>
+                        </Box>
                     )}
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => {
                         setNotificationDialogOpen(false);
-                        setSelectedUser(prev => ({ ...prev, notificationMessage: '' }));
+                        setNotificationTitle("");
+                        setNotificationMessage("");
+                        setNotificationLinks([{ label: '', url: '' }]);
+                        setAttachedFiles([]);
+                        if (notificationFileInputRef.current) {
+                            notificationFileInputRef.current.value = '';
+                        }
                     }}>
                         Cancel
                     </Button>
@@ -1999,9 +2257,9 @@ const UserManagement = () => {
                         variant="contained"
                         color="primary"
                         onClick={handleSendNotification}
-                        disabled={!selectedUser?.id || !selectedUser?.notificationMessage?.trim()}
+                        disabled={!selectedUser?.id || !notificationTitle.trim() || !notificationMessage.trim() || uploadingFiles}
                     >
-                        Send
+                        {uploadingFiles ? 'Sending...' : 'Send'}
                     </Button>
                 </DialogActions>
             </Dialog>

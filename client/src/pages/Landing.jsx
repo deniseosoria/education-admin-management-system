@@ -83,11 +83,11 @@ function Landing() {
 
             {/* Classes Showcase Section */}
             {!loading && classes.length > 0 && (
-                <section className="w-full bg-gray-100 py-8 sm:py-12 lg:py-16">
+                <section className="w-full bg-gray-100 pt-12 sm:pt-16 lg:pt-20 pb-8 sm:pb-12 lg:pb-16">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         {/* Main Title */}
                         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-8 sm:mb-12 text-center" style={{ fontFamily: 'Montserrat, sans-serif' }}>
-                            Training Classes for Your Every Need
+                            Training Classes Available For Certification
                         </h2>
 
                         {/* Desktop - Tabbed Interface */}

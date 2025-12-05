@@ -227,21 +227,24 @@ const uploadCertificateMetadata = async (req, res) => {
             supabase_path
         } = req.body;
 
-        if (!user_id || !certificate_name || !certificate_url || !file_path) {
-            return res.status(400).json({ error: 'Missing required fields' });
+        // For CPR classes, file fields are optional, but certificate_name is still required
+        if (!user_id || !certificate_name) {
+            return res.status(400).json({ error: 'Missing required fields: user_id and certificate_name are required' });
         }
 
+        // If file is provided, certificate_url and file_path should be present
+        // If file is not provided (CPR class), these can be null
         const certificate = await Certificate.uploadCertificate({
             user_id,
             class_id,
             session_id,
             certificate_name,
-            file_path: certificate_url, // Use the public URL as file_path
-            file_type,
-            file_size,
+            file_path: certificate_url || null, // Use the public URL as file_path, or null for CPR classes
+            file_type: file_type || null,
+            file_size: file_size || null,
             expiration_date,
             uploaded_by: req.user.id,
-            supabase_path: supabase_path // Store Supabase path
+            supabase_path: supabase_path || null // Store Supabase path, or null for CPR classes
         });
 
         res.json({

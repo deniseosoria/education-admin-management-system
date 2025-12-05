@@ -61,22 +61,55 @@ export const getCertificatesByUserId = async (userId) => {
 // Upload certificate using Supabase storage
 export const uploadCertificate = async (studentId, file, classId, sessionId, expirationDate) => {
     try {
-        // First upload file to Supabase storage
-        const uploadResult = await supabaseStorageService.uploadCertificate(file, studentId, classId);
+        // Validate required fields
+        if (!studentId) {
+            throw new Error('Student ID is required');
+        }
+        if (!classId) {
+            throw new Error('Class ID is required');
+        }
 
-        // Then save certificate metadata to backend
-        const certificateData = {
-            user_id: studentId,
-            class_id: classId,
-            session_id: sessionId,
-            certificate_name: file.name,
-            certificate_url: uploadResult.publicUrl,
-            file_path: uploadResult.filePath,
-            file_type: file.type,
-            file_size: file.size,
-            expiration_date: expirationDate,
-            supabase_path: uploadResult.filePath
-        };
+        // Convert empty string sessionId to null
+        const sessionIdValue = sessionId && String(sessionId).trim() !== '' ? sessionId : null;
+
+        // Ensure IDs are strings (backend will handle conversion if needed)
+        const userId = String(studentId);
+        const classIdStr = String(classId);
+
+        let certificateData;
+
+        // If file is provided, upload to Supabase storage
+        if (file) {
+            const uploadResult = await supabaseStorageService.uploadCertificate(file, studentId, classId);
+
+            // Save certificate metadata to backend with file
+            certificateData = {
+                user_id: userId,
+                class_id: classIdStr,
+                session_id: sessionIdValue,
+                certificate_name: file.name || 'Certificate',
+                certificate_url: uploadResult.publicUrl,
+                file_path: uploadResult.filePath,
+                file_type: file.type,
+                file_size: file.size,
+                expiration_date: expirationDate || null,
+                supabase_path: uploadResult.filePath
+            };
+        } else {
+            // For CPR classes without file, create metadata without file info
+            certificateData = {
+                user_id: userId,
+                class_id: classIdStr,
+                session_id: sessionIdValue,
+                certificate_name: 'CPR and First Aid Certification',
+                certificate_url: null,
+                file_path: null,
+                file_type: null,
+                file_size: null,
+                expiration_date: expirationDate || null,
+                supabase_path: null
+            };
+        }
 
         return fetchWithAuth('/certificates/upload-metadata', {
             method: 'POST',

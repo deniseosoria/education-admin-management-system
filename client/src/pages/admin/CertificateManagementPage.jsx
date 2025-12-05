@@ -18,8 +18,6 @@ import {
     IconButton,
     CircularProgress,
     Pagination,
-    Chip,
-    Avatar,
     Tooltip,
     Autocomplete
 } from '@mui/material';
@@ -141,11 +139,15 @@ const CertificateManagementPage = () => {
     };
 
     const handleUploadClick = () => {
+        // Reset selections when opening dialog to avoid stale values
+        setSelectedStudent('');
+        setSelectedClass('');
         setShowUploadDialog(true);
     };
 
     const handleUploadClose = () => {
         setShowUploadDialog(false);
+        // Reset to empty string, but ensure it's a valid empty value for MUI Select
         setSelectedStudent('');
         setSelectedClass('');
     };
@@ -156,6 +158,47 @@ const CertificateManagementPage = () => {
                 setAlert({
                     type: 'error',
                     message: 'Please select a student first'
+                });
+                return;
+            }
+
+            if (!selectedClass) {
+                setAlert({
+                    type: 'error',
+                    message: 'Please select a class first'
+                });
+                return;
+            }
+
+            // Check if selected class is a CPR class
+            const selectedClassData = classes.find(c => String(c.id) === String(selectedClass));
+            if (!selectedClassData) {
+                setAlert({
+                    type: 'error',
+                    message: 'Selected class not found. Please select a valid class.'
+                });
+                return;
+            }
+
+            const isCPRClass = selectedClassData && (
+                selectedClassData.title.toLowerCase().includes('cpr') ||
+                selectedClassData.title.toLowerCase().includes('first aid')
+            );
+
+            // For CPR classes, file is optional but expiration date is required
+            if (isCPRClass && !expirationDate) {
+                setAlert({
+                    type: 'error',
+                    message: 'Expiration date is required for CPR classes'
+                });
+                return;
+            }
+
+            // For non-CPR classes, file is required
+            if (!isCPRClass && !file) {
+                setAlert({
+                    type: 'error',
+                    message: 'Please upload a certificate file'
                 });
                 return;
             }
@@ -185,6 +228,15 @@ const CertificateManagementPage = () => {
 
     const handleDownload = async (certificate) => {
         try {
+            // Check if certificate has a file URL (CPR classes may not have files)
+            if (!certificate.certificate_url) {
+                setAlert({
+                    type: 'info',
+                    message: 'This certificate does not have an associated file'
+                });
+                return;
+            }
+
             // Use the full Cloudinary URL from the database
             const link = document.createElement('a');
             link.href = certificate.certificate_url;
@@ -473,7 +525,7 @@ const CertificateManagementPage = () => {
                     <>
                         <Box sx={{
                             display: 'grid',
-                            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
+                            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(2, 1fr)' },
                             gap: { xs: 2, sm: 3 }
                         }}>
                             {paginatedCertificates.map((certificate) => (
@@ -493,51 +545,32 @@ const CertificateManagementPage = () => {
                                         }
                                     }}>
                                         {/* Certificate Header */}
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
-                                                <Avatar sx={{
-                                                    bgcolor: certificate.status === 'active' ? '#10b981' :
-                                                        certificate.status === 'expired' ? '#f59e0b' :
-                                                            certificate.status === 'revoked' ? '#ef4444' : '#6b7280',
-                                                    width: 48,
-                                                    height: 48
-                                                }}>
-                                                    <SchoolIcon sx={{ color: 'white', fontSize: 24 }} />
-                                                </Avatar>
-                                                <Box sx={{ minWidth: 0, flex: 1 }}>
-                                                    <Typography
-                                                        variant="h6"
-                                                        sx={{
-                                                            fontWeight: 600,
-                                                            fontSize: { xs: '1rem', sm: '1.125rem' },
-                                                            overflow: 'hidden',
-                                                            textOverflow: 'ellipsis',
-                                                            whiteSpace: 'nowrap'
-                                                        }}
-                                                    >
-                                                        {certificate.certificate_name}
-                                                    </Typography>
-                                                    <Typography
-                                                        variant="body2"
-                                                        color="text.secondary"
-                                                        sx={{
-                                                            fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                                                            overflow: 'hidden',
-                                                            textOverflow: 'ellipsis',
-                                                            whiteSpace: 'nowrap'
-                                                        }}
-                                                    >
-                                                        {certificate.student_name}
-                                                    </Typography>
-                                                </Box>
-                                            </Box>
-                                            <Chip
-                                                label={certificate.status}
-                                                color={certificate.status === 'active' ? 'success' :
-                                                    certificate.status === 'expired' ? 'warning' : 'error'}
-                                                size="small"
-                                                sx={{ fontSize: '0.75rem' }}
-                                            />
+                                        <Box sx={{ mb: 2 }}>
+                                            <Typography
+                                                variant="h6"
+                                                sx={{
+                                                    fontWeight: 600,
+                                                    fontSize: { xs: '1rem', sm: '1.125rem' },
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                    mb: 0.5
+                                                }}
+                                            >
+                                                {certificate.class_name || certificate.certificate_name}
+                                            </Typography>
+                                            <Typography
+                                                variant="body2"
+                                                color="text.secondary"
+                                                sx={{
+                                                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                            >
+                                                {certificate.student_name}
+                                            </Typography>
                                         </Box>
 
                                         {/* Certificate Details */}
@@ -610,18 +643,28 @@ const CertificateManagementPage = () => {
                                             borderTop: '1px solid #f3f4f6'
                                         }}>
                                             <Box sx={{ display: 'flex', gap: 1 }}>
-                                                <Tooltip title="Download Certificate">
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => handleDownload(certificate)}
-                                                        sx={{
-                                                            color: '#6b7280',
-                                                            '&:hover': { color: '#3b82f6' }
-                                                        }}
-                                                    >
-                                                        <DownloadIcon sx={{ fontSize: 18 }} />
-                                                    </IconButton>
-                                                </Tooltip>
+                                                {certificate.certificate_url && (() => {
+                                                    // Check if this is a CPR class
+                                                    const isCPR = certificate.class_name && (
+                                                        certificate.class_name.toLowerCase().includes('cpr') ||
+                                                        certificate.class_name.toLowerCase().includes('first aid')
+                                                    );
+                                                    // Only show download button if not CPR class
+                                                    return !isCPR ? (
+                                                        <Tooltip title="Download Certificate">
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => handleDownload(certificate)}
+                                                                sx={{
+                                                                    color: '#6b7280',
+                                                                    '&:hover': { color: '#3b82f6' }
+                                                                }}
+                                                            >
+                                                                <DownloadIcon sx={{ fontSize: 18 }} />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    ) : null;
+                                                })()}
                                                 <Tooltip title="Delete Certificate">
                                                     <IconButton
                                                         size="small"
@@ -725,9 +768,9 @@ const CertificateManagementPage = () => {
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
                         <Box sx={{ position: 'relative' }}>
                             <Autocomplete
-                                value={students.find(s => s.id === selectedStudent) || null}
+                                value={students.find(s => String(s.id) === String(selectedStudent)) || null}
                                 onChange={(event, newValue) => {
-                                    setSelectedStudent(newValue ? newValue.id : '');
+                                    setSelectedStudent(newValue ? String(newValue.id) : '');
                                 }}
                                 options={Array.isArray(students) ? students : []}
                                 filterOptions={(options, { inputValue }) => {
@@ -855,7 +898,7 @@ const CertificateManagementPage = () => {
                                 '&.Mui-focused': { color: '#3b82f6' }
                             }}>Select Class</InputLabel>
                             <Select
-                                value={selectedClass}
+                                value={selectedClass || ''}
                                 label="Select Class"
                                 onChange={(e) => setSelectedClass(e.target.value)}
                                 MenuProps={{
@@ -876,7 +919,7 @@ const CertificateManagementPage = () => {
                                 }}
                             >
                                 {classes.map((classItem) => (
-                                    <MenuItem key={classItem.id} value={classItem.id}>
+                                    <MenuItem key={classItem.id} value={String(classItem.id)}>
                                         {classItem.title}
                                     </MenuItem>
                                 ))}
@@ -887,6 +930,14 @@ const CertificateManagementPage = () => {
                             studentId={selectedStudent}
                             classId={selectedClass}
                             disabled={!selectedStudent || !selectedClass}
+                            isCPRClass={(() => {
+                                if (!selectedClass) return false;
+                                const selectedClassData = classes.find(c => String(c.id) === String(selectedClass));
+                                return selectedClassData && (
+                                    selectedClassData.title.toLowerCase().includes('cpr') ||
+                                    selectedClassData.title.toLowerCase().includes('first aid')
+                                );
+                            })()}
                         />
                     </Box>
                 </DialogContent>

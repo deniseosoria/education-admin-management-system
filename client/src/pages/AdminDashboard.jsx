@@ -25,14 +25,14 @@ function AdminDashboard({ defaultSection = 'analytics' }) {
 
     // Memoize the navigation items to prevent unnecessary re-renders
     const navigationItems = useMemo(() => [
-        { id: 'analytics', label: 'Analytics', icon: '📊' },
-        { id: 'users', label: 'User Management', icon: '👥' },
-        { id: 'classes', label: 'Class Management', icon: '🏫' },
-        { id: 'waitlist', label: 'Waitlist Management', icon: '⏳' },
-        { id: 'enrollments', label: 'Enrollment Management', icon: '📝' },
-        { id: 'financial', label: 'Financial Management', icon: '💵' },
-        { id: 'certificates', label: 'Certificate Management', icon: '🎓' },
-        { id: 'notifications', label: 'Notifications', icon: '🔔' },
+        { id: 'analytics', label: 'Analytics' },
+        { id: 'users', label: 'User Management' },
+        { id: 'classes', label: 'Class Management' },
+        { id: 'waitlist', label: 'Waitlist Management' },
+        { id: 'enrollments', label: 'Enrollment Management' },
+        { id: 'financial', label: 'Financial Management' },
+        { id: 'certificates', label: 'Certificate Management' },
+        { id: 'notifications', label: 'Notifications' },
     ], []);
 
     // Fetch analytics data from backend
@@ -203,7 +203,7 @@ function AdminDashboard({ defaultSection = 'analytics' }) {
 
                     {/* Sidebar Navigation */}
                     <div className={`
-                        fixed lg:relative inset-y-0 left-0 z-50 w-64 bg-white shadow-lg lg:shadow-none border-r border-gray-200 lg:border-r-0
+                        fixed lg:relative inset-y-0 left-0 z-50 w-64 bg-gray-50 shadow-lg lg:shadow-none border-r border-gray-200 lg:border-r-0
                         transform transition-transform duration-300 ease-in-out lg:transform-none
                         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
                         lg:flex-shrink-0
@@ -213,7 +213,7 @@ function AdminDashboard({ defaultSection = 'analytics' }) {
                     `}>
                         <div className="flex flex-col h-full max-h-screen">
                             {/* Mobile Sidebar Header */}
-                            <div className="lg:hidden flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
+                            <div className="lg:hidden flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0 bg-gray-50">
                                 <h2 className="text-lg font-semibold text-gray-900">Menu</h2>
                                 <button
                                     onClick={() => setIsSidebarOpen(false)}
@@ -234,11 +234,10 @@ function AdminDashboard({ defaultSection = 'analytics' }) {
                                         onClick={() => handleSectionChange(item.id)}
                                         className={`w-full flex items-center px-4 py-3 lg:py-2 text-sm font-medium rounded-md transition-colors ${activeSection === item.id
                                             ? 'bg-blue-100 text-blue-700'
-                                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                                             }`}
                                         style={{ minHeight: '48px' }}
                                     >
-                                        <span className="mr-3 text-lg lg:text-base">{item.icon}</span>
                                         <span className="text-left">{item.label}</span>
                                     </button>
                                 ))}

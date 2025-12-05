@@ -17,6 +17,8 @@
     "migrate:indexes": "node scripts/run-foreign-key-index-migration.js",
     "migrate:cleanup-enrollments": "node scripts/run-cleanup-enrollments-migration.js",
     "cleanup:enrollments": "node scripts/cleanup_duplicate_enrollments.js",
+    "restore:enrollments": "node scripts/restore-incorrectly-archived-enrollments.js",
+    "restore:enrollments:dry-run": "node scripts/restore-incorrectly-archived-enrollments.js --dry-run",
     "postinstall": "echo 'Server dependencies installed successfully'"
   },
   "dependencies": {

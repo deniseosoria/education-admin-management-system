@@ -739,50 +739,48 @@ function EnrollmentManagement() {
                                                 }
                                             }}>
                                                 {/* Enrollment Header */}
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
-                                                        <Avatar sx={{
-                                                            bgcolor: getStatusColor(enrollment.enrollment_status) === 'success' ? '#10b981' :
-                                                                getStatusColor(enrollment.enrollment_status) === 'warning' ? '#f59e0b' :
-                                                                    getStatusColor(enrollment.enrollment_status) === 'error' ? '#ef4444' : '#6b7280',
-                                                            width: 48,
-                                                            height: 48
-                                                        }}>
-                                                            {enrollment.student_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'S'}
-                                                        </Avatar>
-                                                        <Box sx={{ minWidth: 0, flex: 1 }}>
-                                                            <Typography
-                                                                variant="h6"
-                                                                sx={{
-                                                                    fontWeight: 600,
-                                                                    fontSize: { xs: '1rem', sm: '1.125rem' },
-                                                                    overflow: 'hidden',
-                                                                    textOverflow: 'ellipsis',
-                                                                    whiteSpace: 'nowrap'
-                                                                }}
-                                                            >
-                                                                {enrollment.student_name}
-                                                            </Typography>
-                                                            <Typography
-                                                                variant="body2"
-                                                                color="text.secondary"
-                                                                sx={{
-                                                                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                                                                    overflow: 'hidden',
-                                                                    textOverflow: 'ellipsis',
-                                                                    whiteSpace: 'nowrap'
-                                                                }}
-                                                            >
-                                                                {enrollment.class_name}
-                                                            </Typography>
-                                                        </Box>
+                                                <Box sx={{ mb: 2.5 }}>
+                                                    {/* Status Chip - Above Name */}
+                                                    <Box sx={{ mb: 1.5 }}>
+                                                        <Chip
+                                                            label={enrollment.enrollment_status}
+                                                            color={getStatusColor(enrollment.enrollment_status)}
+                                                            size="small"
+                                                            sx={{
+                                                                fontSize: '0.75rem',
+                                                                fontWeight: 600,
+                                                                height: '24px'
+                                                            }}
+                                                        />
                                                     </Box>
-                                                    <Chip
-                                                        label={enrollment.enrollment_status}
-                                                        color={getStatusColor(enrollment.enrollment_status)}
-                                                        size="small"
-                                                        sx={{ fontSize: '0.75rem' }}
-                                                    />
+                                                    {/* Student Name */}
+                                                    <Typography
+                                                        variant="h6"
+                                                        sx={{
+                                                            fontWeight: 600,
+                                                            fontSize: { xs: '1rem', sm: '1.125rem' },
+                                                            color: '#111827',
+                                                            mb: 0.5,
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'ellipsis',
+                                                            whiteSpace: 'nowrap'
+                                                        }}
+                                                    >
+                                                        {enrollment.student_name}
+                                                    </Typography>
+                                                    {/* Class Name */}
+                                                    <Typography
+                                                        variant="body2"
+                                                        color="text.secondary"
+                                                        sx={{
+                                                            fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'ellipsis',
+                                                            whiteSpace: 'nowrap'
+                                                        }}
+                                                    >
+                                                        {enrollment.class_name}
+                                                    </Typography>
                                                 </Box>
 
                                                 {/* Enrollment Details */}
